@@ -143,6 +143,15 @@ body { margin: 0; }
   color: #4B7A8E;
 }
 .preset.ativo { background: #0F8BB0; border-color: #0F8BB0; color: #FFFFFF; font-weight: 600; }
+.calculo-linha { display: flex; gap: 8px; }
+.calculo-linha input { flex: 1; min-width: 0; }
+.calcular {
+  border: 1px solid #0F8BB0; background: #FFFFFF; color: #0F8BB0;
+  border-radius: 10px; padding: 0 16px; font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.calcular:hover { background: #EAF6FA; }
+.dica { margin: 8px 0 0; font-size: 11px; color: #9FBFCC; }
 .form .cartao-acoes { margin-top: 16px; }
 
 .rodape {
@@ -351,7 +360,16 @@ function AguaTracker() {
   const [carregando, setCarregando] = useState(true);
   const [erroSalvar, setErroSalvar] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
-  const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000 });
+  const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+
+  /* Meta diária estimada pelo peso corporal: 35 ml por kg,
+     arredondada para o múltiplo de 50 ml mais próximo */
+  const calcularMeta = () => {
+    const p = Number(form.peso);
+    if (!p || p <= 0) return;
+    const meta = Math.round((p * 35) / 50) * 50;
+    setForm((f) => ({ ...f, goalMl: meta }));
+  };
 
   useEffect(() => {
     (async () => {
@@ -449,7 +467,7 @@ function AguaTracker() {
       ownerId: meuDispositivo,
     });
     persistir(novo);
-    setForm({ name: "", bottleMl: 500, goalMl: 2000 });
+    setForm({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
     setMostrarForm(false);
   };
 
@@ -478,7 +496,7 @@ function AguaTracker() {
       {dados.members.length === 0 && !mostrarForm && (
         <div className="vazio">
           <Garrafa pct={0.35} tamanho={64} />
-          <p>Nenhum membro ainda. Adicione o primeiro para começar a registrar.</p>
+          <p>Nenhuma garrafa ainda. Adicione a primeira para começar a registrar.</p>
         </div>
       )}
 
@@ -497,7 +515,7 @@ function AguaTracker() {
 
         {mostrarForm ? (
           <div className="cartao form">
-            <h2 className="nome">Novo membro</h2>
+            <h2 className="nome">Nova garrafa</h2>
             <label className="campo">
               Nome
               <input
@@ -549,9 +567,29 @@ function AguaTracker() {
                 </button>
               ))}
             </div>
+            <label className="campo">
+              Ou calcule a meta pelo peso corporal (kg)
+              <div className="calculo-linha">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Ex.: 70"
+                  value={form.peso}
+                  onChange={(e) => setForm({ ...form, peso: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && calcularMeta()}
+                />
+                <button className="calcular" onClick={calcularMeta}>
+                  Calcular
+                </button>
+              </div>
+            </label>
+            <p className="dica">
+              Referência geral: 35 ml por kg. O resultado preenche a meta diária
+              acima — ajuste como quiser.
+            </p>
             <div className="cartao-acoes">
               <button className="beber" onClick={adicionar}>
-                Adicionar membro
+                Adicionar garrafa
               </button>
               <button className="desfazer" onClick={() => setMostrarForm(false)}>
                 Cancelar
@@ -561,7 +599,7 @@ function AguaTracker() {
         ) : (
           <button className="cartao adicionar" onClick={() => setMostrarForm(true)}>
             <span className="mais">+</span>
-            <span>Adicionar garrafa / membro</span>
+            <span>Adicionar garrafa</span>
           </button>
         )}
       </div>
