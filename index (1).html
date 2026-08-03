@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hidratação do time</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap');
+
+body { margin: 0; }
+.app, .tela-carregando {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #EAF6FA 0%, #F5FBFD 40%, #FFFFFF 100%);
+  font-family: 'Sora', system-ui, sans-serif;
+  color: #0B3446;
+  padding: 28px 20px 48px;
+  box-sizing: border-box;
+}
+.tela-carregando { display: flex; align-items: center; justify-content: center; }
+
+.cabecalho {
+  max-width: 960px; margin: 0 auto 24px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 16px; flex-wrap: wrap;
+}
+.data-dia { margin: 0; font-size: 13px; text-transform: capitalize; color: #4B7A8E; }
+.titulo { margin: 2px 0 0; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+.resumo { text-align: right; }
+.resumo-num { margin: 0; font-size: 26px; font-weight: 800; color: #0F8BB0; }
+.resumo-label { margin: 0; font-size: 12px; color: #4B7A8E; }
+
+.aviso {
+  max-width: 960px; margin: 0 auto 16px; padding: 10px 14px;
+  background: #FFF3E8; border: 1px solid #E8B98A; border-radius: 10px;
+  font-size: 13px; color: #7A4B12;
+}
+
+.vazio {
+  max-width: 960px; margin: 0 auto 20px; padding: 28px;
+  background: #FFFFFF; border: 1px dashed #B7D9E4; border-radius: 16px;
+  display: flex; align-items: center; gap: 18px; color: #4B7A8E; font-size: 14px;
+}
+
+.grade {
+  max-width: 960px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.cartao {
+  background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 16px;
+  padding: 18px; box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07);
+  display: flex; flex-direction: column;
+}
+.cartao-topo { display: flex; justify-content: space-between; align-items: flex-start; }
+.nome { margin: 0; font-size: 18px; font-weight: 800; }
+.sub { margin: 3px 0 0; font-size: 12px; color: #4B7A8E; }
+
+.remover {
+  border: none; background: transparent; color: #9FBFCC; font-size: 20px;
+  cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 8px;
+}
+.remover:hover { background: #FDECEC; color: #C0392B; }
+.remover-confirma { font-size: 12px; color: #7A4B12; display: flex; gap: 6px; align-items: center; }
+.mini {
+  border: 1px solid #D8ECF3; background: #FFFFFF; border-radius: 8px;
+  font-size: 12px; padding: 2px 8px; cursor: pointer; font-family: inherit;
+}
+.mini.sim { background: #FDECEC; border-color: #E8A9A2; color: #C0392B; }
+
+.cartao-meio { display: flex; align-items: center; gap: 16px; margin: 12px 0 6px; }
+.garrafa-btn {
+  border: none; background: transparent; cursor: pointer; padding: 4px;
+  border-radius: 12px; transition: transform 0.12s ease;
+}
+.garrafa-btn:hover { transform: scale(1.05); }
+.garrafa-btn:active { transform: scale(0.96); }
+.garrafa-btn:focus-visible, .beber:focus-visible, .desfazer:focus-visible,
+.adicionar:focus-visible, .preset:focus-visible {
+  outline: 3px solid #41C9E6; outline-offset: 2px;
+}
+
+.numeros { flex: 1; }
+.bebido { margin: 0; font-size: 26px; font-weight: 800; color: #0F8BB0; }
+.de-meta { margin: 0; font-size: 13px; color: #4B7A8E; }
+.status { margin: 8px 0 0; font-size: 13px; color: #0B3446; }
+.status.ok { color: #0FA36B; font-weight: 600; }
+
+.barra {
+  height: 8px; background: #E4F2F7; border-radius: 99px; overflow: hidden;
+  margin: 8px 0 14px;
+}
+.barra-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #41C9E6, #0F8BB0);
+  transition: width 0.35s ease;
+}
+
+.cartao-acoes { display: flex; gap: 8px; }
+.beber {
+  flex: 1; border: none; border-radius: 12px; padding: 12px 10px;
+  background: #0F8BB0; color: #FFFFFF; font-family: inherit;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.beber:hover { background: #0B7292; }
+.desfazer {
+  border: 1px solid #D8ECF3; border-radius: 12px; padding: 12px 14px;
+  background: #FFFFFF; color: #4B7A8E; font-family: inherit;
+  font-size: 13px; cursor: pointer;
+}
+.desfazer:disabled { opacity: 0.4; cursor: default; }
+.registros { margin: 10px 0 0; font-size: 12px; color: #9FBFCC; text-align: center; }
+
+.adicionar {
+  border: 2px dashed #9ECFDF; background: rgba(255,255,255,0.6);
+  color: #0F8BB0; font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; display: flex; flex-direction: column; border-radius: 16px;
+  align-items: center; justify-content: center; gap: 6px; min-height: 220px;
+}
+.adicionar:hover { background: #FFFFFF; border-color: #0F8BB0; }
+.mais { font-size: 34px; font-weight: 400; line-height: 1; }
+
+.form .campo {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 12px; font-weight: 600; color: #4B7A8E; margin-top: 12px;
+}
+.form input {
+  border: 1px solid #C9E4EE; border-radius: 10px; padding: 10px 12px;
+  font-family: inherit; font-size: 14px; color: #0B3446;
+}
+.form input:focus { outline: 2px solid #41C9E6; border-color: transparent; }
+.presets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.preset {
+  border: 1px solid #C9E4EE; background: #FFFFFF; border-radius: 99px;
+  padding: 5px 12px; font-family: inherit; font-size: 12px; cursor: pointer;
+  color: #4B7A8E;
+}
+.preset.ativo { background: #0F8BB0; border-color: #0F8BB0; color: #FFFFFF; font-weight: 600; }
+.form .cartao-acoes { margin-top: 16px; }
+
+.rodape {
+  max-width: 960px; margin: 28px auto 0; text-align: center;
+  font-size: 12px; color: #9FBFCC;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-fill, .garrafa-btn { transition: none; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+/* Fora do Claude, os dados são salvos no localStorage do navegador */
+const storage = {
+  get: async (k) => {
+    const v = localStorage.getItem(k);
+    return v === null ? null : { key: k, value: v };
+  },
+  set: async (k, v) => {
+    localStorage.setItem(k, v);
+    return { key: k, value: v };
+  },
+};
+
+const KEY = "agua-tracker-v1";
+
+const hoje = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const fmt = (ml) =>
+  ml >= 1000
+    ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
+    : `${ml} ml`;
+
+const dataLonga = () =>
+  new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+/* ---------- Garrafa SVG com nível de água ---------- */
+function Garrafa({ pct, tamanho = 92 }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const alturaAgua = 88 * p;
+  const yAgua = 118 - alturaAgua;
+  const cheia = p >= 1;
+  return (
+    <svg
+      width={tamanho}
+      height={(tamanho * 130) / 92}
+      viewBox="0 0 92 130"
+      aria-hidden="true"
+    >
+      <defs>
+        <clipPath id="corpo-garrafa">
+          <path d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" />
+        </clipPath>
+        <linearGradient id="agua-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#41C9E6" />
+          <stop offset="100%" stopColor="#0F8BB0" />
+        </linearGradient>
+      </defs>
+      <g clipPath="url(#corpo-garrafa)">
+        <rect x="0" y={yAgua} width="92" height={alturaAgua + 6} fill="url(#agua-grad)">
+          <animate
+            attributeName="y"
+            values={`${yAgua + 1.5};${yAgua - 1.5};${yAgua + 1.5}`}
+            dur="3s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      </g>
+      <path
+        d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z"
+        fill="none"
+        stroke={cheia ? "#0FA36B" : "#0B3446"}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <rect x="33" y="1" width="26" height="9" rx="3" fill={cheia ? "#0FA36B" : "#0B3446"} />
+    </svg>
+  );
+}
+
+/* ---------- Cartão de membro ---------- */
+function CartaoMembro({ membro, count, onBeber, onDesfazer, onRemover }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const bebido = count * membro.bottleMl;
+  const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
+  const restante = Math.max(0, membro.goalMl - bebido);
+  const garrafasRestantes = Math.ceil(restante / membro.bottleMl);
+  const bateu = bebido >= membro.goalMl;
+
+  return (
+    <div className="cartao">
+      <div className="cartao-topo">
+        <div>
+          <h2 className="nome">{membro.name}</h2>
+          <p className="sub">
+            Garrafa de {fmt(membro.bottleMl)} · meta {fmt(membro.goalMl)}
+          </p>
+        </div>
+        {confirmando ? (
+          <span className="remover-confirma">
+            Remover?
+            <button className="mini sim" onClick={() => onRemover(membro.id)}>
+              Sim
+            </button>
+            <button className="mini" onClick={() => setConfirmando(false)}>
+              Não
+            </button>
+          </span>
+        ) : (
+          <button
+            className="remover"
+            title={`Remover ${membro.name}`}
+            onClick={() => setConfirmando(true)}
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      <div className="cartao-meio">
+        <button
+          className="garrafa-btn"
+          onClick={() => onBeber(membro.id)}
+          title="Registrar 1 garrafa"
+          aria-label={`Registrar uma garrafa de ${fmt(membro.bottleMl)} para ${membro.name}`}
+        >
+          <Garrafa pct={pct} />
+        </button>
+        <div className="numeros">
+          <p className="bebido">{fmt(bebido)}</p>
+          <p className="de-meta">de {fmt(membro.goalMl)}</p>
+          <p className={`status ${bateu ? "ok" : ""}`}>
+            {bateu
+              ? "Meta batida! 🎉"
+              : `Faltam ${garrafasRestantes} garrafa${garrafasRestantes > 1 ? "s" : ""}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="barra">
+        <div className="barra-fill" style={{ width: `${Math.min(100, pct * 100)}%` }} />
+      </div>
+
+      <div className="cartao-acoes">
+        <button className="beber" onClick={() => onBeber(membro.id)}>
+          Bebi 1 garrafa (+{fmt(membro.bottleMl)})
+        </button>
+        <button
+          className="desfazer"
+          onClick={() => onDesfazer(membro.id)}
+          disabled={count === 0}
+          title="Desfazer o último registro"
+        >
+          Desfazer
+        </button>
+      </div>
+      <p className="registros">
+        {count} garrafa{count !== 1 ? "s" : ""} hoje
+      </p>
+    </div>
+  );
+}
+
+/* ---------- App ---------- */
+function AguaTracker() {
+  const [dados, setDados] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erroSalvar, setErroSalvar] = useState(false);
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000 });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await storage.get(KEY);
+        if (r && r.value) {
+          setDados(JSON.parse(r.value));
+        } else {
+          setDados({ members: [], intake: {} });
+        }
+      } catch {
+        setDados({ members: [], intake: {} });
+      } finally {
+        setCarregando(false);
+      }
+    })();
+  }, []);
+
+  const persistir = useCallback(async (novo) => {
+    setDados(novo);
+    try {
+      const r = await storage.set(KEY, JSON.stringify(novo));
+      setErroSalvar(!r);
+    } catch {
+      setErroSalvar(true);
+    }
+  }, []);
+
+  if (carregando) {
+    return (
+      <div className="tela-carregando">
+        <p>Carregando registros…</p>
+      </div>
+    );
+  }
+
+  const dia = hoje();
+  const registrosHoje = dados.intake[dia] || {};
+
+  const totalHoje = dados.members.reduce(
+    (soma, m) => soma + (registrosHoje[m.id] || 0) * m.bottleMl,
+    0
+  );
+  const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
+
+  const beber = (id) => {
+    const novo = structuredClone(dados);
+    if (!novo.intake[dia]) novo.intake[dia] = {};
+    novo.intake[dia][id] = (novo.intake[dia][id] || 0) + 1;
+    persistir(novo);
+  };
+
+  const desfazer = (id) => {
+    const novo = structuredClone(dados);
+    if (novo.intake[dia] && novo.intake[dia][id] > 0) {
+      novo.intake[dia][id] -= 1;
+      persistir(novo);
+    }
+  };
+
+  const remover = (id) => {
+    const novo = structuredClone(dados);
+    novo.members = novo.members.filter((m) => m.id !== id);
+    persistir(novo);
+  };
+
+  const adicionar = () => {
+    const nome = form.name.trim();
+    const garrafa = Number(form.bottleMl);
+    const meta = Number(form.goalMl);
+    if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    const novo = structuredClone(dados);
+    novo.members.push({
+      id: `m-${Date.now()}`,
+      name: nome,
+      bottleMl: garrafa,
+      goalMl: meta,
+    });
+    persistir(novo);
+    setForm({ name: "", bottleMl: 500, goalMl: 2000 });
+    setMostrarForm(false);
+  };
+
+  return (
+    <div className="app">
+      <header className="cabecalho">
+        <div>
+          <p className="data-dia">{dataLonga()}</p>
+          <h1 className="titulo">Hidratação do time</h1>
+        </div>
+        <div className="resumo">
+          <p className="resumo-num">{fmt(totalHoje)}</p>
+          <p className="resumo-label">
+            {metaTotal > 0 ? `de ${fmt(metaTotal)} do time hoje` : "registrado hoje"}
+          </p>
+        </div>
+      </header>
+
+      {erroSalvar && (
+        <p className="aviso">
+          Não foi possível salvar o último registro. Ele continua na tela — tente
+          clicar de novo.
+        </p>
+      )}
+
+      {dados.members.length === 0 && !mostrarForm && (
+        <div className="vazio">
+          <Garrafa pct={0.35} tamanho={64} />
+          <p>Nenhum membro ainda. Adicione o primeiro para começar a registrar.</p>
+        </div>
+      )}
+
+      <div className="grade">
+        {dados.members.map((m) => (
+          <CartaoMembro
+            key={m.id}
+            membro={m}
+            count={registrosHoje[m.id] || 0}
+            onBeber={beber}
+            onDesfazer={desfazer}
+            onRemover={remover}
+          />
+        ))}
+
+        {mostrarForm ? (
+          <div className="cartao form">
+            <h2 className="nome">Novo membro</h2>
+            <label className="campo">
+              Nome
+              <input
+                type="text"
+                value={form.name}
+                autoFocus
+                placeholder="Ex.: Ana"
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && adicionar()}
+              />
+            </label>
+            <label className="campo">
+              Tamanho da garrafa (ml)
+              <input
+                type="number"
+                min="1"
+                value={form.bottleMl}
+                onChange={(e) => setForm({ ...form, bottleMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[300, 500, 750, 1000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(form.bottleMl) === v ? "ativo" : ""}`}
+                  onClick={() => setForm({ ...form, bottleMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Meta diária (ml)
+              <input
+                type="number"
+                min="1"
+                value={form.goalMl}
+                onChange={(e) => setForm({ ...form, goalMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[1500, 2000, 2500, 3000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(form.goalMl) === v ? "ativo" : ""}`}
+                  onClick={() => setForm({ ...form, goalMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <div className="cartao-acoes">
+              <button className="beber" onClick={adicionar}>
+                Adicionar membro
+              </button>
+              <button className="desfazer" onClick={() => setMostrarForm(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="cartao adicionar" onClick={() => setMostrarForm(true)}>
+            <span className="mais">+</span>
+            <span>Adicionar garrafa / membro</span>
+          </button>
+        )}
+      </div>
+
+      <footer className="rodape">
+        Os registros são salvos automaticamente neste navegador e reiniciam a
+        cada dia — o histórico dos dias anteriores fica guardado.
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<AguaTracker />);
+</script>
+</body>
+</html>
