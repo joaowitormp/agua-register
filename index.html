@@ -65,6 +65,13 @@ body { margin: 0; }
   cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 8px;
 }
 .remover:hover { background: #FDECEC; color: #C0392B; }
+.topo-acoes { display: flex; align-items: center; gap: 2px; }
+.sino {
+  border: none; background: transparent; color: #0F8BB0; cursor: pointer;
+  padding: 4px 6px; border-radius: 8px; line-height: 1;
+  transition: transform 0.12s ease;
+}
+.sino:hover { background: #EAF6FA; transform: rotate(14deg); }
 .remover-confirma { font-size: 12px; color: #7A4B12; display: flex; gap: 6px; align-items: center; }
 .mini {
   border: 1px solid #D8ECF3; background: #FFFFFF; border-radius: 8px;
@@ -154,13 +161,41 @@ body { margin: 0; }
 .dica { margin: 8px 0 0; font-size: 11px; color: #9FBFCC; }
 .form .cartao-acoes { margin-top: 16px; }
 
+.banner-alerta {
+  position: fixed; top: 16px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
+  background: #0B3446; color: #FFFFFF; padding: 13px 22px; border-radius: 14px;
+  font-size: 14px; font-weight: 600; z-index: 60;
+  box-shadow: 0 8px 24px rgba(11, 52, 70, 0.35);
+  animation: chacoalhar 0.6s ease 2;
+}
+.toast {
+  position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
+  background: #0F8BB0; color: #FFFFFF; padding: 10px 18px; border-radius: 99px;
+  font-size: 13px; z-index: 60; box-shadow: 0 6px 18px rgba(15, 139, 176, 0.3);
+}
+.cartao.alertando {
+  border-color: #F0B429;
+  box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.3);
+  animation: chacoalhar 0.6s ease 3;
+}
+@keyframes chacoalhar {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-0.6deg); }
+  40% { transform: translateX(7px) rotate(0.6deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
 .rodape {
   max-width: 960px; margin: 28px auto 0; text-align: center;
   font-size: 12px; color: #9FBFCC;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .barra-fill, .garrafa-btn { transition: none; }
+  .barra-fill, .garrafa-btn, .sino { transition: none; }
+  .cartao.alertando, .banner-alerta { animation: none; }
 }
 </style>
 </head>
@@ -201,6 +236,58 @@ const meuDispositivo = (() => {
 })();
 
 const KEY = "agua-tracker-v1";
+
+/* --- Sino: chaves de controle e alertas para quem recebe --- */
+const SINOS_KEY = "agua-sinos-enviados";
+const BLOQUEIO_KEY = "agua-sino-bloqueio";
+const VISTO_KEY = "agua-sinos-vistos";
+const TITULO = "Hidratação do time";
+
+const tocarSom = () => {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    if (ctx.state === "suspended") ctx.resume();
+    [880, 1174, 1568].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = f;
+      o.connect(g);
+      g.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.35, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      o.start(t);
+      o.stop(t + 0.6);
+    });
+  } catch {}
+};
+
+const notificar = (msg) => {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification("🔔 Hora de beber água!", { body: msg });
+    } catch {}
+  }
+};
+
+let tituloTimer = null;
+const piscarTitulo = () => {
+  clearInterval(tituloTimer);
+  let visivel = false;
+  let vezes = 0;
+  tituloTimer = setInterval(() => {
+    document.title = visivel ? TITULO : "🔔 Beba água!";
+    visivel = !visivel;
+    if (++vezes >= 20) {
+      clearInterval(tituloTimer);
+      document.title = TITULO;
+    }
+  }, 800);
+};
 
 const hoje = () => {
   const d = new Date();
@@ -264,7 +351,7 @@ function Garrafa({ pct, tamanho = 92 }) {
 }
 
 /* ---------- Cartão de membro ---------- */
-function CartaoMembro({ membro, count, dono, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, dono, mostrarSino, alertando, onSino, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -273,7 +360,7 @@ function CartaoMembro({ membro, count, dono, onBeber, onDesfazer, onRemover }) {
   const bateu = bebido >= membro.goalMl;
 
   return (
-    <div className="cartao">
+    <div className={`cartao ${alertando ? "alertando" : ""}`}>
       <div className="cartao-topo">
         <div>
           <h2 className="nome">{membro.name}</h2>
@@ -281,25 +368,49 @@ function CartaoMembro({ membro, count, dono, onBeber, onDesfazer, onRemover }) {
             Garrafa de {fmt(membro.bottleMl)} · meta {fmt(membro.goalMl)}
           </p>
         </div>
-        {confirmando ? (
-          <span className="remover-confirma">
-            Remover?
-            <button className="mini sim" onClick={() => onRemover(membro.id)}>
-              Sim
+        <div className="topo-acoes">
+          {mostrarSino && (
+            <button
+              className="sino"
+              title={`Tocar o sino para ${membro.name} beber água`}
+              aria-label={`Tocar o sino para ${membro.name} beber água`}
+              onClick={() => onSino(membro)}
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </svg>
             </button>
-            <button className="mini" onClick={() => setConfirmando(false)}>
-              Não
+          )}
+          {confirmando ? (
+            <span className="remover-confirma">
+              Remover?
+              <button className="mini sim" onClick={() => onRemover(membro.id)}>
+                Sim
+              </button>
+              <button className="mini" onClick={() => setConfirmando(false)}>
+                Não
+              </button>
+            </span>
+          ) : (
+            <button
+              className="remover"
+              title={`Remover ${membro.name}`}
+              onClick={() => setConfirmando(true)}
+            >
+              ×
             </button>
-          </span>
-        ) : (
-          <button
-            className="remover"
-            title={`Remover ${membro.name}`}
-            onClick={() => setConfirmando(true)}
-          >
-            ×
-          </button>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="cartao-meio">
@@ -361,6 +472,8 @@ function AguaTracker() {
   const [erroSalvar, setErroSalvar] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+  const [toast, setToast] = useState(null);
+  const [alerta, setAlerta] = useState(null); // { msg, ids: [ids dos cartões alvo] }
 
   /* Meta diária estimada pelo peso corporal: 35 ml por kg,
      arredondada para o múltiplo de 50 ml mais próximo */
@@ -397,13 +510,48 @@ function AguaTracker() {
         if (r && r.value) setDados(JSON.parse(r.value));
       } catch {}
     };
-    const id = setInterval(atualizar, 30000);
+    const id = setInterval(atualizar, 15000);
     window.addEventListener("focus", atualizar);
     return () => {
       clearInterval(id);
       window.removeEventListener("focus", atualizar);
     };
   }, []);
+
+  /* Pede permissão de notificação no primeiro clique na página */
+  useEffect(() => {
+    const pedir = () => {
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+      window.removeEventListener("pointerdown", pedir);
+    };
+    window.addEventListener("pointerdown", pedir);
+    return () => window.removeEventListener("pointerdown", pedir);
+  }, []);
+
+  /* Reage a sinos recebidos nos meus cartões: som, notificação,
+     vibração, título piscando e destaque no cartão */
+  useEffect(() => {
+    if (!dados || !Array.isArray(dados.nudges) || dados.nudges.length === 0) return;
+    const padrao = Date.now() - 5 * 60 * 1000;
+    const visto = Number(localStorage.getItem(VISTO_KEY) || padrao);
+    const meus = new Set(
+      dados.members.filter((m) => m.ownerId === meuDispositivo).map((m) => m.id)
+    );
+    const novos = dados.nudges.filter((n) => n.at > visto && meus.has(n.to));
+    if (novos.length === 0) return;
+    localStorage.setItem(VISTO_KEY, String(Math.max(...novos.map((n) => n.at))));
+    const remetentes = [...new Set(novos.map((n) => n.fromName).filter(Boolean))];
+    const quem = remetentes.length ? remetentes.join(", ") : "Alguém";
+    const msg = `${quem} tocou o sino para você: hora de beber água! 💧`;
+    setAlerta({ msg, ids: novos.map((n) => n.to) });
+    tocarSom();
+    notificar(msg);
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+    piscarTitulo();
+    setTimeout(() => setAlerta(null), 10000);
+  }, [dados]);
 
   const persistir = useCallback(async (novo) => {
     setDados(novo);
@@ -453,6 +601,46 @@ function AguaTracker() {
     persistir(novo);
   };
 
+  /* Envia o sino para o dono de outro cartão.
+     Anti-spam: 5 toques do mesmo usuário em menos de 30 segundos
+     bloqueiam o sino por 10 minutos */
+  const tocarSino = (membro) => {
+    const agora = Date.now();
+    const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
+    if (bloqueio > agora) {
+      const min = Math.ceil((bloqueio - agora) / 60000);
+      setToast(`Sino bloqueado por uso excessivo — libera em ${min} min`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    let toques = [];
+    try {
+      toques = JSON.parse(localStorage.getItem(SINOS_KEY) || "[]");
+    } catch {}
+    toques = toques.filter((t) => agora - t < 30000);
+    toques.push(agora);
+    if (toques.length >= 5) {
+      localStorage.setItem(BLOQUEIO_KEY, String(agora + 10 * 60 * 1000));
+      localStorage.setItem(SINOS_KEY, "[]");
+    } else {
+      localStorage.setItem(SINOS_KEY, JSON.stringify(toques));
+    }
+    const meuCartao = dados.members.find((m) => m.ownerId === meuDispositivo);
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    // Mantém só os sinos das últimas 2 horas para o arquivo não crescer
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    novo.nudges.push({
+      id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+      to: membro.id,
+      at: agora,
+      fromName: meuCartao ? meuCartao.name : null,
+    });
+    persistir(novo);
+    setToast(`Sino enviado para ${membro.name} 🔔`);
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const adicionar = () => {
     const nome = form.name.trim();
     const garrafa = Number(form.bottleMl);
@@ -486,6 +674,9 @@ function AguaTracker() {
         </div>
       </header>
 
+      {alerta && <div className="banner-alerta">🔔 {alerta.msg}</div>}
+      {toast && <div className="toast">{toast}</div>}
+
       {erroSalvar && (
         <p className="aviso">
           Não foi possível salvar o último registro. Ele continua na tela — tente
@@ -501,17 +692,25 @@ function AguaTracker() {
       )}
 
       <div className="grade">
-        {dados.members.map((m) => (
-          <CartaoMembro
-            key={m.id}
-            membro={m}
-            count={registrosHoje[m.id] || 0}
-            dono={!m.ownerId || m.ownerId === meuDispositivo}
-            onBeber={beber}
-            onDesfazer={desfazer}
-            onRemover={remover}
-          />
-        ))}
+        {dados.members.map((m) => {
+          const c = registrosHoje[m.id] || 0;
+          const donoDoCartao = !m.ownerId || m.ownerId === meuDispositivo;
+          const bateuMeta = c * m.bottleMl >= m.goalMl;
+          return (
+            <CartaoMembro
+              key={m.id}
+              membro={m}
+              count={c}
+              dono={donoDoCartao}
+              mostrarSino={!donoDoCartao && !bateuMeta}
+              alertando={!!(alerta && alerta.ids.includes(m.id))}
+              onSino={tocarSino}
+              onBeber={beber}
+              onDesfazer={desfazer}
+              onRemover={remover}
+            />
+          );
+        })}
 
         {mostrarForm ? (
           <div className="cartao form">
