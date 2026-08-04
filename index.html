@@ -186,6 +186,25 @@ body { margin: 0; }
   line-height: 1; cursor: pointer; flex-shrink: 0;
 }
 .fechar-alerta:hover { background: rgba(255, 255, 255, 0.25); }
+
+.modal-fundo {
+  position: fixed; inset: 0; background: rgba(11, 52, 70, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 70; padding: 20px; box-sizing: border-box;
+}
+.modal-sino {
+  background: #FFFFFF; border-radius: 16px; padding: 20px;
+  width: 100%; max-width: 420px; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(11, 52, 70, 0.3); box-sizing: border-box;
+}
+.lista-frases { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.frase {
+  border: 1px solid #C9E4EE; background: #F7FBFD; border-radius: 10px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px; color: #0B3446;
+  cursor: pointer; text-align: left; transition: background 0.12s ease;
+}
+.frase:hover { background: #EAF6FA; border-color: #0F8BB0; }
+.fechar-modal { width: 100%; margin-top: 12px; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -284,6 +303,21 @@ const SINOS_KEY = "agua-sinos-enviados";
 const BLOQUEIO_KEY = "agua-sino-bloqueio";
 const VISTO_KEY = "agua-sinos-vistos";
 const TITULO = "Hidratação do time";
+
+/* Frases do sino — quem toca escolhe uma */
+const FRASES = [
+  "Vai deixar para a última hora? Beba água!",
+  "Deveriam te apelidar de Saara.",
+  "Sua garrafa já criou teia de aranha.",
+  "Até cacto se hidrata mais que você.",
+  "Alerta de seca no seu cartão!",
+  "Camelo aguenta ficar sem água. Você não.",
+  "Seus rins mandaram lembranças.",
+  "Sua gota na tabela está passando vergonha.",
+  "A meta não se bate sozinha, hein?",
+  "Toc, toc: é a sua meta cobrando.",
+  "Um gole te separa de calar minha boca.",
+];
 
 const tocarSom = () => {
   try {
@@ -641,6 +675,7 @@ function AguaTracker() {
   const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
   const [toast, setToast] = useState(null);
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
+  const [sinoPara, setSinoPara] = useState(null); // membro-alvo enquanto o remetente escolhe a frase
 
   /* Meta diária estimada pelo peso corporal: 35 ml por kg,
      arredondada para o múltiplo de 50 ml mais próximo */
@@ -709,23 +744,22 @@ function AguaTracker() {
     const novos = dados.nudges.filter((n) => n.at > visto && meus.has(n.to));
     if (novos.length === 0) return;
     localStorage.setItem(VISTO_KEY, String(Math.max(...novos.map((n) => n.at))));
-    const remetentes = [...new Set(novos.map((n) => n.fromName).filter(Boolean))];
-    const quem = remetentes.length ? remetentes.join(", ") : "Alguém";
-    const msg = `${quem} tocou o sino para você: hora de beber água! 💧`;
     setAlertas((lista) => [
       ...lista,
       ...novos.map((n) => ({
         id: n.id,
         memberId: n.to,
-        msg: `${n.fromName || "Alguém"} tocou o sino para você — hora de beber água! 💧`,
+        nome: n.fromName || "Alguém",
+        frase: n.frase || "hora de beber água! 💧",
         hora: new Date(n.at).toLocaleTimeString("pt-BR", {
           hour: "2-digit",
           minute: "2-digit",
         }),
       })),
     ]);
+    const ultimo = novos[novos.length - 1];
+    notificar(`${ultimo.fromName || "Alguém"}: ${ultimo.frase || "hora de beber água! 💧"}`);
     tocarSom();
-    notificar(msg);
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
     piscarTitulo();
   }, [dados]);
@@ -781,10 +815,23 @@ function AguaTracker() {
   const fecharAlerta = (id) =>
     setAlertas((lista) => lista.filter((a) => a.id !== id));
 
+  /* Abre o seletor de frases — se o sino estiver bloqueado, avisa e não abre */
+  const abrirSino = (membro) => {
+    const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
+    if (bloqueio > Date.now()) {
+      const min = Math.ceil((bloqueio - Date.now()) / 60000);
+      setToast(`Sino bloqueado por uso excessivo — libera em ${min} min`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    setSinoPara(membro);
+  };
+
   /* Envia o sino para o dono de outro cartão.
      Anti-spam: 5 toques do mesmo usuário em menos de 30 segundos
      bloqueiam o sino por 10 minutos */
-  const tocarSino = (membro) => {
+  const tocarSino = (membro, frase) => {
+    setSinoPara(null);
     const agora = Date.now();
     const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
     if (bloqueio > agora) {
@@ -815,6 +862,7 @@ function AguaTracker() {
       to: membro.id,
       at: agora,
       fromName: meuCartao ? meuCartao.name : null,
+      frase,
     });
     persistir(novo);
     setToast(`Sino enviado para ${membro.name} 🔔`);
@@ -858,7 +906,9 @@ function AguaTracker() {
         <div className="pilha-alertas">
           {alertas.map((a) => (
             <div key={a.id} className="banner-alerta">
-              <span className="banner-texto">🔔 {a.msg}</span>
+              <span className="banner-texto">
+                🔔 <strong>{a.nome}:</strong> {a.frase}
+              </span>
               <span className="banner-hora">{a.hora}</span>
               <button
                 className="fechar-alerta"
@@ -873,6 +923,25 @@ function AguaTracker() {
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}
+
+      {sinoPara && (
+        <div className="modal-fundo" onClick={() => setSinoPara(null)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🔔 Tocar o sino para {sinoPara.name}</h2>
+            <p className="sub">Escolha a mensagem:</p>
+            <div className="lista-frases">
+              {FRASES.map((f) => (
+                <button key={f} className="frase" onClick={() => tocarSino(sinoPara, f)}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {erroSalvar && (
         <p className="aviso">
@@ -901,7 +970,7 @@ function AguaTracker() {
               dono={donoDoCartao}
               mostrarSino={!donoDoCartao && !bateuMeta}
               alertando={alertas.some((a) => a.memberId === m.id)}
-              onSino={tocarSino}
+              onSino={abrirSino}
               onBeber={beber}
               onDesfazer={desfazer}
               onRemover={remover}
