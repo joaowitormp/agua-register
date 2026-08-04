@@ -783,6 +783,7 @@ function AguaTracker() {
 
   const dia = hoje();
   const registrosHoje = dados.intake[dia] || {};
+  const tenhoCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
 
   const totalHoje = dados.members.reduce(
     (soma, m) => soma + (registrosHoje[m.id] || 0) * m.bottleMl,
@@ -814,8 +815,14 @@ function AguaTracker() {
   const fecharAlerta = (id) =>
     setAlertas((lista) => lista.filter((a) => a.id !== id));
 
-  /* Abre o seletor de frases — se o sino estiver bloqueado, avisa e não abre */
+  /* Abre o seletor de frases — exige cartão próprio e sino desbloqueado */
   const abrirSino = (membro) => {
+    const meuCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
+    if (!meuCartao) {
+      setToast("Crie a sua garrafa para poder tocar o sino 🔔");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
     const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
     if (bloqueio > Date.now()) {
       const min = Math.ceil((bloqueio - Date.now()) / 60000);
@@ -967,7 +974,7 @@ function AguaTracker() {
               membro={m}
               count={c}
               dono={donoDoCartao}
-              mostrarSino={!donoDoCartao && !bateuMeta}
+              mostrarSino={tenhoCartao && !donoDoCartao && !bateuMeta}
               alertando={alertas.some((a) => a.memberId === m.id)}
               onSino={abrirSino}
               onBeber={beber}
