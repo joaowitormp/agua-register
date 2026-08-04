@@ -200,6 +200,31 @@ body { margin: 0; }
   80% { transform: translateX(5px); }
 }
 
+.historico {
+  max-width: 960px; margin: 28px auto 0; background: #FFFFFF;
+  border: 1px solid #D8ECF3; border-radius: 16px; padding: 20px;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07); box-sizing: border-box;
+}
+.historico-titulo { margin: 0; font-size: 18px; font-weight: 800; }
+.historico-sub { margin: 4px 0 14px; font-size: 12px; color: #4B7A8E; }
+.historico-rolagem { overflow-x: auto; }
+.historico-tabela { border-collapse: collapse; width: 100%; min-width: 560px; }
+.historico-tabela th, .historico-tabela td { padding: 8px 6px; text-align: center; }
+.historico-tabela tbody tr { border-top: 1px solid #EEF6FA; }
+.historico-tabela th { font-size: 11px; color: #4B7A8E; font-weight: 600; }
+.dia-semana { display: block; text-transform: capitalize; }
+.dia-numero { display: block; font-weight: 400; color: #9FBFCC; }
+.col-nome {
+  text-align: left; font-size: 13px; font-weight: 600; color: #0B3446;
+  position: sticky; left: 0; background: #FFFFFF; max-width: 130px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.col-hoje { background: #F1F8FB; }
+.celula-dia { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pct { font-size: 10px; color: #4B7A8E; }
+.pct.ok { color: #0FA36B; font-weight: 700; }
+.sem-dado { color: #C9E4EE; font-size: 12px; }
+
 .rodape {
   max-width: 960px; margin: 28px auto 0; text-align: center;
   font-size: 12px; color: #9FBFCC;
@@ -474,6 +499,119 @@ function CartaoMembro({ membro, count, dono, mostrarSino, alertando, onSino, onB
         {count} garrafa{count !== 1 ? "s" : ""} hoje
       </p>
     </div>
+  );
+}
+
+/* ---------- Histórico semanal ---------- */
+function GotaDia({ pct, idClip }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const altura = 20 * p; // área útil da gota: y de 3 a 23
+  const y = 23 - altura;
+  const cheia = pct >= 1;
+  const forma = "M12 2 C12 2 5 11 5 16 a7 7 0 0 0 14 0 C19 11 12 2 12 2 Z";
+  return (
+    <svg width="22" height="24" viewBox="0 0 24 26" aria-hidden="true">
+      <defs>
+        <clipPath id={idClip}>
+          <path d={forma} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${idClip})`}>
+        <rect
+          x="0"
+          y={y}
+          width="24"
+          height={altura + 3}
+          fill={cheia ? "#0FA36B" : "url(#agua-grad-gota)"}
+        />
+      </g>
+      <path
+        d={forma}
+        fill="none"
+        stroke={cheia ? "#0FA36B" : "#0B3446"}
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+function HistoricoSemanal({ members, intake }) {
+  if (members.length === 0) return null;
+  const dias = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dias.push(d);
+  }
+  const chave = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const chaveHoje = chave(new Date());
+  return (
+    <section className="historico">
+      <h2 className="historico-titulo">Últimos 7 dias</h2>
+      <p className="historico-sub">
+        Percentual da meta diária de cada participante. Gota verde = meta batida.
+      </p>
+      <div className="historico-rolagem">
+        <table className="historico-tabela">
+          <thead>
+            <tr>
+              <th className="col-nome"></th>
+              {dias.map((d) => (
+                <th key={chave(d)} className={chave(d) === chaveHoje ? "col-hoje" : ""}>
+                  <span className="dia-semana">{SEMANA[d.getDay()]}</span>
+                  <span className="dia-numero">
+                    {String(d.getDate()).padStart(2, "0")}/
+                    {String(d.getMonth() + 1).padStart(2, "0")}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => {
+              const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+              return (
+                <tr key={m.id}>
+                  <td className="col-nome" title={m.name}>{m.name}</td>
+                  {dias.map((d) => {
+                    const k = chave(d);
+                    const fimDoDia = new Date(d);
+                    fimDoDia.setHours(23, 59, 59, 999);
+                    const antesDeExistir = criadoEm > fimDoDia.getTime();
+                    const count = (intake[k] && intake[k][m.id]) || 0;
+                    const pct = m.goalMl > 0 ? (count * m.bottleMl) / m.goalMl : 0;
+                    return (
+                      <td key={k} className={k === chaveHoje ? "col-hoje" : ""}>
+                        {antesDeExistir ? (
+                          <span className="sem-dado" title="A garrafa ainda não existia">–</span>
+                        ) : (
+                          <div className="celula-dia">
+                            <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
+                            <span className={`pct ${pct >= 1 ? "ok" : ""}`}>
+                              {Math.round(pct * 100)}%
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+        <defs>
+          <linearGradient id="agua-grad-gota" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#41C9E6" />
+            <stop offset="100%" stopColor="#0F8BB0" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </section>
   );
 }
 
@@ -844,6 +982,8 @@ function AguaTracker() {
           </button>
         )}
       </div>
+
+      <HistoricoSemanal members={dados.members} intake={dados.intake} />
 
       <footer className="rodape">
         Os registros são salvos automaticamente e compartilhados entre todos os
