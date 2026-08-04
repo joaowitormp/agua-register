@@ -538,7 +538,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           <button
             className="desfazer"
             onClick={() => onDesfazer(membro.id)}
-            disabled={count === 0}
+            disabled={count === 0 && extraMl === 0}
             title="Desfazer o último registro"
           >
             Desfazer
@@ -814,17 +814,52 @@ function AguaTracker() {
   );
   const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
 
+  /* Log ordenado dos registros do dia (garrafas e avulsos) — é o que o
+     Desfazer consulta. Só o dia atual é mantido, para o arquivo não crescer */
+  const registrarEvento = (novo, id, evento) => {
+    novo.eventos = { [dia]: (novo.eventos && novo.eventos[dia]) || {} };
+    if (!novo.eventos[dia][id]) novo.eventos[dia][id] = [];
+    novo.eventos[dia][id].push(evento);
+  };
+
   const beber = (id) => {
     const novo = structuredClone(dados);
     if (!novo.intake[dia]) novo.intake[dia] = {};
     novo.intake[dia][id] = (novo.intake[dia][id] || 0) + 1;
+    registrarEvento(novo, id, { t: "g" });
     persistir(novo);
   };
 
+  /* Desfaz sempre o último registro, seja garrafa ou medida avulsa */
   const desfazer = (id) => {
     const novo = structuredClone(dados);
+    const lista =
+      (novo.eventos && novo.eventos[dia] && novo.eventos[dia][id]) || [];
+    if (lista.length > 0) {
+      const ultimo = lista.pop();
+      if (ultimo.t === "g") {
+        if (novo.intake[dia] && novo.intake[dia][id] > 0) {
+          novo.intake[dia][id] -= 1;
+        }
+      } else {
+        const atual =
+          (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
+        const restante = Math.max(0, atual - (ultimo.ml || 0));
+        if (novo.extras && novo.extras[dia]) {
+          if (restante > 0) novo.extras[dia][id] = restante;
+          else delete novo.extras[dia][id];
+        }
+      }
+      persistir(novo);
+      return;
+    }
+    /* Registros feitos antes do log existir: desfaz as garrafas uma a uma
+       e, quando elas acabam, zera o avulso restante */
     if (novo.intake[dia] && novo.intake[dia][id] > 0) {
       novo.intake[dia][id] -= 1;
+      persistir(novo);
+    } else if (novo.extras && novo.extras[dia] && novo.extras[dia][id] > 0) {
+      delete novo.extras[dia][id];
       persistir(novo);
     }
   };
@@ -857,6 +892,7 @@ function AguaTracker() {
     if (!novo.extras) novo.extras = {};
     if (!novo.extras[dia]) novo.extras[dia] = {};
     novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
+    registrarEvento(novo, extraPara.id, { t: "e", ml });
     persistir(novo);
     setToast(`+${fmt(ml)} registrados para ${extraPara.name} 💧`);
     setTimeout(() => setToast(null), 4000);
@@ -868,6 +904,11 @@ function AguaTracker() {
     if (!extraPara) return;
     const novo = structuredClone(dados);
     if (novo.extras && novo.extras[dia]) delete novo.extras[dia][extraPara.id];
+    if (novo.eventos && novo.eventos[dia] && novo.eventos[dia][extraPara.id]) {
+      novo.eventos[dia][extraPara.id] = novo.eventos[dia][extraPara.id].filter(
+        (e) => e.t !== "e"
+      );
+    }
     persistir(novo);
     setToast(`Medidas avulsas de hoje zeradas para ${extraPara.name}`);
     setTimeout(() => setToast(null), 4000);
