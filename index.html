@@ -258,6 +258,7 @@ body { margin: 0; }
   display: inline-block; width: 26px; font-size: 13px;
   vertical-align: middle; text-align: center;
 }
+.posicao.medalha { font-size: 18px; width: 28px; }
 .nome-rank { display: inline-flex; flex-direction: column; vertical-align: middle; }
 .media-rank { font-size: 10px; font-weight: 400; color: #9FBFCC; }
 .col-hoje { background: #F1F8FB; }
@@ -379,6 +380,32 @@ const piscarTitulo = () => {
       document.title = TITULO;
     }
   }, 800);
+};
+
+/* Favicon de alerta: a gota da aba vira um sino piscando enquanto a
+   página está em segundo plano; volta ao normal assim que a aba é aberta */
+const FAVICON_PADRAO =
+  "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>";
+const FAVICON_SINO =
+  "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔔</text></svg>";
+let faviconTimer = null;
+const setFavicon = (href) => {
+  const link = document.querySelector("link[rel='icon']");
+  if (link) link.href = href;
+};
+const iniciarFaviconAlerta = () => {
+  clearInterval(faviconTimer);
+  let sino = true;
+  setFavicon(FAVICON_SINO);
+  faviconTimer = setInterval(() => {
+    sino = !sino;
+    setFavicon(sino ? FAVICON_SINO : FAVICON_PADRAO);
+  }, 800);
+};
+const pararFaviconAlerta = () => {
+  clearInterval(faviconTimer);
+  faviconTimer = null;
+  setFavicon(FAVICON_PADRAO);
 };
 
 const hoje = () => {
@@ -526,7 +553,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           <p className={`status ${bateu ? "ok" : ""}`}>
             {bateu
               ? "Meta batida! 🎉"
-              : `Faltam ${garrafasRestantes} garrafa${garrafasRestantes > 1 ? "s" : ""}`}
+              : `${garrafasRestantes === 1 ? "Falta" : "Faltam"} ${garrafasRestantes} garrafa${garrafasRestantes > 1 ? "s" : ""}`}
           </p>
         </div>
       </div>
@@ -670,7 +697,7 @@ function HistoricoSemanal({ members, intake, extras = {} }) {
               return (
                 <tr key={m.id}>
                   <td className="col-nome" title={m.name}>
-                    <span className="posicao">{posicao}</span>
+                    <span className={`posicao ${i < 3 ? "medalha" : ""}`}>{posicao}</span>
                     <span className="nome-rank">
                       {m.name}
                       <span className="media-rank">
@@ -824,7 +851,19 @@ function AguaTracker() {
     tocarSom();
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
     piscarTitulo();
+    if (document.hidden) iniciarFaviconAlerta();
   }, [dados]);
+
+  /* Ao abrir/voltar para a aba, o favicon volta ao normal —
+     mesmo com avisos ainda não fechados */
+  useEffect(() => {
+    const aoMudarVisibilidade = () => {
+      if (!document.hidden) pararFaviconAlerta();
+    };
+    document.addEventListener("visibilitychange", aoMudarVisibilidade);
+    return () =>
+      document.removeEventListener("visibilitychange", aoMudarVisibilidade);
+  }, []);
 
   const persistir = useCallback(async (novo) => {
     setDados(novo);
