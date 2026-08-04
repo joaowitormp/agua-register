@@ -390,22 +390,34 @@ const FAVICON_SINO =
   "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔔</text></svg>";
 let faviconTimer = null;
 const setFavicon = (href) => {
-  const link = document.querySelector("link[rel='icon']");
-  if (link) link.href = href;
+  /* Alguns navegadores ignoram a troca de href no link existente;
+     recriar o nó força a atualização do ícone */
+  const antigo = document.querySelector("link[rel='icon']");
+  if (antigo) antigo.remove();
+  const novo = document.createElement("link");
+  novo.rel = "icon";
+  novo.href = href;
+  document.head.appendChild(novo);
+};
+const pararFaviconAlerta = () => {
+  clearInterval(faviconTimer);
+  faviconTimer = null;
+  setFavicon(FAVICON_PADRAO);
 };
 const iniciarFaviconAlerta = () => {
   clearInterval(faviconTimer);
   let sino = true;
   setFavicon(FAVICON_SINO);
   faviconTimer = setInterval(() => {
+    /* Auto-desligamento: se a aba estiver visível por qualquer motivo,
+       para de piscar mesmo sem o evento de visibilidade ter chegado */
+    if (!document.hidden) {
+      pararFaviconAlerta();
+      return;
+    }
     sino = !sino;
     setFavicon(sino ? FAVICON_SINO : FAVICON_PADRAO);
   }, 800);
-};
-const pararFaviconAlerta = () => {
-  clearInterval(faviconTimer);
-  faviconTimer = null;
-  setFavicon(FAVICON_PADRAO);
 };
 
 const hoje = () => {
@@ -855,14 +867,20 @@ function AguaTracker() {
   }, [dados]);
 
   /* Ao abrir/voltar para a aba, o favicon volta ao normal —
-     mesmo com avisos ainda não fechados */
+     mesmo com avisos ainda não fechados. Cobre visibilidade,
+     foco da janela e clique, para nenhum navegador escapar */
   useEffect(() => {
-    const aoMudarVisibilidade = () => {
+    const desligar = () => {
       if (!document.hidden) pararFaviconAlerta();
     };
-    document.addEventListener("visibilitychange", aoMudarVisibilidade);
-    return () =>
-      document.removeEventListener("visibilitychange", aoMudarVisibilidade);
+    document.addEventListener("visibilitychange", desligar);
+    window.addEventListener("focus", desligar);
+    window.addEventListener("pointerdown", desligar);
+    return () => {
+      document.removeEventListener("visibilitychange", desligar);
+      window.removeEventListener("focus", desligar);
+      window.removeEventListener("pointerdown", desligar);
+    };
   }, []);
 
   const persistir = useCallback(async (novo) => {
