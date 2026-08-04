@@ -551,7 +551,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
       </p>
       {dono && (
         <button className="link-extra" onClick={() => onExtra(membro)}>
-          Bebi em outro recipiente
+          Adicionar outra medida
         </button>
       )}
     </div>
@@ -1182,7 +1182,7 @@ function AguaTracker() {
       {extraPara && (
         <div className="modal-fundo" onClick={() => setExtraPara(null)}>
           <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
-            <h2 className="nome">Bebi em outro recipiente</h2>
+            <h2 className="nome">Adicionar outra medida</h2>
             <p className="sub">
               Soma ao dia de {extraPara.name} sem alterar a garrafa de{" "}
               {fmt(extraPara.bottleMl)}.
