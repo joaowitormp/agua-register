@@ -129,6 +129,17 @@ body { margin: 0; }
 }
 .desfazer:disabled { opacity: 0.4; cursor: default; }
 .registros { margin: 10px 0 0; font-size: 12px; color: #9FBFCC; text-align: center; }
+.link-extra {
+  border: none; background: transparent; color: #9FBFCC; font-family: inherit;
+  font-size: 11px; cursor: pointer; margin: 4px auto 0; display: block;
+  text-decoration: underline; text-underline-offset: 2px; padding: 2px 6px;
+}
+.link-extra:hover { color: #0F8BB0; }
+.zerar-extra {
+  border: none; background: transparent; color: #C0392B; font-family: inherit;
+  font-size: 12px; cursor: pointer; margin: 12px 0 0; padding: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+}
 
 .adicionar {
   border: 2px dashed #9ECFDF; background: rgba(255,255,255,0.6);
@@ -426,9 +437,9 @@ function Garrafa({ pct, tamanho = 92 }) {
 }
 
 /* ---------- Cartão de membro ---------- */
-function CartaoMembro({ membro, count, dono, mostrarSino, alertando, onSino, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, onSino, onExtra, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
-  const bebido = count * membro.bottleMl;
+  const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
   const restante = Math.max(0, membro.goalMl - bebido);
   const garrafasRestantes = Math.ceil(restante / membro.bottleMl);
@@ -536,7 +547,13 @@ function CartaoMembro({ membro, count, dono, mostrarSino, alertando, onSino, onB
       )}
       <p className="registros">
         {count} garrafa{count !== 1 ? "s" : ""} hoje
+        {extraMl > 0 && <span> · +{fmt(extraMl)} avulsos</span>}
       </p>
+      {dono && (
+        <button className="link-extra" onClick={() => onExtra(membro)}>
+          Bebi em outro recipiente
+        </button>
+      )}
     </div>
   );
 }
@@ -574,7 +591,7 @@ function GotaDia({ pct, idClip }) {
   );
 }
 
-function HistoricoSemanal({ members, intake }) {
+function HistoricoSemanal({ members, intake, extras = {} }) {
   if (members.length === 0) return null;
   /* Semana fixa: da segunda-feira à sexta-feira da semana atual */
   const agora = new Date();
@@ -626,7 +643,9 @@ function HistoricoSemanal({ members, intake }) {
                     const antesDeExistir = criadoEm > fimDoDia.getTime();
                     const futuro = k > chaveHoje;
                     const count = (intake[k] && intake[k][m.id]) || 0;
-                    const pct = m.goalMl > 0 ? (count * m.bottleMl) / m.goalMl : 0;
+                    const extra = (extras[k] && extras[k][m.id]) || 0;
+                    const pct =
+                      m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
                     return (
                       <td key={k} className={k === chaveHoje ? "col-hoje" : ""}>
                         {antesDeExistir || futuro ? (
@@ -675,6 +694,8 @@ function AguaTracker() {
   const [toast, setToast] = useState(null);
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null); // membro-alvo enquanto o remetente escolhe a frase
+  const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
+  const [valorExtra, setValorExtra] = useState("");
 
   /* Meta diária estimada pelo peso corporal: 35 ml por kg,
      arredondada para o múltiplo de 50 ml mais próximo */
@@ -783,10 +804,12 @@ function AguaTracker() {
 
   const dia = hoje();
   const registrosHoje = dados.intake[dia] || {};
+  const extrasHoje = (dados.extras && dados.extras[dia]) || {};
   const tenhoCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
 
   const totalHoje = dados.members.reduce(
-    (soma, m) => soma + (registrosHoje[m.id] || 0) * m.bottleMl,
+    (soma, m) =>
+      soma + (registrosHoje[m.id] || 0) * m.bottleMl + (extrasHoje[m.id] || 0),
     0
   );
   const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
@@ -814,6 +837,43 @@ function AguaTracker() {
 
   const fecharAlerta = (id) =>
     setAlertas((lista) => lista.filter((a) => a.id !== id));
+
+  /* Medida avulsa: soma ml de outro recipiente ao dia, sem alterar
+     a garrafa principal do cartão (guardada em dados.extras) */
+  const abrirExtra = (membro) => {
+    setValorExtra("");
+    setExtraPara(membro);
+  };
+
+  const adicionarExtra = () => {
+    if (!extraPara) return;
+    const ml = Math.round(Number(valorExtra));
+    if (!ml || ml <= 0 || ml > 5000) {
+      setToast("Informe um valor entre 1 e 5000 ml");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const novo = structuredClone(dados);
+    if (!novo.extras) novo.extras = {};
+    if (!novo.extras[dia]) novo.extras[dia] = {};
+    novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
+    persistir(novo);
+    setToast(`+${fmt(ml)} registrados para ${extraPara.name} 💧`);
+    setTimeout(() => setToast(null), 4000);
+    setExtraPara(null);
+    setValorExtra("");
+  };
+
+  const zerarExtra = () => {
+    if (!extraPara) return;
+    const novo = structuredClone(dados);
+    if (novo.extras && novo.extras[dia]) delete novo.extras[dia][extraPara.id];
+    persistir(novo);
+    setToast(`Medidas avulsas de hoje zeradas para ${extraPara.name}`);
+    setTimeout(() => setToast(null), 4000);
+    setExtraPara(null);
+    setValorExtra("");
+  };
 
   /* Abre o seletor de frases — exige cartão próprio e sino desbloqueado */
   const abrirSino = (membro) => {
@@ -966,17 +1026,20 @@ function AguaTracker() {
       <div className="grade">
         {dados.members.map((m) => {
           const c = registrosHoje[m.id] || 0;
+          const extraMl = extrasHoje[m.id] || 0;
           const donoDoCartao = !m.ownerId || m.ownerId === meuDispositivo;
-          const bateuMeta = c * m.bottleMl >= m.goalMl;
+          const bateuMeta = c * m.bottleMl + extraMl >= m.goalMl;
           return (
             <CartaoMembro
               key={m.id}
               membro={m}
               count={c}
+              extraMl={extraMl}
               dono={donoDoCartao}
               mostrarSino={tenhoCartao && !donoDoCartao && !bateuMeta}
               alertando={alertas.some((a) => a.memberId === m.id)}
               onSino={abrirSino}
+              onExtra={abrirExtra}
               onBeber={beber}
               onDesfazer={desfazer}
               onRemover={remover}
@@ -1075,7 +1138,59 @@ function AguaTracker() {
         )}
       </div>
 
-      <HistoricoSemanal members={dados.members} intake={dados.intake} />
+      {extraPara && (
+        <div className="modal-fundo" onClick={() => setExtraPara(null)}>
+          <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Bebi em outro recipiente</h2>
+            <p className="sub">
+              Soma ao dia de {extraPara.name} sem alterar a garrafa de{" "}
+              {fmt(extraPara.bottleMl)}.
+            </p>
+            <label className="campo">
+              Quantidade (ml)
+              <input
+                type="number"
+                min="1"
+                autoFocus
+                placeholder="Ex.: 200"
+                value={valorExtra}
+                onChange={(e) => setValorExtra(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && adicionarExtra()}
+              />
+            </label>
+            <div className="presets">
+              {[100, 200, 300, 500].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(valorExtra) === v ? "ativo" : ""}`}
+                  onClick={() => setValorExtra(v)}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            {((dados.extras && dados.extras[dia] && dados.extras[dia][extraPara.id]) || 0) > 0 && (
+              <button className="zerar-extra" onClick={zerarExtra}>
+                Zerar os {fmt(dados.extras[dia][extraPara.id])} avulsos de hoje
+              </button>
+            )}
+            <div className="cartao-acoes">
+              <button className="beber" onClick={adicionarExtra}>
+                Adicionar
+              </button>
+              <button className="desfazer" onClick={() => setExtraPara(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <HistoricoSemanal
+        members={dados.members}
+        intake={dados.intake}
+        extras={dados.extras || {}}
+      />
 
       <footer className="rodape">
         Os registros são salvos automaticamente e compartilhados entre todos os
