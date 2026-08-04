@@ -251,9 +251,15 @@ body { margin: 0; }
 .dia-numero { display: block; font-weight: 400; color: #9FBFCC; }
 .col-nome {
   text-align: left; font-size: 13px; font-weight: 600; color: #0B3446;
-  position: sticky; left: 0; background: #FFFFFF; max-width: 130px;
+  position: sticky; left: 0; background: #FFFFFF; max-width: 150px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.posicao {
+  display: inline-block; width: 26px; font-size: 13px;
+  vertical-align: middle; text-align: center;
+}
+.nome-rank { display: inline-flex; flex-direction: column; vertical-align: middle; }
+.media-rank { font-size: 10px; font-weight: 400; color: #9FBFCC; }
 .col-hoje { background: #F1F8FB; }
 .celula-dia { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .pct { font-size: 10px; color: #4B7A8E; }
@@ -607,12 +613,40 @@ function HistoricoSemanal({ members, intake, extras = {} }) {
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
   const chaveHoje = chave(new Date());
+
+  /* Ranking: média do % diário nos dias válidos da semana
+     (ignora dias futuros e dias anteriores à criação da garrafa,
+     para não punir quem entrou no meio da semana) */
+  const ranking = members
+    .map((m) => {
+      const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+      let soma = 0;
+      let diasValidos = 0;
+      dias.forEach((d) => {
+        const k = chave(d);
+        if (k > chaveHoje) return;
+        const fimDoDia = new Date(d);
+        fimDoDia.setHours(23, 59, 59, 999);
+        if (criadoEm > fimDoDia.getTime()) return;
+        const count = (intake[k] && intake[k][m.id]) || 0;
+        const extra = (extras[k] && extras[k][m.id]) || 0;
+        soma += m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
+        diasValidos++;
+      });
+      return {
+        membro: m,
+        criadoEm,
+        media: diasValidos > 0 ? soma / diasValidos : 0,
+      };
+    })
+    .sort((a, b) => b.media - a.media);
+
   return (
     <section className="historico">
-      <h2 className="historico-titulo">Semana atual</h2>
+      <h2 className="historico-titulo">Ranking da semana</h2>
       <p className="historico-sub">
-        Segunda a sexta — percentual da meta diária de cada participante. Gota
-        verde = meta batida.
+        Segunda a sexta — ordenado pela média diária da meta. Gota verde = meta
+        batida.
       </p>
       <div className="historico-rolagem">
         <table className="historico-tabela">
@@ -631,11 +665,19 @@ function HistoricoSemanal({ members, intake, extras = {} }) {
             </tr>
           </thead>
           <tbody>
-            {members.map((m) => {
-              const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+            {ranking.map(({ membro: m, criadoEm, media }, i) => {
+              const posicao = ["🥇", "🥈", "🥉"][i] || `${i + 1}º`;
               return (
                 <tr key={m.id}>
-                  <td className="col-nome" title={m.name}>{m.name}</td>
+                  <td className="col-nome" title={m.name}>
+                    <span className="posicao">{posicao}</span>
+                    <span className="nome-rank">
+                      {m.name}
+                      <span className="media-rank">
+                        média {Math.round(media * 100)}%
+                      </span>
+                    </span>
+                  </td>
                   {dias.map((d) => {
                     const k = chave(d);
                     const fimDoDia = new Date(d);
