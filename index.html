@@ -208,7 +208,7 @@ body { margin: 0; }
 .historico-titulo { margin: 0; font-size: 18px; font-weight: 800; }
 .historico-sub { margin: 4px 0 14px; font-size: 12px; color: #4B7A8E; }
 .historico-rolagem { overflow-x: auto; }
-.historico-tabela { border-collapse: collapse; width: 100%; min-width: 560px; }
+.historico-tabela { border-collapse: collapse; width: 100%; min-width: 460px; }
 .historico-tabela th, .historico-tabela td { padding: 8px 6px; text-align: center; }
 .historico-tabela tbody tr { border-top: 1px solid #EEF6FA; }
 .historico-tabela th { font-size: 11px; color: #4B7A8E; font-weight: 600; }
@@ -537,10 +537,14 @@ function GotaDia({ pct, idClip }) {
 
 function HistoricoSemanal({ members, intake }) {
   if (members.length === 0) return null;
+  /* Semana fixa: da segunda-feira à sexta-feira da semana atual */
+  const agora = new Date();
+  const segunda = new Date(agora);
+  segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7));
   const dias = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(segunda);
+    d.setDate(segunda.getDate() + i);
     dias.push(d);
   }
   const chave = (d) =>
@@ -549,9 +553,10 @@ function HistoricoSemanal({ members, intake }) {
   const chaveHoje = chave(new Date());
   return (
     <section className="historico">
-      <h2 className="historico-titulo">Últimos 7 dias</h2>
+      <h2 className="historico-titulo">Semana atual</h2>
       <p className="historico-sub">
-        Percentual da meta diária de cada participante. Gota verde = meta batida.
+        Segunda a sexta — percentual da meta diária de cada participante. Gota
+        verde = meta batida.
       </p>
       <div className="historico-rolagem">
         <table className="historico-tabela">
@@ -580,12 +585,18 @@ function HistoricoSemanal({ members, intake }) {
                     const fimDoDia = new Date(d);
                     fimDoDia.setHours(23, 59, 59, 999);
                     const antesDeExistir = criadoEm > fimDoDia.getTime();
+                    const futuro = k > chaveHoje;
                     const count = (intake[k] && intake[k][m.id]) || 0;
                     const pct = m.goalMl > 0 ? (count * m.bottleMl) / m.goalMl : 0;
                     return (
                       <td key={k} className={k === chaveHoje ? "col-hoje" : ""}>
-                        {antesDeExistir ? (
-                          <span className="sem-dado" title="A garrafa ainda não existia">–</span>
+                        {antesDeExistir || futuro ? (
+                          <span
+                            className="sem-dado"
+                            title={futuro ? "Ainda não chegou" : "A garrafa ainda não existia"}
+                          >
+                            –
+                          </span>
                         ) : (
                           <div className="celula-dia">
                             <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
