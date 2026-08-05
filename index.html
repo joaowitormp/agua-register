@@ -1048,28 +1048,38 @@ function AguaTracker() {
   }, []);
 
   /* Sincroniza com registros feitos em outros dispositivos.
-     Economia de cota: 30 s com a aba visível, ~2 min em segundo
-     plano (mantém sino e favicon funcionando gastando 4x menos) */
+     Economia de cota: 30 s com a aba visível, ~2 min em segundo plano
+     e sono profundo após 30 min oculta (para de consultar até a pessoa
+     voltar — abas esquecidas à noite/fim de semana não gastam nada) */
   useEffect(() => {
     let tique = 0;
+    let ocultaDesde = document.hidden ? Date.now() : null;
     const atualizar = async (forcar) => {
       tique++;
-      if (document.hidden && !forcar && tique % 4 !== 0) return;
+      if (document.hidden && !forcar) {
+        if (ocultaDesde && Date.now() - ocultaDesde > 30 * 60 * 1000) return;
+        if (tique % 4 !== 0) return;
+      }
       try {
         const r = await storage.get(KEY);
         if (r && r.value) setDados(JSON.parse(r.value));
       } catch {}
     };
     const id = setInterval(() => atualizar(false), 30000);
-    const aoVoltar = () => {
-      if (!document.hidden) atualizar(true);
+    const aoMudar = () => {
+      if (document.hidden) {
+        if (!ocultaDesde) ocultaDesde = Date.now();
+      } else {
+        ocultaDesde = null;
+        atualizar(true);
+      }
     };
-    window.addEventListener("focus", aoVoltar);
-    document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("focus", aoMudar);
+    document.addEventListener("visibilitychange", aoMudar);
     return () => {
       clearInterval(id);
-      window.removeEventListener("focus", aoVoltar);
-      document.removeEventListener("visibilitychange", aoVoltar);
+      window.removeEventListener("focus", aoMudar);
+      document.removeEventListener("visibilitychange", aoMudar);
     };
   }, []);
 
