@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hidratação do time</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap');
+
+body { margin: 0; }
+.app, .tela-carregando {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #EAF6FA 0%, #F5FBFD 40%, #FFFFFF 100%);
+  font-family: 'Sora', system-ui, sans-serif;
+  color: #0B3446;
+  padding: 28px 20px 48px;
+  box-sizing: border-box;
+}
+.tela-carregando { display: flex; align-items: center; justify-content: center; }
+.erro-conexao {
+  background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 16px;
+  padding: 28px; max-width: 420px; text-align: center;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07);
+}
+.erro-conexao .titulo { font-size: 22px; }
+.erro-conexao .sub { margin: 10px 0 18px; }
+.erro-conexao .beber { width: 100%; }
+
+.cabecalho {
+  max-width: 960px; margin: 0 auto 24px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 16px; flex-wrap: wrap;
+}
+.data-dia { margin: 0; font-size: 13px; text-transform: capitalize; color: #4B7A8E; }
+.titulo { margin: 2px 0 0; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+.resumo { text-align: right; }
+.resumo-num { margin: 0; font-size: 26px; font-weight: 800; color: #0F8BB0; }
+.resumo-label { margin: 0; font-size: 12px; color: #4B7A8E; }
+
+.aviso {
+  max-width: 960px; margin: 0 auto 16px; padding: 10px 14px;
+  background: #FFF3E8; border: 1px solid #E8B98A; border-radius: 10px;
+  font-size: 13px; color: #7A4B12;
+}
+
+.vazio {
+  max-width: 960px; margin: 0 auto 20px; padding: 28px;
+  background: #FFFFFF; border: 1px dashed #B7D9E4; border-radius: 16px;
+  display: flex; align-items: center; gap: 18px; color: #4B7A8E; font-size: 14px;
+}
+
+.grade {
+  max-width: 960px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.cartao {
+  background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 16px;
+  padding: 18px; box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07);
+  display: flex; flex-direction: column;
+}
+.cartao-topo { display: flex; justify-content: space-between; align-items: flex-start; }
+.nome { margin: 0; font-size: 18px; font-weight: 800; }
+.sub { margin: 3px 0 0; font-size: 12px; color: #4B7A8E; }
+
+.remover {
+  border: none; background: transparent; color: #9FBFCC; font-size: 20px;
+  cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 8px;
+}
+.remover:hover { background: #FDECEC; color: #C0392B; }
+.topo-acoes { display: flex; align-items: center; gap: 2px; }
+.sino {
+  border: none; background: transparent; color: #0F8BB0; cursor: pointer;
+  padding: 4px 6px; border-radius: 8px; line-height: 1;
+  transition: transform 0.12s ease;
+}
+.sino:hover { background: #EAF6FA; transform: rotate(14deg); }
+.remover-confirma { font-size: 12px; color: #7A4B12; display: flex; gap: 6px; align-items: center; }
+.mini {
+  border: 1px solid #D8ECF3; background: #FFFFFF; border-radius: 8px;
+  font-size: 12px; padding: 2px 8px; cursor: pointer; font-family: inherit;
+}
+.mini.sim { background: #FDECEC; border-color: #E8A9A2; color: #C0392B; }
+
+.cartao-meio { display: flex; align-items: center; gap: 16px; margin: 12px 0 6px; }
+.garrafa-btn {
+  border: none; background: transparent; cursor: pointer; padding: 4px;
+  border-radius: 12px; transition: transform 0.12s ease;
+}
+.garrafa-btn:hover { transform: scale(1.05); }
+.garrafa-btn:active { transform: scale(0.96); }
+.garrafa-btn:focus-visible, .beber:focus-visible, .desfazer:focus-visible,
+.adicionar:focus-visible, .preset:focus-visible {
+  outline: 3px solid #41C9E6; outline-offset: 2px;
+}
+
+.garrafa-fixa { padding: 4px; opacity: 0.9; }
+
+.numeros { flex: 1; }
+.bebido { margin: 0; font-size: 26px; font-weight: 800; color: #0F8BB0; }
+.de-meta { margin: 0; font-size: 13px; color: #4B7A8E; }
+.status { margin: 8px 0 0; font-size: 13px; color: #0B3446; }
+.status.ok { color: #0FA36B; font-weight: 600; }
+
+.barra {
+  height: 8px; background: #E4F2F7; border-radius: 99px; overflow: hidden;
+  margin: 8px 0 14px;
+}
+.barra-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #41C9E6, #0F8BB0);
+  transition: width 0.35s ease;
+}
+
+.cartao-acoes { display: flex; gap: 8px; }
+.beber {
+  flex: 1; border: none; border-radius: 12px; padding: 12px 10px;
+  background: #0F8BB0; color: #FFFFFF; font-family: inherit;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.beber:hover { background: #0B7292; }
+.beber-texto { display: block; }
+.beber-ml {
+  display: block; margin-top: 2px;
+  font-size: 11px; font-weight: 400; opacity: 0.85;
+}
+.desfazer {
+  border: 1px solid #D8ECF3; border-radius: 12px; padding: 12px 14px;
+  background: #FFFFFF; color: #4B7A8E; font-family: inherit;
+  font-size: 13px; cursor: pointer;
+}
+.desfazer:disabled { opacity: 0.4; cursor: default; }
+.registros { margin: 10px 0 0; font-size: 12px; color: #9FBFCC; text-align: center; }
+.link-extra {
+  border: none; background: transparent; color: #9FBFCC; font-family: inherit;
+  font-size: 11px; cursor: pointer; margin: 4px auto 0; display: block;
+  text-decoration: underline; text-underline-offset: 2px; padding: 2px 6px;
+}
+.link-extra:hover { color: #0F8BB0; }
+.conquistas-linha {
+  border: none; background: transparent; padding: 0; margin: 8px 0 0;
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  cursor: pointer; border-radius: 8px;
+}
+.circulo-conquista {
+  width: 20px; height: 20px; border-radius: 50%; background: #DDF0F7;
+  color: #0F8BB0; display: inline-flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.conquistas-linha:hover .circulo-conquista { background: #C9E7F2; }
+.circulo-conquista.mais {
+  background: transparent; border: 1.5px dashed #9ECFDF; color: #4B7A8E;
+  box-sizing: border-box;
+}
+.modal-circulo { width: 26px; height: 26px; }
+.modal-circulo.trancada { background: #EEF3F6; color: #9FBFCC; }
+.lista-conquistas { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.conquista {
+  display: flex; gap: 10px; align-items: center; padding: 8px 10px;
+  border-radius: 10px; background: #F7FBFD; border: 1px solid #E4F2F7;
+}
+.conquista.bloqueada { opacity: 0.6; }
+.conquista.ok { border-color: #BFE7D6; background: #F2FBF7; }
+.conquista.ok .circulo-conquista { background: #D2F0E2; color: #0FA36B; }
+.conquista-texto { display: flex; flex-direction: column; font-size: 13px; color: #0B3446; }
+.conquista-texto span { font-size: 12px; color: #4B7A8E; }
+.zerar-extra {
+  border: none; background: transparent; color: #C0392B; font-family: inherit;
+  font-size: 12px; cursor: pointer; margin: 12px 0 0; padding: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+
+.adicionar {
+  border: 2px dashed #9ECFDF; background: rgba(255,255,255,0.6);
+  color: #0F8BB0; font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; display: flex; flex-direction: column; border-radius: 16px;
+  align-items: center; justify-content: center; gap: 6px; min-height: 220px;
+}
+.adicionar:hover { background: #FFFFFF; border-color: #0F8BB0; }
+.mais { font-size: 34px; font-weight: 400; line-height: 1; }
+
+.form .campo {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 12px; font-weight: 600; color: #4B7A8E; margin-top: 12px;
+}
+.form input {
+  border: 1px solid #C9E4EE; border-radius: 10px; padding: 10px 12px;
+  font-family: inherit; font-size: 14px; color: #0B3446;
+}
+.form input:focus { outline: 2px solid #41C9E6; border-color: transparent; }
+.presets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.preset {
+  border: 1px solid #C9E4EE; background: #FFFFFF; border-radius: 99px;
+  padding: 5px 12px; font-family: inherit; font-size: 12px; cursor: pointer;
+  color: #4B7A8E;
+}
+.preset.ativo { background: #0F8BB0; border-color: #0F8BB0; color: #FFFFFF; font-weight: 600; }
+.calculo-linha { display: flex; gap: 8px; }
+.calculo-linha input { flex: 1; min-width: 0; }
+.calcular {
+  border: 1px solid #0F8BB0; background: #FFFFFF; color: #0F8BB0;
+  border-radius: 10px; padding: 0 16px; font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.calcular:hover { background: #EAF6FA; }
+.dica { margin: 8px 0 0; font-size: 11px; color: #9FBFCC; }
+.form .cartao-acoes { margin-top: 16px; }
+
+.pilha-alertas {
+  position: fixed; top: 16px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 40px);
+  display: flex; flex-direction: column; gap: 8px; z-index: 60;
+  max-height: 60vh; overflow-y: auto; padding: 2px;
+}
+.banner-alerta {
+  display: flex; align-items: center; gap: 12px; box-sizing: border-box;
+  background: #0B3446; color: #FFFFFF; padding: 12px 14px 12px 20px;
+  border-radius: 14px; font-size: 14px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(11, 52, 70, 0.35);
+  animation: chacoalhar 0.6s ease 2;
+}
+.banner-hora { font-size: 11px; font-weight: 400; color: #9ECFDF; white-space: nowrap; }
+.fechar-alerta {
+  border: none; background: rgba(255, 255, 255, 0.12); color: #FFFFFF;
+  width: 26px; height: 26px; border-radius: 8px; font-size: 16px;
+  line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.fechar-alerta:hover { background: rgba(255, 255, 255, 0.25); }
+
+.modal-fundo {
+  position: fixed; inset: 0; background: rgba(11, 52, 70, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 70; padding: 20px; box-sizing: border-box;
+}
+.modal-sino {
+  background: #FFFFFF; border-radius: 16px; padding: 20px;
+  width: 100%; max-width: 420px; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(11, 52, 70, 0.3); box-sizing: border-box;
+}
+.lista-frases { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.frase {
+  border: 1px solid #C9E4EE; background: #F7FBFD; border-radius: 10px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px; color: #0B3446;
+  cursor: pointer; text-align: left; transition: background 0.12s ease;
+}
+.frase:hover { background: #EAF6FA; border-color: #0F8BB0; }
+.fechar-modal { width: 100%; margin-top: 12px; }
+.toast {
+  position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
+  background: #0F8BB0; color: #FFFFFF; padding: 10px 18px; border-radius: 99px;
+  font-size: 13px; z-index: 60; box-shadow: 0 6px 18px rgba(15, 139, 176, 0.3);
+}
+.cartao.alertando {
+  border-color: #F0B429;
+  box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.3);
+  animation: chacoalhar 0.6s ease 3;
+}
+@keyframes chacoalhar {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-0.6deg); }
+  40% { transform: translateX(7px) rotate(0.6deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+.historico {
+  max-width: 960px; margin: 28px auto 0; background: #FFFFFF;
+  border: 1px solid #D8ECF3; border-radius: 16px; padding: 20px;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07); box-sizing: border-box;
+}
+.historico-titulo { margin: 0; font-size: 18px; font-weight: 800; }
+.historico-sub { margin: 4px 0 14px; font-size: 12px; color: #4B7A8E; }
+.historico-rolagem { overflow-x: auto; }
+.historico-tabela { border-collapse: collapse; width: 100%; min-width: 460px; }
+.historico-tabela th, .historico-tabela td { padding: 8px 6px; text-align: center; }
+.historico-tabela tbody tr { border-top: 1px solid #EEF6FA; }
+.historico-tabela th { font-size: 11px; color: #4B7A8E; font-weight: 600; }
+.dia-semana { display: block; text-transform: capitalize; }
+.dia-numero { display: block; font-weight: 400; color: #9FBFCC; }
+.col-nome {
+  text-align: left; font-size: 13px; font-weight: 600; color: #0B3446;
+  position: sticky; left: 0; background: #FFFFFF; max-width: 150px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.posicao {
+  display: inline-block; width: 26px; font-size: 13px;
+  vertical-align: middle; text-align: center;
+}
+.posicao.medalha { font-size: 18px; width: 28px; }
+.nome-rank { display: inline-flex; flex-direction: column; vertical-align: middle; }
+.media-rank { font-size: 10px; font-weight: 400; color: #9FBFCC; }
+.col-hoje { background: #F1F8FB; }
+.celula-dia { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pct { font-size: 10px; color: #4B7A8E; }
+.pct.ok { color: #0FA36B; font-weight: 700; }
+.sem-dado { color: #C9E4EE; font-size: 12px; }
+
+.rodape {
+  max-width: 960px; margin: 28px auto 0; text-align: center;
+  font-size: 12px; color: #9FBFCC;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-fill, .garrafa-btn, .sino { transition: none; }
+  .cartao.alertando, .banner-alerta { animation: none; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+/* Dados centrais: salvos no Vercel Blob através da API /api/dados,
+   compartilhados entre todos os dispositivos que abrirem o site */
+const storage = {
+  get: async (k) => {
+    const r = await fetch("/api/dados", { cache: "no-store" });
+    if (!r.ok) throw new Error("Falha ao carregar os dados");
+    return { key: k, value: await r.text() };
+  },
+  set: async (k, v) => {
+    const r = await fetch("/api/dados", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: v,
+    });
+    return r.ok ? { key: k, value: v } : null;
+  },
+};
+
+/* Identidade anônima deste navegador/dispositivo: quem cria uma garrafa
+   vira "dono" dela e só ele pode registrar ou desfazer */
+const DEVICE_KEY = "agua-device-id";
+const meuDispositivo = (() => {
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+})();
+
+const KEY = "agua-tracker-v1";
+
+/* --- Sino: chaves de controle e alertas para quem recebe --- */
+const SINOS_KEY = "agua-sinos-enviados";
+const BLOQUEIO_KEY = "agua-sino-bloqueio";
+const VISTO_KEY = "agua-sinos-vistos";
+const TITULO = "Hidratação do time";
+
+/* Frases do sino — quem toca escolhe uma */
+const FRASES = [
+  "Vai deixar para a última hora? Beba água!",
+  "Deveriam te apelidar de Saara.",
+  "Sua garrafa já criou teia de aranha.",
+  "Até cacto se hidrata mais que você.",
+  "Alerta de seca no seu cartão!",
+  "Camelo aguenta ficar sem água. Você não.",
+  "Seus rins mandaram lembranças.",
+  "Sua gota na tabela está passando vergonha.",
+  "A meta não se bate sozinha, hein?",
+  "Toc, toc: é a sua meta cobrando.",
+];
+
+/* --- Conquistas: definição (ícones em SVG) e cálculo retroativo --- */
+const CONQUISTAS = [
+  { id: "primeiro-gole", nome: "Primeiro Gole", desc: "Registrou a primeira garrafa no app.", paths: ["M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"] },
+  { id: "hidratacao-profunda", nome: "Hidratação Profunda", desc: "25 L acumulados.", paths: ["M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8", "M19 21a7 7 0 0 0-14 0"] },
+  { id: "cachoeira-alarmante", nome: "Cachoeira Alarmante", desc: "50 L acumulados.", paths: ["M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2", "M9.6 4.6A2 2 0 1 1 11 8H2", "M12.6 19.4A2 2 0 1 0 14 16H2"] },
+  { id: "represa-billings", nome: "Represa Billings", desc: "200 L acumulados.", paths: ["M8 13a4 4 0 0 1 8 0", "M3 13h18", "M6 17h12", "M9 20h6"] },
+  { id: "pingo-de-disciplina", nome: "Pingo de Disciplina", desc: "Meta batida 3 dias úteis seguidos.", paths: ["M7 20h10", "M10 20c5.5-2.5.8-6.4 3-10", "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8", "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2"] },
+  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
+  { id: "mare-alta", nome: "Maré Alta", desc: "Meta batida 10 dias úteis seguidos.", paths: ["M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"] },
+  { id: "tsunami-de-foco", nome: "Tsunami de Foco", desc: "Meta batida 30 dias úteis seguidos.", paths: ["M2 19h20", "M4 19c0-8 5-13 11-13 4 0 7 2.8 7 6 0 2.6-2 4.6-4.6 4.6-2 0-3.6-1.4-3.6-3.2 0-1.4 1-2.4 2.4-2.4"] },
+  { id: "agua-mole", nome: "Água Mole em Pedra Dura", desc: "Meta batida em 50 dias úteis seguidos.", paths: ["m8 3 4 8 5-5 5 15H2L8 3z"] },
+  { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
+  { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
+  { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
+];
+
+const IconeConquista = ({ conquista, tamanho = 11 }) => (
+  <svg
+    width={tamanho}
+    height={tamanho}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {conquista.paths.map((p, i) => (
+      <path key={i} d={p} />
+    ))}
+  </svg>
+);
+
+const IconeCadeado = ({ tamanho = 12 }) => (
+  <svg
+    width={tamanho}
+    height={tamanho}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" />
+  </svg>
+);
+
+const chaveDe = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+function calcularConquistas(members, intake, extras) {
+  const resultado = {};
+  const chaveHoje = chaveDe(new Date());
+  const mlDoDia = (m, k) =>
+    ((intake[k] && intake[k][m.id]) || 0) * m.bottleMl +
+    ((extras[k] && extras[k][m.id]) || 0);
+
+  const todasChaves = [
+    ...Object.keys(intake || {}),
+    ...Object.keys(extras || {}),
+  ].sort();
+  const primeiraChave = todasChaves[0] || chaveHoje;
+
+  /* Volume acumulado, dias de meta e sequências (corridas e em dias úteis) */
+  members.forEach((m) => {
+    const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+    const inicio = new Date(
+      Math.max(criadoEm, new Date(primeiraChave + "T00:00:00").getTime())
+    );
+    inicio.setHours(0, 0, 0, 0);
+    let totalMl = 0, diasMeta = 0, seqUtil = 0, maxUtil = 0;
+    for (let d = new Date(inicio); chaveDe(d) <= chaveHoje; d.setDate(d.getDate() + 1)) {
+      const ml = mlDoDia(m, chaveDe(d));
+      totalMl += ml;
+      const bateu = m.goalMl > 0 && ml >= m.goalMl;
+      if (bateu) diasMeta++;
+      /* Sequências contam apenas dias úteis: sábado e domingo
+         não somam nem quebram a corrente */
+      const diaSemana = d.getDay();
+      if (diaSemana !== 0 && diaSemana !== 6) {
+        if (bateu) { seqUtil++; } else { seqUtil = 0; }
+        if (seqUtil > maxUtil) maxUtil = seqUtil;
+      }
+    }
+    resultado[m.id] = { conjunto: new Set(), totalMl, diasMeta, maxUtil };
+  });
+
+  /* Semanas já fechadas: posições do ranking e semanas perfeitas */
+  const posicoesPorMembro = {};
+  members.forEach((m) => (posicoesPorMembro[m.id] = []));
+  const primeiraSegunda = new Date(primeiraChave + "T00:00:00");
+  primeiraSegunda.setDate(
+    primeiraSegunda.getDate() - ((primeiraSegunda.getDay() + 6) % 7)
+  );
+  for (let seg = new Date(primeiraSegunda); ; seg.setDate(seg.getDate() + 7)) {
+    const sex = new Date(seg);
+    sex.setDate(seg.getDate() + 4);
+    if (chaveDe(sex) >= chaveHoje) break; /* semana ainda não fechou */
+    const linhas = [];
+    members.forEach((m) => {
+      const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+      let soma = 0, validos = 0, metas = 0;
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(seg);
+        d.setDate(seg.getDate() + i);
+        const fim = new Date(d);
+        fim.setHours(23, 59, 59, 999);
+        if (criadoEm > fim.getTime()) continue;
+        const ml = mlDoDia(m, chaveDe(d));
+        soma += m.goalMl > 0 ? ml / m.goalMl : 0;
+        validos++;
+        if (m.goalMl > 0 && ml >= m.goalMl) metas++;
+      }
+      if (validos > 0) {
+        linhas.push({ id: m.id, media: soma / validos });
+        if (validos === 5 && metas === 5)
+          resultado[m.id].conjunto.add("semana-molhada");
+      }
+    });
+    linhas.sort((a, b) => b.media - a.media);
+    linhas.forEach((l, i) =>
+      posicoesPorMembro[l.id].push({ semana: seg.getTime(), pos: i + 1 })
+    );
+  }
+
+  members.forEach((m) => {
+    const r = resultado[m.id];
+    const c = r.conjunto;
+    if (r.totalMl > 0) c.add("primeiro-gole");
+    if (r.totalMl >= 25000) c.add("hidratacao-profunda");
+    if (r.totalMl >= 50000) c.add("cachoeira-alarmante");
+    if (r.totalMl >= 200000) c.add("represa-billings");
+    if (r.maxUtil >= 3) c.add("pingo-de-disciplina");
+    if (r.maxUtil >= 10) c.add("mare-alta");
+    if (r.maxUtil >= 30) c.add("tsunami-de-foco");
+    if (r.maxUtil >= 50) c.add("agua-mole");
+    const posicoes = posicoesPorMembro[m.id];
+    if (posicoes.some((p) => p.pos <= 3)) c.add("pe-no-podio");
+    if (posicoes.some((p) => p.pos === 1)) c.add("soberano-da-torneira");
+    let seguidas = 0;
+    let ultimaSemana = null;
+    const UMA_SEMANA = 7 * 24 * 60 * 60 * 1000;
+    posicoes.forEach((p) => {
+      const adjacente = ultimaSemana !== null && p.semana - ultimaSemana === UMA_SEMANA;
+      if (p.pos === 1) seguidas = adjacente && seguidas > 0 ? seguidas + 1 : 1;
+      else seguidas = 0;
+      if (seguidas >= 3) c.add("dinastia-da-gota");
+      ultimaSemana = p.semana;
+    });
+  });
+  return resultado;
+}
+
+const tocarSom = () => {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    if (ctx.state === "suspended") ctx.resume();
+    [880, 1174, 1568].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = f;
+      o.connect(g);
+      g.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.35, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      o.start(t);
+      o.stop(t + 0.6);
+    });
+  } catch {}
+};
+
+const notificar = (msg) => {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification("🔔 Hora de beber água!", { body: msg });
+    } catch {}
+  }
+};
+
+let tituloTimer = null;
+const piscarTitulo = () => {
+  clearInterval(tituloTimer);
+  let visivel = false;
+  let vezes = 0;
+  tituloTimer = setInterval(() => {
+    document.title = visivel ? TITULO : "🔔 Beba água!";
+    visivel = !visivel;
+    if (++vezes >= 20) {
+      clearInterval(tituloTimer);
+      document.title = TITULO;
+    }
+  }, 800);
+};
+
+/* Favicon de alerta: a gota da aba vira um sino piscando enquanto a
+   página está em segundo plano; volta ao normal assim que a aba é aberta */
+const FAVICON_PADRAO =
+  "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>";
+const FAVICON_SINO =
+  "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔔</text></svg>";
+let faviconTimer = null;
+const setFavicon = (href) => {
+  /* Alguns navegadores ignoram a troca de href no link existente;
+     recriar o nó força a atualização do ícone */
+  const antigo = document.querySelector("link[rel='icon']");
+  if (antigo) antigo.remove();
+  const novo = document.createElement("link");
+  novo.rel = "icon";
+  novo.href = href;
+  document.head.appendChild(novo);
+};
+const pararFaviconAlerta = () => {
+  clearInterval(faviconTimer);
+  faviconTimer = null;
+  setFavicon(FAVICON_PADRAO);
+};
+const iniciarFaviconAlerta = () => {
+  clearInterval(faviconTimer);
+  let sino = true;
+  setFavicon(FAVICON_SINO);
+  faviconTimer = setInterval(() => {
+    /* Auto-desligamento: se a aba estiver visível por qualquer motivo,
+       para de piscar mesmo sem o evento de visibilidade ter chegado */
+    if (!document.hidden) {
+      pararFaviconAlerta();
+      return;
+    }
+    sino = !sino;
+    setFavicon(sino ? FAVICON_SINO : FAVICON_PADRAO);
+  }, 800);
+};
+
+const hoje = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const fmt = (ml) =>
+  ml >= 1000
+    ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
+    : `${ml} ml`;
+
+const dataLonga = () =>
+  new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+/* ---------- Garrafa SVG com nível de água ---------- */
+function Garrafa({ pct, tamanho = 92 }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const alturaAgua = 88 * p;
+  const yAgua = 118 - alturaAgua;
+  const cheia = p >= 1;
+  return (
+    <svg
+      width={tamanho}
+      height={(tamanho * 130) / 92}
+      viewBox="0 0 92 130"
+      aria-hidden="true"
+    >
+      <defs>
+        <clipPath id="corpo-garrafa">
+          <path d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" />
+        </clipPath>
+        <linearGradient id="agua-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#41C9E6" />
+          <stop offset="100%" stopColor="#0F8BB0" />
+        </linearGradient>
+      </defs>
+      <g clipPath="url(#corpo-garrafa)">
+        <rect x="0" y={yAgua} width="92" height={alturaAgua + 6} fill="url(#agua-grad)">
+          <animate
+            attributeName="y"
+            values={`${yAgua + 1.5};${yAgua - 1.5};${yAgua + 1.5}`}
+            dur="3s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      </g>
+      <path
+        d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z"
+        fill="none"
+        stroke={cheia ? "#0FA36B" : "#0B3446"}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <rect x="33" y="1" width="26" height="9" rx="3" fill={cheia ? "#0FA36B" : "#0B3446"} />
+    </svg>
+  );
+}
+
+/* ---------- Cartão de membro ---------- */
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, selos = [], podeEditar, onSino, onExtra, onEditar, onConquistas, onBeber, onDesfazer, onRemover }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const bebido = count * membro.bottleMl + extraMl;
+  const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
+  const totalGarrafas = Math.max(1, Math.ceil(membro.goalMl / membro.bottleMl));
+  const bateu = membro.goalMl > 0 && bebido >= membro.goalMl;
+
+  return (
+    <div className={`cartao ${alertando ? "alertando" : ""}`}>
+      <div className="cartao-topo">
+        <div>
+          <h2 className="nome">{membro.name}</h2>
+          <p className="sub">
+            Garrafa de {fmt(membro.bottleMl)} · meta {fmt(membro.goalMl)}
+          </p>
+        </div>
+        <div className="topo-acoes">
+          {podeEditar && (
+            <button
+              className="sino"
+              title="Editar meu cartão"
+              aria-label={`Editar o cartão de ${membro.name}`}
+              onClick={() => onEditar(membro)}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+              </svg>
+            </button>
+          )}
+          {mostrarSino && (
+            <button
+              className="sino"
+              title={`Tocar o sino para ${membro.name} beber água`}
+              aria-label={`Tocar o sino para ${membro.name} beber água`}
+              onClick={() => onSino(membro)}
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </svg>
+            </button>
+          )}
+          {confirmando ? (
+            <span className="remover-confirma">
+              Remover?
+              <button className="mini sim" onClick={() => onRemover(membro.id)}>
+                Sim
+              </button>
+              <button className="mini" onClick={() => setConfirmando(false)}>
+                Não
+              </button>
+            </span>
+          ) : (
+            <button
+              className="remover"
+              title={`Remover ${membro.name}`}
+              onClick={() => setConfirmando(true)}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="cartao-meio">
+        {dono ? (
+          <button
+            className="garrafa-btn"
+            onClick={() => onBeber(membro.id)}
+            title="Registrar 1 garrafa"
+            aria-label={`Registrar uma garrafa de ${fmt(membro.bottleMl)} para ${membro.name}`}
+          >
+            <Garrafa pct={pct} />
+          </button>
+        ) : (
+          <div className="garrafa-fixa" title="Somente quem criou esta garrafa pode registrar">
+            <Garrafa pct={pct} />
+          </div>
+        )}
+        <div className="numeros">
+          <p className="bebido">{fmt(bebido)}</p>
+          <p className="de-meta">de {fmt(membro.goalMl)}</p>
+          {bateu && <p className="status ok">Meta batida! 🎉</p>}
+          <button
+            className="conquistas-linha"
+            onClick={() => onConquistas(membro)}
+            title={`Ver conquistas de ${membro.name}`}
+            aria-label={`Ver conquistas de ${membro.name}`}
+          >
+            {selos.map((c) => (
+              <span key={c.id} className="circulo-conquista" title={c.nome}>
+                <IconeConquista conquista={c} />
+              </span>
+            ))}
+            {selos.length < CONQUISTAS.length && (
+              <span className="circulo-conquista mais" title="Há mais conquistas para desbloquear">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </svg>
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="barra">
+        <div className="barra-fill" style={{ width: `${Math.min(100, pct * 100)}%` }} />
+      </div>
+
+      {dono && (
+        <div className="cartao-acoes">
+          <button className="beber" onClick={() => onBeber(membro.id)}>
+            <span className="beber-texto">Bebi 1 garrafa</span>
+            <span className="beber-ml">+{fmt(membro.bottleMl)}</span>
+          </button>
+          <button
+            className="desfazer"
+            onClick={() => onDesfazer(membro.id)}
+            disabled={count === 0 && extraMl === 0}
+            title="Desfazer o último registro"
+          >
+            Desfazer
+          </button>
+        </div>
+      )}
+      <p className="registros">
+        {count}/{totalGarrafas} garrafas hoje
+        {extraMl > 0 && <span> · +{fmt(extraMl)} avulsos</span>}
+      </p>
+      {dono && (
+        <button className="link-extra" onClick={() => onExtra(membro)}>
+          Adicionar outra medida
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Histórico semanal ---------- */
+function GotaDia({ pct, idClip }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const altura = 20 * p; // área útil da gota: y de 3 a 23
+  const y = 23 - altura;
+  const cheia = pct >= 1;
+  const forma = "M12 2 C12 2 5 11 5 16 a7 7 0 0 0 14 0 C19 11 12 2 12 2 Z";
+  return (
+    <svg width="22" height="24" viewBox="0 0 24 26" aria-hidden="true">
+      <defs>
+        <clipPath id={idClip}>
+          <path d={forma} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${idClip})`}>
+        <rect
+          x="0"
+          y={y}
+          width="24"
+          height={altura + 3}
+          fill={cheia ? "#0FA36B" : "url(#agua-grad-gota)"}
+        />
+      </g>
+      <path
+        d={forma}
+        fill="none"
+        stroke={cheia ? "#0FA36B" : "#0B3446"}
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+function HistoricoSemanal({ members, intake, extras = {} }) {
+  if (members.length === 0) return null;
+  /* Semana fixa: da segunda-feira à sexta-feira da semana atual */
+  const agora = new Date();
+  const segunda = new Date(agora);
+  segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7));
+  const dias = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(segunda);
+    d.setDate(segunda.getDate() + i);
+    dias.push(d);
+  }
+  const chave = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const chaveHoje = chave(new Date());
+
+  /* Ranking: média do % diário nos dias válidos da semana
+     (ignora dias futuros e dias anteriores à criação da garrafa,
+     para não punir quem entrou no meio da semana) */
+  const ranking = members
+    .map((m) => {
+      const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+      let soma = 0;
+      let diasValidos = 0;
+      dias.forEach((d) => {
+        const k = chave(d);
+        if (k > chaveHoje) return;
+        const fimDoDia = new Date(d);
+        fimDoDia.setHours(23, 59, 59, 999);
+        if (criadoEm > fimDoDia.getTime()) return;
+        const count = (intake[k] && intake[k][m.id]) || 0;
+        const extra = (extras[k] && extras[k][m.id]) || 0;
+        soma += m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
+        diasValidos++;
+      });
+      return {
+        membro: m,
+        criadoEm,
+        media: diasValidos > 0 ? soma / diasValidos : 0,
+      };
+    })
+    .sort((a, b) => b.media - a.media);
+
+  return (
+    <section className="historico">
+      <h2 className="historico-titulo">Ranking da semana</h2>
+      <p className="historico-sub">
+        Segunda a sexta — ordenado pela média diária da meta. Gota verde = meta
+        batida.
+      </p>
+      <div className="historico-rolagem">
+        <table className="historico-tabela">
+          <thead>
+            <tr>
+              <th className="col-nome"></th>
+              {dias.map((d) => (
+                <th key={chave(d)} className={chave(d) === chaveHoje ? "col-hoje" : ""}>
+                  <span className="dia-semana">{SEMANA[d.getDay()]}</span>
+                  <span className="dia-numero">
+                    {String(d.getDate()).padStart(2, "0")}/
+                    {String(d.getMonth() + 1).padStart(2, "0")}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.map(({ membro: m, criadoEm, media }, i) => {
+              const posicao = ["🥇", "🥈", "🥉"][i] || `${i + 1}º`;
+              return (
+                <tr key={m.id}>
+                  <td className="col-nome" title={m.name}>
+                    <span className={`posicao ${i < 3 ? "medalha" : ""}`}>{posicao}</span>
+                    <span className="nome-rank">
+                      {m.name}
+                      <span className="media-rank">
+                        média {Math.round(media * 100)}%
+                      </span>
+                    </span>
+                  </td>
+                  {dias.map((d) => {
+                    const k = chave(d);
+                    const fimDoDia = new Date(d);
+                    fimDoDia.setHours(23, 59, 59, 999);
+                    const antesDeExistir = criadoEm > fimDoDia.getTime();
+                    const futuro = k > chaveHoje;
+                    const count = (intake[k] && intake[k][m.id]) || 0;
+                    const extra = (extras[k] && extras[k][m.id]) || 0;
+                    const pct =
+                      m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
+                    return (
+                      <td key={k} className={k === chaveHoje ? "col-hoje" : ""}>
+                        {antesDeExistir || futuro ? (
+                          <span
+                            className="sem-dado"
+                            title={futuro ? "Ainda não chegou" : "A garrafa ainda não existia"}
+                          >
+                            –
+                          </span>
+                        ) : (
+                          <div className="celula-dia">
+                            <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
+                            <span className={`pct ${pct >= 1 ? "ok" : ""}`}>
+                              {Math.round(pct * 100)}%
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+        <defs>
+          <linearGradient id="agua-grad-gota" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#41C9E6" />
+            <stop offset="100%" stopColor="#0F8BB0" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </section>
+  );
+}
+
+/* ---------- App ---------- */
+function AguaTracker() {
+  const [dados, setDados] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erroSalvar, setErroSalvar] = useState(false);
+  const [erroConexao, setErroConexao] = useState(false);
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+  const [toast, setToast] = useState(null);
+  const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
+  const [sinoPara, setSinoPara] = useState(null); // membro-alvo enquanto o remetente escolhe a frase
+  const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
+  const [valorExtra, setValorExtra] = useState("");
+  const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
+  const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
+  const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+
+  /* Meta diária estimada pelo peso corporal: 35 ml por kg,
+     arredondada para o múltiplo de 50 ml mais próximo */
+  const calcularMeta = () => {
+    const p = Number(form.peso);
+    if (!p || p <= 0) return;
+    const meta = Math.round((p * 35) / 50) * 50;
+    setForm((f) => ({ ...f, goalMl: meta }));
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await storage.get(KEY);
+        if (r && r.value) {
+          setDados(JSON.parse(r.value));
+        } else {
+          setDados({ members: [], intake: {} });
+        }
+      } catch {
+        /* Sem conexão com os dados, o app não pode operar "vazio":
+           uma gravação nesse estado sobrescreveria os registros do time */
+        setErroConexao(true);
+      } finally {
+        setCarregando(false);
+      }
+    })();
+  }, []);
+
+  /* Sincroniza com registros feitos em outros dispositivos.
+     Economia de cota: 30 s com a aba visível, ~2 min em segundo
+     plano (mantém sino e favicon funcionando gastando 4x menos) */
+  useEffect(() => {
+    let tique = 0;
+    const atualizar = async (forcar) => {
+      tique++;
+      if (document.hidden && !forcar && tique % 4 !== 0) return;
+      try {
+        const r = await storage.get(KEY);
+        if (r && r.value) setDados(JSON.parse(r.value));
+      } catch {}
+    };
+    const id = setInterval(() => atualizar(false), 30000);
+    const aoVoltar = () => {
+      if (!document.hidden) atualizar(true);
+    };
+    window.addEventListener("focus", aoVoltar);
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", aoVoltar);
+      document.removeEventListener("visibilitychange", aoVoltar);
+    };
+  }, []);
+
+  /* Pede permissão de notificação no primeiro clique na página */
+  useEffect(() => {
+    const pedir = () => {
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+      window.removeEventListener("pointerdown", pedir);
+    };
+    window.addEventListener("pointerdown", pedir);
+    return () => window.removeEventListener("pointerdown", pedir);
+  }, []);
+
+  /* Reage a sinos recebidos nos meus cartões: som, notificação,
+     vibração, título piscando e destaque no cartão */
+  useEffect(() => {
+    if (!dados || !Array.isArray(dados.nudges) || dados.nudges.length === 0) return;
+    const padrao = Date.now() - 5 * 60 * 1000;
+    const visto = Number(localStorage.getItem(VISTO_KEY) || padrao);
+    const meus = new Set(
+      dados.members.filter((m) => m.ownerId === meuDispositivo).map((m) => m.id)
+    );
+    const novos = dados.nudges.filter((n) => n.at > visto && meus.has(n.to));
+    if (novos.length === 0) return;
+    localStorage.setItem(VISTO_KEY, String(Math.max(...novos.map((n) => n.at))));
+    setAlertas((lista) => [
+      ...lista,
+      ...novos.map((n) => ({
+        id: n.id,
+        memberId: n.to,
+        nome: n.fromName || "Alguém",
+        frase: n.frase || "hora de beber água! 💧",
+        hora: new Date(n.at).toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      })),
+    ]);
+    const ultimo = novos[novos.length - 1];
+    notificar(`${ultimo.fromName || "Alguém"}: ${ultimo.frase || "hora de beber água! 💧"}`);
+    tocarSom();
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+    piscarTitulo();
+    if (document.hidden) iniciarFaviconAlerta();
+  }, [dados]);
+
+  /* Ao abrir/voltar para a aba, o favicon volta ao normal —
+     mesmo com avisos ainda não fechados. Cobre visibilidade,
+     foco da janela e clique, para nenhum navegador escapar */
+  useEffect(() => {
+    const desligar = () => {
+      if (!document.hidden) pararFaviconAlerta();
+    };
+    document.addEventListener("visibilitychange", desligar);
+    window.addEventListener("focus", desligar);
+    window.addEventListener("pointerdown", desligar);
+    return () => {
+      document.removeEventListener("visibilitychange", desligar);
+      window.removeEventListener("focus", desligar);
+      window.removeEventListener("pointerdown", desligar);
+    };
+  }, []);
+
+  /* Celebra conquistas novas dos meus cartões (comparadas com as já vistas) */
+  useEffect(() => {
+    if (!dados) return;
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {});
+    const novas = [];
+    dados.members
+      .filter((m) => m.ownerId === meuDispositivo)
+      .forEach((m) => {
+        const chaveLS = `agua-conq-${m.id}`;
+        let salvas = [];
+        try {
+          salvas = JSON.parse(localStorage.getItem(chaveLS) || "[]");
+        } catch {}
+        const salvasSet = new Set(salvas);
+        const atuais = mapa[m.id] ? [...mapa[m.id].conjunto] : [];
+        atuais.forEach((id) => {
+          if (!salvasSet.has(id)) {
+            const c = CONQUISTAS.find((x) => x.id === id);
+            if (c) novas.push(c.nome);
+          }
+        });
+        localStorage.setItem(chaveLS, JSON.stringify(atuais));
+      });
+    if (novas.length > 0) {
+      const plural = novas.length > 1 ? "s" : "";
+      setToast(`🏆 Conquista${plural} desbloqueada${plural}: ${novas.join(", ")}`);
+      setTimeout(() => setToast(null), 6000);
+      tocarSom();
+    }
+  }, [dados]);
+
+  const persistir = useCallback(async (novo) => {
+    setDados(novo);
+    try {
+      const r = await storage.set(KEY, JSON.stringify(novo));
+      setErroSalvar(!r);
+    } catch {
+      setErroSalvar(true);
+    }
+  }, []);
+
+  if (carregando) {
+    return (
+      <div className="tela-carregando">
+        <p>Carregando registros…</p>
+      </div>
+    );
+  }
+
+  if (erroConexao || !dados) {
+    return (
+      <div className="tela-carregando">
+        <div className="erro-conexao">
+          <h1 className="titulo">Não consegui carregar os dados</h1>
+          <p className="sub">
+            Para proteger os registros do time, nada pode ser adicionado até a
+            conexão com o servidor voltar.
+          </p>
+          <button className="beber" onClick={() => window.location.reload()}>
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const dia = hoje();
+  const registrosHoje = dados.intake[dia] || {};
+  const extrasHoje = (dados.extras && dados.extras[dia]) || {};
+  const tenhoCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
+
+  const totalHoje = dados.members.reduce(
+    (soma, m) =>
+      soma + (registrosHoje[m.id] || 0) * m.bottleMl + (extrasHoje[m.id] || 0),
+    0
+  );
+  const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
+  const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {});
+
+  /* Log ordenado dos registros do dia (garrafas e avulsos) — é o que o
+     Desfazer consulta. Só o dia atual é mantido, para o arquivo não crescer */
+  const registrarEvento = (novo, id, evento) => {
+    novo.eventos = { [dia]: (novo.eventos && novo.eventos[dia]) || {} };
+    if (!novo.eventos[dia][id]) novo.eventos[dia][id] = [];
+    novo.eventos[dia][id].push(evento);
+  };
+
+  const beber = (id) => {
+    const novo = structuredClone(dados);
+    if (!novo.intake[dia]) novo.intake[dia] = {};
+    novo.intake[dia][id] = (novo.intake[dia][id] || 0) + 1;
+    registrarEvento(novo, id, { t: "g" });
+    persistir(novo);
+  };
+
+  /* Desfaz sempre o último registro, seja garrafa ou medida avulsa */
+  const desfazer = (id) => {
+    const novo = structuredClone(dados);
+    const lista =
+      (novo.eventos && novo.eventos[dia] && novo.eventos[dia][id]) || [];
+    if (lista.length > 0) {
+      const ultimo = lista.pop();
+      if (ultimo.t === "g") {
+        if (novo.intake[dia] && novo.intake[dia][id] > 0) {
+          novo.intake[dia][id] -= 1;
+        }
+      } else {
+        const atual =
+          (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
+        const restante = Math.max(0, atual - (ultimo.ml || 0));
+        if (novo.extras && novo.extras[dia]) {
+          if (restante > 0) novo.extras[dia][id] = restante;
+          else delete novo.extras[dia][id];
+        }
+      }
+      persistir(novo);
+      return;
+    }
+    /* Registros feitos antes do log existir: desfaz as garrafas uma a uma
+       e, quando elas acabam, zera o avulso restante */
+    if (novo.intake[dia] && novo.intake[dia][id] > 0) {
+      novo.intake[dia][id] -= 1;
+      persistir(novo);
+    } else if (novo.extras && novo.extras[dia] && novo.extras[dia][id] > 0) {
+      delete novo.extras[dia][id];
+      persistir(novo);
+    }
+  };
+
+  const remover = (id) => {
+    const novo = structuredClone(dados);
+    novo.members = novo.members.filter((m) => m.id !== id);
+    persistir(novo);
+  };
+
+  const fecharAlerta = (id) =>
+    setAlertas((lista) => lista.filter((a) => a.id !== id));
+
+  /* Medida avulsa: soma ml de outro recipiente ao dia, sem alterar
+     a garrafa principal do cartão (guardada em dados.extras) */
+  const abrirExtra = (membro) => {
+    setValorExtra("");
+    setExtraPara(membro);
+  };
+
+  const adicionarExtra = () => {
+    if (!extraPara) return;
+    const ml = Math.round(Number(valorExtra));
+    if (!ml || ml <= 0 || ml > 5000) {
+      setToast("Informe um valor entre 1 e 5000 ml");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const novo = structuredClone(dados);
+    if (!novo.extras) novo.extras = {};
+    if (!novo.extras[dia]) novo.extras[dia] = {};
+    novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
+    registrarEvento(novo, extraPara.id, { t: "e", ml });
+    persistir(novo);
+    setToast(`+${fmt(ml)} registrados para ${extraPara.name} 💧`);
+    setTimeout(() => setToast(null), 4000);
+    setExtraPara(null);
+    setValorExtra("");
+  };
+
+  const zerarExtra = () => {
+    if (!extraPara) return;
+    const novo = structuredClone(dados);
+    if (novo.extras && novo.extras[dia]) delete novo.extras[dia][extraPara.id];
+    if (novo.eventos && novo.eventos[dia] && novo.eventos[dia][extraPara.id]) {
+      novo.eventos[dia][extraPara.id] = novo.eventos[dia][extraPara.id].filter(
+        (e) => e.t !== "e"
+      );
+    }
+    persistir(novo);
+    setToast(`Medidas avulsas de hoje zeradas para ${extraPara.name}`);
+    setTimeout(() => setToast(null), 4000);
+    setExtraPara(null);
+    setValorExtra("");
+  };
+
+  /* Edição do próprio cartão (nome, medida da garrafa e meta) */
+  const abrirEdicao = (membro) => {
+    setFormEd({
+      name: membro.name,
+      bottleMl: membro.bottleMl,
+      goalMl: membro.goalMl,
+      peso: "",
+    });
+    setEditando(membro);
+  };
+
+  const calcularMetaEd = () => {
+    const p = Number(formEd.peso);
+    if (!p || p <= 0) return;
+    setFormEd((f) => ({ ...f, goalMl: Math.round((p * 35) / 50) * 50 }));
+  };
+
+  const salvarEdicao = () => {
+    if (!editando) return;
+    if (editando.ownerId !== meuDispositivo) return; /* só o próprio cartão */
+    const nome = String(formEd.name).trim();
+    const garrafa = Number(formEd.bottleMl);
+    const meta = Number(formEd.goalMl);
+    if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    const novo = structuredClone(dados);
+    const alvo = novo.members.find((m) => m.id === editando.id);
+    if (!alvo) return;
+    const medidaAntiga = alvo.bottleMl;
+    if (garrafa !== medidaAntiga) {
+      /* Congela o histórico: converte as garrafas já registradas em ml
+         fixos na medida antiga, para a troca valer só daqui em diante */
+      Object.keys(novo.intake || {}).forEach((k) => {
+        const c = novo.intake[k] && novo.intake[k][alvo.id];
+        if (c > 0) {
+          if (!novo.extras) novo.extras = {};
+          if (!novo.extras[k]) novo.extras[k] = {};
+          novo.extras[k][alvo.id] =
+            (novo.extras[k][alvo.id] || 0) + c * medidaAntiga;
+          delete novo.intake[k][alvo.id];
+        }
+      });
+      /* Eventos de hoje: garrafas antigas viram medidas fixas,
+         para o Desfazer continuar removendo o valor certo */
+      if (novo.eventos && novo.eventos[dia] && novo.eventos[dia][alvo.id]) {
+        novo.eventos[dia][alvo.id] = novo.eventos[dia][alvo.id].map((e) =>
+          e.t === "g" ? { t: "e", ml: medidaAntiga } : e
+        );
+      }
+    }
+    alvo.name = nome;
+    alvo.bottleMl = garrafa;
+    alvo.goalMl = meta;
+    persistir(novo);
+    setToast("Cartão atualizado ✏️");
+    setTimeout(() => setToast(null), 4000);
+    setEditando(null);
+  };
+
+  /* Abre o seletor de frases — exige cartão próprio e sino desbloqueado */
+  const abrirSino = (membro) => {
+    const meuCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
+    if (!meuCartao) {
+      setToast("Crie a sua garrafa para poder tocar o sino 🔔");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
+    if (bloqueio > Date.now()) {
+      const min = Math.ceil((bloqueio - Date.now()) / 60000);
+      setToast(`Sino bloqueado por uso excessivo — libera em ${min} min`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    setSinoPara(membro);
+  };
+
+  /* Envia o sino para o dono de outro cartão.
+     Anti-spam: 5 toques do mesmo usuário em menos de 30 segundos
+     bloqueiam o sino por 10 minutos */
+  const tocarSino = (membro, frase) => {
+    setSinoPara(null);
+    const agora = Date.now();
+    const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
+    if (bloqueio > agora) {
+      const min = Math.ceil((bloqueio - agora) / 60000);
+      setToast(`Sino bloqueado por uso excessivo — libera em ${min} min`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    let toques = [];
+    try {
+      toques = JSON.parse(localStorage.getItem(SINOS_KEY) || "[]");
+    } catch {}
+    toques = toques.filter((t) => agora - t < 30000);
+    toques.push(agora);
+    if (toques.length >= 5) {
+      localStorage.setItem(BLOQUEIO_KEY, String(agora + 10 * 60 * 1000));
+      localStorage.setItem(SINOS_KEY, "[]");
+    } else {
+      localStorage.setItem(SINOS_KEY, JSON.stringify(toques));
+    }
+    const meuCartao = dados.members.find((m) => m.ownerId === meuDispositivo);
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    // Mantém só os sinos das últimas 2 horas para o arquivo não crescer
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    novo.nudges.push({
+      id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+      to: membro.id,
+      at: agora,
+      fromName: meuCartao ? meuCartao.name : null,
+      frase,
+    });
+    persistir(novo);
+    setToast(`Sino enviado para ${membro.name} 🔔`);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const adicionar = () => {
+    const nome = form.name.trim();
+    const garrafa = Number(form.bottleMl);
+    const meta = Number(form.goalMl);
+    if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    const novo = structuredClone(dados);
+    novo.members.push({
+      id: `m-${Date.now()}`,
+      name: nome,
+      bottleMl: garrafa,
+      goalMl: meta,
+      ownerId: meuDispositivo,
+    });
+    persistir(novo);
+    setForm({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+    setMostrarForm(false);
+  };
+
+  return (
+    <div className="app">
+      <header className="cabecalho">
+        <div>
+          <p className="data-dia">{dataLonga()}</p>
+          <h1 className="titulo">Hidratação do time</h1>
+        </div>
+        <div className="resumo">
+          <p className="resumo-num">{fmt(totalHoje)}</p>
+          <p className="resumo-label">
+            {metaTotal > 0 ? `de ${fmt(metaTotal)} do time hoje` : "registrado hoje"}
+          </p>
+        </div>
+      </header>
+
+      {alertas.length > 0 && (
+        <div className="pilha-alertas">
+          {alertas.map((a) => (
+            <div key={a.id} className="banner-alerta">
+              <span className="banner-texto">
+                🔔 <strong>{a.nome}:</strong> {a.frase}
+              </span>
+              <span className="banner-hora">{a.hora}</span>
+              <button
+                className="fechar-alerta"
+                aria-label="Fechar aviso"
+                title="Fechar aviso"
+                onClick={() => fecharAlerta(a.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+
+      {sinoPara && (
+        <div className="modal-fundo" onClick={() => setSinoPara(null)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🔔 Tocar o sino para {sinoPara.name}</h2>
+            <p className="sub">Escolha a mensagem:</p>
+            <div className="lista-frases">
+              {FRASES.map((f) => (
+                <button key={f} className="frase" onClick={() => tocarSino(sinoPara, f)}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {erroSalvar && (
+        <p className="aviso">
+          Não foi possível salvar o último registro. Ele continua na tela — tente
+          clicar de novo.
+        </p>
+      )}
+
+      {dados.members.length === 0 && !mostrarForm && (
+        <div className="vazio">
+          <Garrafa pct={0.35} tamanho={64} />
+          <p>Nenhuma garrafa ainda. Adicione a primeira para começar a registrar.</p>
+        </div>
+      )}
+
+      <div className="grade">
+        {dados.members.map((m) => {
+          const c = registrosHoje[m.id] || 0;
+          const extraMl = extrasHoje[m.id] || 0;
+          const donoDoCartao = !m.ownerId || m.ownerId === meuDispositivo;
+          const bateuMeta = c * m.bottleMl + extraMl >= m.goalMl;
+          return (
+            <CartaoMembro
+              key={m.id}
+              membro={m}
+              count={c}
+              extraMl={extraMl}
+              dono={donoDoCartao}
+              mostrarSino={tenhoCartao && !donoDoCartao && !bateuMeta}
+              alertando={alertas.some((a) => a.memberId === m.id)}
+              selos={CONQUISTAS.filter(
+                (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
+              )}
+              podeEditar={m.ownerId === meuDispositivo}
+              onEditar={abrirEdicao}
+              onConquistas={setConquistasDe}
+              onSino={abrirSino}
+              onExtra={abrirExtra}
+              onBeber={beber}
+              onDesfazer={desfazer}
+              onRemover={remover}
+            />
+          );
+        })}
+
+        {mostrarForm ? (
+          <div className="cartao form">
+            <h2 className="nome">Nova garrafa</h2>
+            <label className="campo">
+              Nome
+              <input
+                type="text"
+                value={form.name}
+                autoFocus
+                placeholder="Ex.: Ana"
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && adicionar()}
+              />
+            </label>
+            <label className="campo">
+              Tamanho da garrafa (ml)
+              <input
+                type="number"
+                min="1"
+                value={form.bottleMl}
+                onChange={(e) => setForm({ ...form, bottleMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[300, 500, 750, 1000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(form.bottleMl) === v ? "ativo" : ""}`}
+                  onClick={() => setForm({ ...form, bottleMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Meta diária (ml)
+              <input
+                type="number"
+                min="1"
+                value={form.goalMl}
+                onChange={(e) => setForm({ ...form, goalMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[1500, 2000, 2500, 3000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(form.goalMl) === v ? "ativo" : ""}`}
+                  onClick={() => setForm({ ...form, goalMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Ou calcule a meta pelo peso corporal (kg)
+              <div className="calculo-linha">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Ex.: 70"
+                  value={form.peso}
+                  onChange={(e) => setForm({ ...form, peso: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && calcularMeta()}
+                />
+                <button className="calcular" onClick={calcularMeta}>
+                  Calcular
+                </button>
+              </div>
+            </label>
+            <p className="dica">
+              Referência geral: 35 ml por kg. O resultado preenche a meta diária
+              acima — ajuste como quiser.
+            </p>
+            <div className="cartao-acoes">
+              <button className="beber" onClick={adicionar}>
+                Adicionar garrafa
+              </button>
+              <button className="desfazer" onClick={() => setMostrarForm(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="cartao adicionar" onClick={() => setMostrarForm(true)}>
+            <span className="mais">+</span>
+            <span>Adicionar garrafa</span>
+          </button>
+        )}
+      </div>
+
+      {extraPara && (
+        <div className="modal-fundo" onClick={() => setExtraPara(null)}>
+          <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Adicionar outra medida</h2>
+            <p className="sub">
+              Soma ao dia de {extraPara.name} sem alterar a garrafa de{" "}
+              {fmt(extraPara.bottleMl)}.
+            </p>
+            <label className="campo">
+              Quantidade (ml)
+              <input
+                type="number"
+                min="1"
+                autoFocus
+                placeholder="Ex.: 200"
+                value={valorExtra}
+                onChange={(e) => setValorExtra(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && adicionarExtra()}
+              />
+            </label>
+            <div className="presets">
+              {[100, 200, 300, 500].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(valorExtra) === v ? "ativo" : ""}`}
+                  onClick={() => setValorExtra(v)}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            {((dados.extras && dados.extras[dia] && dados.extras[dia][extraPara.id]) || 0) > 0 && (
+              <button className="zerar-extra" onClick={zerarExtra}>
+                Zerar os {fmt(dados.extras[dia][extraPara.id])} avulsos de hoje
+              </button>
+            )}
+            <div className="cartao-acoes">
+              <button className="beber" onClick={adicionarExtra}>
+                Adicionar
+              </button>
+              <button className="desfazer" onClick={() => setExtraPara(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editando && (
+        <div className="modal-fundo" onClick={() => setEditando(null)}>
+          <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Editar meu cartão</h2>
+            <p className="sub">
+              Mudar a medida vale só para as próximas garrafas — o que você já
+              bebeu mantém o valor original.
+            </p>
+            <label className="campo">
+              Nome
+              <input
+                type="text"
+                value={formEd.name}
+                autoFocus
+                onChange={(e) => setFormEd({ ...formEd, name: e.target.value })}
+              />
+            </label>
+            <label className="campo">
+              Tamanho da garrafa (ml)
+              <input
+                type="number"
+                min="1"
+                value={formEd.bottleMl}
+                onChange={(e) => setFormEd({ ...formEd, bottleMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[300, 500, 750, 1000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(formEd.bottleMl) === v ? "ativo" : ""}`}
+                  onClick={() => setFormEd({ ...formEd, bottleMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Meta diária (ml)
+              <input
+                type="number"
+                min="1"
+                value={formEd.goalMl}
+                onChange={(e) => setFormEd({ ...formEd, goalMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[1500, 2000, 2500, 3000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(formEd.goalMl) === v ? "ativo" : ""}`}
+                  onClick={() => setFormEd({ ...formEd, goalMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Ou calcule a meta pelo peso corporal (kg)
+              <div className="calculo-linha">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Ex.: 70"
+                  value={formEd.peso}
+                  onChange={(e) => setFormEd({ ...formEd, peso: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && calcularMetaEd()}
+                />
+                <button className="calcular" onClick={calcularMetaEd}>
+                  Calcular
+                </button>
+              </div>
+            </label>
+            <div className="cartao-acoes">
+              <button className="beber" onClick={salvarEdicao}>
+                Salvar
+              </button>
+              <button className="desfazer" onClick={() => setEditando(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {conquistasDe && (
+        <div className="modal-fundo" onClick={() => setConquistasDe(null)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Conquistas de {conquistasDe.name}</h2>
+            <p className="sub">
+              {fmt((conquistas[conquistasDe.id] || {}).totalMl || 0)} acumulados
+              · {(conquistas[conquistasDe.id] || {}).diasMeta || 0} dia
+              {((conquistas[conquistasDe.id] || {}).diasMeta || 0) !== 1 ? "s" : ""}{" "}
+              de meta batida
+            </p>
+            <div className="lista-conquistas">
+              {CONQUISTAS.map((c) => {
+                const ok =
+                  conquistas[conquistasDe.id] &&
+                  conquistas[conquistasDe.id].conjunto.has(c.id);
+                return (
+                  <div key={c.id} className={`conquista ${ok ? "ok" : "bloqueada"}`}>
+                    <span className={`circulo-conquista modal-circulo ${ok ? "" : "trancada"}`}>
+                      {ok ? (
+                        <IconeConquista conquista={c} tamanho={13} />
+                      ) : (
+                        <IconeCadeado />
+                      )}
+                    </span>
+                    <span className="conquista-texto">
+                      <strong>{c.nome}</strong>
+                      <span>{c.desc}</span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              className="desfazer fechar-modal"
+              onClick={() => setConquistasDe(null)}
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <HistoricoSemanal
+        members={dados.members}
+        intake={dados.intake}
+        extras={dados.extras || {}}
+      />
+
+      <footer className="rodape">
+        Os registros são salvos automaticamente e compartilhados entre todos os
+        dispositivos. Os contadores reiniciam a cada dia — o histórico fica
+        guardado.
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<AguaTracker />);
+</script>
+</body>
+</html>
