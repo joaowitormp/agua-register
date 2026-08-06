@@ -41,6 +41,20 @@ body { margin: 0; }
 .resumo-num { margin: 0; font-size: 26px; font-weight: 800; color: #0F8BB0; }
 .resumo-label { margin: 0; font-size: 12px; color: #4B7A8E; }
 
+.dica-agua {
+  max-width: 1240px; margin: 0 auto 20px; padding: 12px 16px;
+  background: #FFFFFF; border: 1px solid #C9E7F2; border-left: 4px solid #0F8BB0;
+  border-radius: 12px; font-size: 13.5px; color: #0B3446;
+  display: flex; gap: 10px; align-items: center; box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.08);
+  animation: surgir-dica 0.6s ease both;
+}
+.dica-icone { font-size: 17px; line-height: 1; }
+@keyframes surgir-dica {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .aviso {
   max-width: 1240px; margin: 0 auto 16px; padding: 10px 14px;
   background: #FFF3E8; border: 1px solid #E8B98A; border-radius: 10px;
@@ -309,7 +323,7 @@ body { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .barra-fill, .garrafa-btn, .sino { transition: none; }
-  .cartao.alertando, .banner-alerta { animation: none; }
+  .cartao.alertando, .banner-alerta, .dica-agua { animation: none; }
 }
 </style>
 </head>
@@ -369,6 +383,56 @@ const FRASES = [
   "Sua gota na tabela está passando vergonha.",
   "A meta não se bate sozinha, hein?",
   "Toc, toc: é a sua meta cobrando.",
+];
+
+/* Benefícios do consumo de água — exibidos um por vez, em ordem
+   aleatória e sem repetição até o ciclo dos 45 se completar */
+const BENEFICIOS = [
+  "Beber água melhora a concentração — até 2% de desidratação já reduz o foco.",
+  "Hidratação adequada ajuda a memória de curto prazo.",
+  "Dor de cabeça no fim da tarde? Falta de água é uma das causas mais comuns.",
+  "O cérebro é cerca de 75% água — ele sente primeiro quando falta.",
+  "Beber água regularmente ajuda a manter o nível de energia sem cafeína.",
+  "Desidratação leve piora o humor e aumenta a sensação de cansaço.",
+  "Água regula a temperatura do corpo — essencial em dias quentes.",
+  "Músculos bem hidratados rendem mais e têm menos cãibras.",
+  "Beber água ajuda as articulações a se manterem lubrificadas.",
+  "A hidratação ajuda o coração a bombear sangue com menos esforço.",
+  "Água transporta nutrientes e oxigênio para todas as células.",
+  "Beber água ao acordar ajuda a \"ligar\" o metabolismo.",
+  "Água é a melhor aliada da digestão — ajuda o intestino a funcionar no ritmo.",
+  "Beber água ajuda os rins a filtrar e eliminar toxinas.",
+  "Hidratar-se bem ajuda a prevenir pedras nos rins.",
+  "Água ajuda a controlar o apetite — sede às vezes se disfarça de fome.",
+  "Beber água antes das refeições ajuda a comer com mais consciência.",
+  "Pele hidratada começa por dentro: água ajuda na elasticidade.",
+  "A hidratação ajuda a manter os olhos e a boca confortáveis o dia todo.",
+  "Beber água ajuda o corpo a se recuperar mais rápido de gripes e resfriados.",
+  "O corpo humano é cerca de 60% água — você é praticamente uma garrafa ambulante.",
+  "Perdemos até 2,5 L de água por dia só existindo: respiração, suor e afins.",
+  "A sede já é sinal de desidratação — o ideal é beber antes dela chegar.",
+  "Água gelada ou natural? Tanto faz: a melhor água é a que você bebe.",
+  "Nenhum outro líquido substitui a água: café e refrigerante hidratam menos.",
+  "Olhos secos de tanta tela? Hidratação ajuda na produção de lágrimas.",
+  "Ar-condicionado rouba água do corpo sem você suar — hidrate-se dobrado.",
+  "Vai falar em reunião? Cordas vocais hidratadas garantem a voz firme.",
+  "Água ajuda a manter o hálito fresco — boca seca é festa para bactérias.",
+  "A saliva que protege seus dentes é feita quase toda de água.",
+  "O sangue é mais de 90% água — hidratar é literalmente manter o fluxo.",
+  "Os discos da coluna são amortecedores cheios de água: beber ajuda a preservá-los.",
+  "Hidratação adequada contribui para uma circulação melhor nas pernas.",
+  "Beber água ao longo do dia ajuda a manter a pressão arterial estável.",
+  "Beber um copo de água ativa levemente o gasto calórico — pequeno, mas de graça.",
+  "Depois do treino, a água é o primeiro \"suplemento\" da recuperação.",
+  "Em exercícios longos, cada quilo suado pede cerca de 1,5 L de reposição.",
+  "Vai voar? O ar da cabine é mais seco que deserto — embarque hidratado.",
+  "Álcool desidrata: um copo de água entre as doses faz o dia seguinte agradecer.",
+  "No frio a sede engana, mas o corpo perde água do mesmo jeito.",
+  "Dormir melhor também passa por hidratação equilibrada durante o dia.",
+  "Frutas contam: melancia e pepino são mais de 90% água.",
+  "Goles frequentes hidratam melhor que um litro de uma vez só.",
+  "A cor da urina é seu medidor gratuito: quanto mais clara, melhor.",
+  "Sem água, o corpo aguenta poucos dias; sem comida, semanas — prioridade clara.",
 ];
 
 /* --- Conquistas: definição (ícones em SVG) e cálculo retroativo --- */
@@ -1011,6 +1075,7 @@ function AguaTracker() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
   const [toast, setToast] = useState(null);
+  const [dica, setDica] = useState(null); // benefício da hidratação exibido nesta abertura
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null); // membro-alvo enquanto o remetente escolhe a frase
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
@@ -1175,6 +1240,48 @@ function AguaTracker() {
       tocarSom();
     }
   }, [dados]);
+
+  /* Benefício da hidratação: aparece na abertura da página, sorteado de
+     um "baralho" local sem repetição até os 45 saírem (aí o ciclo
+     recomeça embaralhado). Intervalo mínimo de 30 min entre aparições,
+     contado a partir da última saída/fechamento da página */
+  useEffect(() => {
+    const SAIDA_KEY = "agua-dica-saida";
+    const RESTANTES_KEY = "agua-dicas-restantes";
+    const agora = Date.now();
+    const saida = Number(localStorage.getItem(SAIDA_KEY) || 0);
+    const primeiraVez = !localStorage.getItem(RESTANTES_KEY) && !saida;
+    const liberado =
+      primeiraVez || (saida > 0 && agora - saida >= 30 * 60 * 1000);
+    if (liberado) {
+      let restantes = [];
+      try {
+        restantes = JSON.parse(localStorage.getItem(RESTANTES_KEY) || "[]");
+      } catch {}
+      restantes = (Array.isArray(restantes) ? restantes : []).filter(
+        (i) => Number.isInteger(i) && i >= 0 && i < BENEFICIOS.length
+      );
+      if (restantes.length === 0) {
+        restantes = BENEFICIOS.map((_, i) => i);
+      }
+      const posicao = Math.floor(Math.random() * restantes.length);
+      const indice = restantes.splice(posicao, 1)[0];
+      localStorage.setItem(RESTANTES_KEY, JSON.stringify(restantes));
+      setDica(BENEFICIOS[indice]);
+    }
+    /* Saída ou aba oculta: marca o início do contador de 30 min */
+    const marcarSaida = () =>
+      localStorage.setItem(SAIDA_KEY, String(Date.now()));
+    const aoOcultar = () => {
+      if (document.hidden) marcarSaida();
+    };
+    window.addEventListener("pagehide", marcarSaida);
+    document.addEventListener("visibilitychange", aoOcultar);
+    return () => {
+      window.removeEventListener("pagehide", marcarSaida);
+      document.removeEventListener("visibilitychange", aoOcultar);
+    };
+  }, []);
 
   const persistir = useCallback(async (novo) => {
     setDados(novo);
@@ -1476,6 +1583,13 @@ function AguaTracker() {
           </p>
         </div>
       </header>
+
+      {dica && (
+        <div className="dica-agua">
+          <span className="dica-icone" aria-hidden="true">💡</span>
+          <span>{dica}</span>
+        </div>
+      )}
 
       {alertas.length > 0 && (
         <div className="pilha-alertas">
