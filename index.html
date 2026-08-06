@@ -383,6 +383,20 @@ const FRASES = [
   "Sua gota na tabela está passando vergonha.",
   "A meta não se bate sozinha, hein?",
   "Toc, toc: é a sua meta cobrando.",
+  "Passando só para lembrar que água existe.",
+  "Sua garrafa mandou um oi.",
+  "Um golinho agora cai bem.",
+  "Hora de esticar o braço até a garrafa.",
+  "A água tá com saudade de você.",
+  "O corpo pede socorro e você finge que não ouve.",
+  "Sua garrafa virou enfeite de mesa?",
+  "Hidratação em modo avião: sem sinal desde cedo.",
+  "Bebeu café o dia todo e água nenhuma, né?",
+  "ALERTA GERAL: detectado um cacto disfarçado de colega.",
+  "O deserto do Atacama ligou pedindo dicas suas.",
+  "Seus rins estão redigindo a carta de demissão.",
+  "Isso não é um pedido: BEBA. ÁGUA. AGORA.",
+  "Última chamada antes de virar uva-passa.",
 ];
 
 /* Benefícios do consumo de água — exibidos um por vez, em ordem
@@ -1241,66 +1255,72 @@ function AguaTracker() {
     }
   }, [dados]);
 
-  /* Benefício da hidratação: aparece na abertura da página, sorteado de
-     um "baralho" local sem repetição até os 45 saírem (aí o ciclo
-     recomeça embaralhado). Intervalo mínimo de 30 min entre aparições,
-     contado a partir da última saída/fechamento da página */
+  /* Benefício da hidratação: sorteado de um "baralho" local sem repetição
+     até os 45 saírem (aí o ciclo recomeça embaralhado). Intervalo mínimo
+     de 30 min, contado da PRIMEIRA saída após cada dica. A avaliação
+     roda na abertura da página E sempre que a aba volta a ficar visível
+     (Page Visibility API) — voltou depois dos 30 min, troca na hora */
   useEffect(() => {
     const SAIDA_KEY = "agua-dica-saida";
     const RESTANTES_KEY = "agua-dicas-restantes";
     const ATUAL_KEY = "agua-dica-atual";
-    const agora = Date.now();
-    const saida = Number(localStorage.getItem(SAIDA_KEY) || 0);
-    const primeiraVez = !localStorage.getItem(RESTANTES_KEY) && !saida;
-    const liberado =
-      primeiraVez || (saida > 0 && agora - saida >= 30 * 60 * 1000);
-    if (liberado) {
-      let restantes = [];
-      try {
-        restantes = JSON.parse(localStorage.getItem(RESTANTES_KEY) || "[]");
-      } catch {}
-      restantes = (Array.isArray(restantes) ? restantes : []).filter(
-        (i) => Number.isInteger(i) && i >= 0 && i < BENEFICIOS.length
-      );
-      if (restantes.length === 0) {
-        restantes = BENEFICIOS.map((_, i) => i);
+
+    const avaliar = () => {
+      const agora = Date.now();
+      const saida = Number(localStorage.getItem(SAIDA_KEY) || 0);
+      const primeiraVez = !localStorage.getItem(RESTANTES_KEY) && !saida;
+      const liberado =
+        primeiraVez || (saida > 0 && agora - saida >= 30 * 60 * 1000);
+      if (liberado) {
+        let restantes = [];
+        try {
+          restantes = JSON.parse(localStorage.getItem(RESTANTES_KEY) || "[]");
+        } catch {}
+        restantes = (Array.isArray(restantes) ? restantes : []).filter(
+          (i) => Number.isInteger(i) && i >= 0 && i < BENEFICIOS.length
+        );
+        if (restantes.length === 0) {
+          restantes = BENEFICIOS.map((_, i) => i);
+        }
+        const posicao = Math.floor(Math.random() * restantes.length);
+        const indice = restantes.splice(posicao, 1)[0];
+        localStorage.setItem(RESTANTES_KEY, JSON.stringify(restantes));
+        localStorage.setItem(ATUAL_KEY, String(indice));
+        /* Dica nova = ciclo novo: o relógio zera e só volta a ser
+           carimbado na primeira saída deste ciclo */
+        localStorage.removeItem(SAIDA_KEY);
+        setDica(BENEFICIOS[indice]);
+      } else {
+        /* Dentro da janela dos 30 min: mantém a mesma dica na tela */
+        const indiceAtual = Number(localStorage.getItem(ATUAL_KEY));
+        if (
+          Number.isInteger(indiceAtual) &&
+          indiceAtual >= 0 &&
+          indiceAtual < BENEFICIOS.length
+        ) {
+          setDica(BENEFICIOS[indiceAtual]);
+        }
       }
-      const posicao = Math.floor(Math.random() * restantes.length);
-      const indice = restantes.splice(posicao, 1)[0];
-      localStorage.setItem(RESTANTES_KEY, JSON.stringify(restantes));
-      localStorage.setItem(ATUAL_KEY, String(indice));
-      /* Dica nova = ciclo novo: o relógio zera e só volta a ser
-         carimbado na primeira saída deste ciclo */
-      localStorage.removeItem(SAIDA_KEY);
-      setDica(BENEFICIOS[indice]);
-    } else {
-      /* Dentro da janela dos 30 min: recarregar a página mantém
-         a mesma dica na tela em vez de escondê-la */
-      const indiceAtual = Number(localStorage.getItem(ATUAL_KEY));
-      if (
-        Number.isInteger(indiceAtual) &&
-        indiceAtual >= 0 &&
-        indiceAtual < BENEFICIOS.length
-      ) {
-        setDica(BENEFICIOS[indiceAtual]);
-      }
-    }
+    };
+
+    avaliar(); /* abertura da página */
+
     /* Primeira saída do ciclo: carimba o início do contador de 30 min.
-       Saídas e recargas seguintes NÃO sobrescrevem o carimbo — o
-       relógio nunca zera; ele só é limpo quando uma dica nova sai */
+       Saídas e recargas seguintes NÃO sobrescrevem o carimbo */
     const marcarSaida = () => {
       if (!localStorage.getItem(SAIDA_KEY)) {
         localStorage.setItem(SAIDA_KEY, String(Date.now()));
       }
     };
-    const aoOcultar = () => {
+    const aoMudarVisibilidade = () => {
       if (document.hidden) marcarSaida();
+      else avaliar(); /* "reabertura" da aba sem recarregar */
     };
     window.addEventListener("pagehide", marcarSaida);
-    document.addEventListener("visibilitychange", aoOcultar);
+    document.addEventListener("visibilitychange", aoMudarVisibilidade);
     return () => {
       window.removeEventListener("pagehide", marcarSaida);
-      document.removeEventListener("visibilitychange", aoOcultar);
+      document.removeEventListener("visibilitychange", aoMudarVisibilidade);
     };
   }, []);
 
@@ -1606,7 +1626,7 @@ function AguaTracker() {
       </header>
 
       {dica && (
-        <div className="dica-agua">
+        <div className="dica-agua" key={dica}>
           <span className="dica-icone" aria-hidden="true">💡</span>
           <span>{dica}</span>
         </div>
