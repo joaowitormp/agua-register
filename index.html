@@ -366,8 +366,7 @@ const meuDispositivo = (() => {
 const KEY = "agua-tracker-v1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
-const SINOS_KEY = "agua-sinos-enviados";
-const BLOQUEIO_KEY = "agua-sino-bloqueio";
+const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
 const VISTO_KEY = "agua-sinos-vistos";
 const TITULO = "Hidratação do time";
 
@@ -1532,7 +1531,23 @@ function AguaTracker() {
     setEditando(null);
   };
 
-  /* Abre o seletor de frases — exige cartão próprio e sino desbloqueado */
+  /* Toques enviados PARA um membro específico nos últimos 10 minutos */
+  const toquesRecentes = (membroId) => {
+    let lista = [];
+    try {
+      lista = JSON.parse(
+        localStorage.getItem(SINOS_POR_MEMBRO + membroId) || "[]"
+      );
+    } catch {}
+    const agora = Date.now();
+    return (Array.isArray(lista) ? lista : []).filter(
+      (t) => agora - t < 10 * 60 * 1000
+    );
+  };
+
+  /* Abre o seletor de frases — exige cartão próprio e respeita o limite
+     de 2 sinos por membro-alvo a cada 10 min (janela deslizante).
+     Membros diferentes têm contadores independentes, sem limite global */
   const abrirSino = (membro) => {
     const meuCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
     if (!meuCartao) {
@@ -1540,10 +1555,12 @@ function AguaTracker() {
       setTimeout(() => setToast(null), 4000);
       return;
     }
-    const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
-    if (bloqueio > Date.now()) {
-      const min = Math.ceil((bloqueio - Date.now()) / 60000);
-      setToast(`Sino bloqueado por uso excessivo — libera em ${min} min`);
+    const toques = toquesRecentes(membro.id);
+    if (toques.length >= 2) {
+      const min = Math.ceil((toques[0] + 10 * 60 * 1000 - Date.now()) / 60000);
+      setToast(
+        `Você já tocou 2 sinos para ${membro.name} — libera em ${min} min`
+      );
       setTimeout(() => setToast(null), 4000);
       return;
     }
@@ -1551,30 +1568,24 @@ function AguaTracker() {
   };
 
   /* Envia o sino para o dono de outro cartão.
-     Anti-spam: 5 toques do mesmo usuário em menos de 30 segundos
-     bloqueiam o sino por 10 minutos */
+     Anti-spam: no máximo 2 sinos para o MESMO membro a cada 10 minutos */
   const tocarSino = (membro, frase) => {
     setSinoPara(null);
     const agora = Date.now();
-    const bloqueio = Number(localStorage.getItem(BLOQUEIO_KEY) || 0);
-    if (bloqueio > agora) {
-      const min = Math.ceil((bloqueio - agora) / 60000);
-      setToast(`Sino bloqueado por uso excessivo — libera em ${min} min`);
+    const toques = toquesRecentes(membro.id);
+    if (toques.length >= 2) {
+      const min = Math.ceil((toques[0] + 10 * 60 * 1000 - agora) / 60000);
+      setToast(
+        `Você já tocou 2 sinos para ${membro.name} — libera em ${min} min`
+      );
       setTimeout(() => setToast(null), 4000);
       return;
     }
-    let toques = [];
-    try {
-      toques = JSON.parse(localStorage.getItem(SINOS_KEY) || "[]");
-    } catch {}
-    toques = toques.filter((t) => agora - t < 30000);
     toques.push(agora);
-    if (toques.length >= 5) {
-      localStorage.setItem(BLOQUEIO_KEY, String(agora + 10 * 60 * 1000));
-      localStorage.setItem(SINOS_KEY, "[]");
-    } else {
-      localStorage.setItem(SINOS_KEY, JSON.stringify(toques));
-    }
+    localStorage.setItem(
+      SINOS_POR_MEMBRO + membro.id,
+      JSON.stringify(toques)
+    );
     const meuCartao = dados.members.find((m) => m.ownerId === meuDispositivo);
     const novo = structuredClone(dados);
     if (!Array.isArray(novo.nudges)) novo.nudges = [];
