@@ -1248,6 +1248,7 @@ function AguaTracker() {
   useEffect(() => {
     const SAIDA_KEY = "agua-dica-saida";
     const RESTANTES_KEY = "agua-dicas-restantes";
+    const ATUAL_KEY = "agua-dica-atual";
     const agora = Date.now();
     const saida = Number(localStorage.getItem(SAIDA_KEY) || 0);
     const primeiraVez = !localStorage.getItem(RESTANTES_KEY) && !saida;
@@ -1267,7 +1268,19 @@ function AguaTracker() {
       const posicao = Math.floor(Math.random() * restantes.length);
       const indice = restantes.splice(posicao, 1)[0];
       localStorage.setItem(RESTANTES_KEY, JSON.stringify(restantes));
+      localStorage.setItem(ATUAL_KEY, String(indice));
       setDica(BENEFICIOS[indice]);
+    } else {
+      /* Dentro da janela dos 30 min: recarregar a página mantém
+         a mesma dica na tela em vez de escondê-la */
+      const indiceAtual = Number(localStorage.getItem(ATUAL_KEY));
+      if (
+        Number.isInteger(indiceAtual) &&
+        indiceAtual >= 0 &&
+        indiceAtual < BENEFICIOS.length
+      ) {
+        setDica(BENEFICIOS[indiceAtual]);
+      }
     }
     /* Saída ou aba oculta: marca o início do contador de 30 min */
     const marcarSaida = () =>
