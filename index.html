@@ -1269,6 +1269,9 @@ function AguaTracker() {
       const indice = restantes.splice(posicao, 1)[0];
       localStorage.setItem(RESTANTES_KEY, JSON.stringify(restantes));
       localStorage.setItem(ATUAL_KEY, String(indice));
+      /* Dica nova = ciclo novo: o relógio zera e só volta a ser
+         carimbado na primeira saída deste ciclo */
+      localStorage.removeItem(SAIDA_KEY);
       setDica(BENEFICIOS[indice]);
     } else {
       /* Dentro da janela dos 30 min: recarregar a página mantém
@@ -1282,9 +1285,14 @@ function AguaTracker() {
         setDica(BENEFICIOS[indiceAtual]);
       }
     }
-    /* Saída ou aba oculta: marca o início do contador de 30 min */
-    const marcarSaida = () =>
-      localStorage.setItem(SAIDA_KEY, String(Date.now()));
+    /* Primeira saída do ciclo: carimba o início do contador de 30 min.
+       Saídas e recargas seguintes NÃO sobrescrevem o carimbo — o
+       relógio nunca zera; ele só é limpo quando uma dica nova sai */
+    const marcarSaida = () => {
+      if (!localStorage.getItem(SAIDA_KEY)) {
+        localStorage.setItem(SAIDA_KEY, String(Date.now()));
+      }
+    };
     const aoOcultar = () => {
       if (document.hidden) marcarSaida();
     };
