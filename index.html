@@ -273,6 +273,17 @@ body { margin: 0; }
 }
 .frase:hover { background: #EAF6FA; border-color: #0F8BB0; }
 .fechar-modal { width: 100%; margin-top: 12px; }
+.aviso-agua-topo { display: flex; align-items: center; gap: 10px; }
+.aviso-agua-icone { font-size: 24px; line-height: 1; }
+.aviso-agua-texto { margin: 10px 0 0; font-size: 13.5px; line-height: 1.6; color: #0B3446; }
+.aviso-agua-texto.secundario { color: #4B7A8E; }
+.caixa-atencao {
+  margin-top: 12px; padding: 10px 12px; background: #FFF3E8;
+  border: 1px solid #E8B98A; border-radius: 10px; font-size: 12.5px;
+  color: #7A4B12; line-height: 1.5;
+}
+.aviso-agua-botao { width: 100%; margin-top: 14px; }
+.aviso-agua-nota { margin: 8px 0 0; font-size: 11px; text-align: center; color: #9FBFCC; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -1174,6 +1185,7 @@ function AguaTracker() {
   const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "" });
   const [toast, setToast] = useState(null);
   const [dica, setDica] = useState(null); // benefício da hidratação exibido nesta abertura
+  const [avisoAgua, setAvisoAgua] = useState(false); // aviso de segurança (>1 L na janela de 1 h)
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null); // membro-alvo enquanto o remetente escolhe a frase
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
@@ -1471,12 +1483,55 @@ function AguaTracker() {
     novo.eventos[dia][id].push(evento);
   };
 
+  /* Segurança (hiponatremia): a janela de 60 min começa a contar no
+     PRIMEIRO registro; quando expira, o próximo registro abre uma janela
+     nova. Passou de 1 L dentro da janela → aviso (no máx. 1 a cada 30 min) */
+  const verificarSeguranca = (membroId, ml) => {
+    try {
+      const chave = `agua-seg-${membroId}`;
+      const agora = Date.now();
+      let ctl = { inicio: 0, ml: 0 };
+      try {
+        ctl = { ...ctl, ...JSON.parse(localStorage.getItem(chave) || "{}") };
+      } catch {}
+      if (!ctl.inicio || agora - ctl.inicio >= 60 * 60 * 1000) {
+        ctl = { inicio: agora, ml: 0 };
+      }
+      ctl.ml += ml;
+      localStorage.setItem(chave, JSON.stringify(ctl));
+      if (ctl.ml > 1000) {
+        const ultimoAviso = Number(localStorage.getItem("agua-seg-aviso") || 0);
+        if (agora - ultimoAviso >= 30 * 60 * 1000) {
+          localStorage.setItem("agua-seg-aviso", String(agora));
+          setAvisoAgua(true);
+        }
+      }
+    } catch {}
+  };
+
+  /* Desfazer remove o volume também da janela de segurança */
+  const descontarSeguranca = (membroId, ml) => {
+    try {
+      const chave = `agua-seg-${membroId}`;
+      let ctl = null;
+      try {
+        ctl = JSON.parse(localStorage.getItem(chave) || "null");
+      } catch {}
+      if (ctl && ctl.inicio && Date.now() - ctl.inicio < 60 * 60 * 1000) {
+        ctl.ml = Math.max(0, (ctl.ml || 0) - ml);
+        localStorage.setItem(chave, JSON.stringify(ctl));
+      }
+    } catch {}
+  };
+
   const beber = (id) => {
     const novo = structuredClone(dados);
     if (!novo.intake[dia]) novo.intake[dia] = {};
     novo.intake[dia][id] = (novo.intake[dia][id] || 0) + 1;
     registrarEvento(novo, id, { t: "g" });
     persistir(novo);
+    const membro = dados.members.find((m) => m.id === id);
+    if (membro) verificarSeguranca(id, membro.bottleMl);
   };
 
   /* Desfaz sempre o último registro, seja garrafa ou medida avulsa */
@@ -1490,6 +1545,8 @@ function AguaTracker() {
         if (novo.intake[dia] && novo.intake[dia][id] > 0) {
           novo.intake[dia][id] -= 1;
         }
+        const membro = dados.members.find((m) => m.id === id);
+        if (membro) descontarSeguranca(id, membro.bottleMl);
       } else {
         const atual =
           (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
@@ -1498,6 +1555,7 @@ function AguaTracker() {
           if (restante > 0) novo.extras[dia][id] = restante;
           else delete novo.extras[dia][id];
         }
+        descontarSeguranca(id, ultimo.ml || 0);
       }
       persistir(novo);
       return;
@@ -1543,6 +1601,7 @@ function AguaTracker() {
     novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
     registrarEvento(novo, extraPara.id, { t: "e", ml });
     persistir(novo);
+    verificarSeguranca(extraPara.id, ml);
     setToast(`+${fmt(ml)} registrados para ${extraPara.name} 💧`);
     setTimeout(() => setToast(null), 4000);
     setExtraPara(null);
@@ -2211,6 +2270,40 @@ function AguaTracker() {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {avisoAgua && (
+        <div className="modal-fundo">
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <div className="aviso-agua-topo">
+              <span className="aviso-agua-icone" aria-hidden="true">⚠️</span>
+              <h2 className="nome">Calma no ritmo 💧</h2>
+            </div>
+            <p className="aviso-agua-texto">
+              Você registrou mais de <strong>1 litro na última hora</strong>.
+              Beber um volume grande de água em pouco tempo pode diluir o sódio
+              do sangue — um quadro chamado <strong>hiponatremia</strong>{" "}
+              (intoxicação hídrica), que em casos graves é perigoso.
+            </p>
+            <p className="aviso-agua-texto secundario">
+              Os rins processam cerca de 1 litro por hora. O ideal é espaçar os
+              goles ao longo do dia — a meta não precisa ser batida de uma vez.
+            </p>
+            <div className="caixa-atencao">
+              Sentindo dor de cabeça, náusea, inchaço ou confusão após beber
+              muita água? Procure atendimento médico.
+            </div>
+            <button
+              className="beber aviso-agua-botao"
+              onClick={() => setAvisoAgua(false)}
+            >
+              Entendi, vou espaçar
+            </button>
+            <p className="aviso-agua-nota">
+              Aviso informativo — não substitui orientação médica.
+            </p>
           </div>
         </div>
       )}
