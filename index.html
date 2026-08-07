@@ -831,7 +831,7 @@ function Garrafa({ pct, tamanho = 92 }) {
 }
 
 /* ---------- Cartão de membro ---------- */
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, selos = [], podeEditar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -993,7 +993,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           Adicionar outra medida
         </button>
       )}
-      {!dono && membro.pinHash && (
+      {mostrarReivindicar && (
         <button className="link-extra" onClick={() => onReivindicar(membro)}>
           🔑 Este cartão é meu
         </button>
@@ -1935,6 +1935,7 @@ function AguaTracker() {
                 (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
               )}
               podeEditar={m.ownerId === meuDispositivo || posseExtra.includes(m.id)}
+              mostrarReivindicar={!tenhoCartao && !donoDoCartao && !!m.pinHash}
               onEditar={abrirEdicao}
               onReivindicar={abrirReivindicacao}
               onConquistas={setConquistasDe}
