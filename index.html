@@ -208,6 +208,14 @@ body { margin: 0; }
   font-family: inherit; font-size: 14px; color: #0B3446;
 }
 .form input:focus { outline: 2px solid #41C9E6; border-color: transparent; }
+.campo-senha { position: relative; display: flex; }
+.campo-senha input { flex: 1; width: 100%; padding-right: 42px; box-sizing: border-box; }
+.olho {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  border: none; background: transparent; color: #9FBFCC; cursor: pointer;
+  padding: 4px 6px; border-radius: 8px; line-height: 1; display: inline-flex;
+}
+.olho:hover { color: #0F8BB0; background: #EAF6FA; }
 .presets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .preset {
   border: 1px solid #C9E4EE; background: #FFFFFF; border-radius: 99px;
@@ -384,7 +392,8 @@ const hashPin = async (pin) => {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 };
-const PIN_VALIDO = /^\d{4,6}$/;
+/* Senha: 4 a 12 caracteres, letras e/ou números (sem espaços) */
+const SENHA_VALIDA = /^\S{4,12}$/;
 
 const KEY = "agua-tracker-v1";
 
@@ -521,6 +530,44 @@ const IconeCadeado = ({ tamanho = 12 }) => (
     <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" />
   </svg>
 );
+
+/* Campo de senha com o olho de mostrar/ocultar à direita */
+function CampoSenha({ value, onChange, placeholder, autoFocus, onEnter }) {
+  const [visivel, setVisivel] = useState(false);
+  return (
+    <span className="campo-senha">
+      <input
+        type={visivel ? "text" : "password"}
+        maxLength={12}
+        placeholder={placeholder}
+        value={value}
+        autoFocus={autoFocus}
+        onChange={onChange}
+        onKeyDown={(e) => onEnter && e.key === "Enter" && onEnter()}
+      />
+      <button
+        type="button"
+        className="olho"
+        onClick={() => setVisivel((v) => !v)}
+        title={visivel ? "Ocultar senha" : "Mostrar senha"}
+        aria-label={visivel ? "Ocultar senha" : "Mostrar senha"}
+      >
+        {visivel ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+            <path d="M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6" />
+            <path d="m3 3 18 18" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+            <path d="M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6" />
+          </svg>
+        )}
+      </button>
+    </span>
+  );
+}
 
 const chaveDe = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -1560,15 +1607,15 @@ function AguaTracker() {
     const pin = String(formEd.pin || "").trim();
     let pinHashNovo = null;
     if (!formEd.removerPin && pin) {
-      if (!PIN_VALIDO.test(pin)) {
-        setToast("O PIN deve ter de 4 a 6 dígitos");
+      if (!SENHA_VALIDA.test(pin)) {
+        setToast("A senha deve ter de 4 a 12 caracteres, sem espaços");
         setTimeout(() => setToast(null), 4000);
         return;
       }
       try {
         pinHashNovo = await hashPin(pin);
       } catch {
-        setToast("Não foi possível gerar o PIN neste navegador");
+        setToast("Não foi possível gerar a senha neste navegador");
         setTimeout(() => setToast(null), 4000);
         return;
       }
@@ -1633,8 +1680,8 @@ function AguaTracker() {
       return;
     }
     const pin = pinTentativa.trim();
-    if (!PIN_VALIDO.test(pin)) {
-      setToast("O PIN tem de 4 a 6 dígitos");
+    if (!SENHA_VALIDA.test(pin)) {
+      setToast("A senha deve ter de 4 a 12 caracteres, sem espaços");
       setTimeout(() => setToast(null), 4000);
       return;
     }
@@ -1642,7 +1689,7 @@ function AguaTracker() {
     try {
       h = await hashPin(pin);
     } catch {
-      setToast("Não foi possível validar o PIN neste navegador");
+      setToast("Não foi possível validar a senha neste navegador");
       setTimeout(() => setToast(null), 4000);
       return;
     }
@@ -1659,9 +1706,9 @@ function AguaTracker() {
       controle.erros = (controle.erros || 0) + 1;
       if (controle.erros >= 5) {
         controle = { erros: 0, ate: agora + 5 * 60 * 1000 };
-        setToast("PIN incorreto 5 vezes — tente de novo em 5 min");
+        setToast("Senha incorreta 5 vezes — tente de novo em 5 min");
       } else {
-        setToast(`PIN incorreto (${controle.erros}/5)`);
+        setToast(`Senha incorreta (${controle.erros}/5)`);
       }
       localStorage.setItem(chaveTent, JSON.stringify(controle));
       setTimeout(() => setToast(null), 4000);
@@ -1761,15 +1808,15 @@ function AguaTracker() {
     const pin = String(form.pin || "").trim();
     let pinHash = null;
     if (pin) {
-      if (!PIN_VALIDO.test(pin)) {
-        setToast("O PIN deve ter de 4 a 6 dígitos");
+      if (!SENHA_VALIDA.test(pin)) {
+        setToast("A senha deve ter de 4 a 12 caracteres, sem espaços");
         setTimeout(() => setToast(null), 4000);
         return;
       }
       try {
         pinHash = await hashPin(pin);
       } catch {
-        setToast("Não foi possível gerar o PIN neste navegador");
+        setToast("Não foi possível gerar a senha neste navegador");
         setTimeout(() => setToast(null), 4000);
         return;
       }
@@ -1975,20 +2022,17 @@ function AguaTracker() {
               acima — ajuste como quiser.
             </p>
             <label className="campo">
-              PIN (opcional)
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="4 a 6 dígitos"
+              Senha (opcional)
+              <CampoSenha
+                placeholder="4 a 12 caracteres"
                 value={form.pin}
                 onChange={(e) => setForm({ ...form, pin: e.target.value })}
               />
             </label>
             <p className="dica">
-              Com PIN, você pode assumir este cartão em outros dispositivos pelo
-              link "🔑 Este cartão é meu". Sem PIN, tudo funciona normalmente
-              neste dispositivo.
+              Com senha, você pode assumir este cartão em outros dispositivos
+              pelo link "🔑 Este cartão é meu". Sem senha, tudo funciona
+              normalmente neste dispositivo.
             </p>
             <div className="cartao-acoes">
               <button className="beber" onClick={adicionar}>
@@ -2129,15 +2173,12 @@ function AguaTracker() {
               </div>
             </label>
             <label className="campo">
-              PIN (opcional)
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
+              Senha (opcional)
+              <CampoSenha
                 placeholder={
                   editando.pinHash
-                    ? "definido — digite para trocar"
-                    : "4 a 6 dígitos"
+                    ? "definida — digite para trocar"
+                    : "4 a 12 caracteres"
                 }
                 value={formEd.pin}
                 onChange={(e) =>
@@ -2146,8 +2187,8 @@ function AguaTracker() {
               />
             </label>
             <p className="dica">
-              Deixe em branco para manter como está. O PIN permite assumir este
-              cartão em outros dispositivos.
+              Deixe em branco para manter como está. A senha permite assumir
+              este cartão em outros dispositivos.
             </p>
             {editando.pinHash && (
               <button
@@ -2157,8 +2198,8 @@ function AguaTracker() {
                 }
               >
                 {formEd.removerPin
-                  ? "O PIN será removido ao salvar — clique para desfazer"
-                  : "Remover PIN deste cartão"}
+                  ? "A senha será removida ao salvar — clique para desfazer"
+                  : "Remover senha deste cartão"}
               </button>
             )}
             <div className="cartao-acoes">
@@ -2178,20 +2219,17 @@ function AguaTracker() {
           <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">🔑 Este cartão é meu</h2>
             <p className="sub">
-              Digite o PIN de {reivindicando.name} para controlar o cartão
+              Digite a senha de {reivindicando.name} para controlar o cartão
               também neste dispositivo. O dispositivo original continua
               funcionando normalmente.
             </p>
             <label className="campo">
-              PIN
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
+              Senha
+              <CampoSenha
                 autoFocus
                 value={pinTentativa}
                 onChange={(e) => setPinTentativa(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && confirmarReivindicacao()}
+                onEnter={confirmarReivindicacao}
               />
             </label>
             <div className="cartao-acoes">
