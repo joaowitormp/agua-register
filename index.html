@@ -363,6 +363,29 @@ const meuDispositivo = (() => {
   return id;
 })();
 
+/* PIN opcional: portabilidade do cartão entre dispositivos.
+   Só a impressão digital (SHA-256) do PIN é gravada — nunca o PIN.
+   Cartões reivindicados por PIN neste navegador ficam em POSSE_KEY */
+const POSSE_KEY = "agua-posse-extra";
+const lerPosseExtra = () => {
+  try {
+    const l = JSON.parse(localStorage.getItem(POSSE_KEY) || "[]");
+    return Array.isArray(l) ? l : [];
+  } catch {
+    return [];
+  }
+};
+const hashPin = async (pin) => {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode("agua-pin:" + pin)
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+};
+const PIN_VALIDO = /^\d{4,6}$/;
+
 const KEY = "agua-tracker-v1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
@@ -699,6 +722,16 @@ const fmt = (ml) =>
     ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
     : `${ml} ml`;
 
+/* Compara nomes ignorando maiúsculas, acentos e espaços extras
+   ("Ana", "ana " e "Âna" contam como o mesmo nome) */
+const nomeNormalizado = (n) =>
+  String(n || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+
 const dataLonga = () =>
   new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -751,7 +784,7 @@ function Garrafa({ pct, tamanho = 92 }) {
 }
 
 /* ---------- Cartão de membro ---------- */
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, selos = [], podeEditar, onSino, onExtra, onEditar, onConquistas, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, selos = [], podeEditar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -911,6 +944,11 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
       {dono && (
         <button className="link-extra" onClick={() => onExtra(membro)}>
           Adicionar outra medida
+        </button>
+      )}
+      {!dono && membro.pinHash && (
+        <button className="link-extra" onClick={() => onReivindicar(membro)}>
+          🔑 Este cartão é meu
         </button>
       )}
     </div>
@@ -1086,7 +1124,7 @@ function AguaTracker() {
   const [erroSalvar, setErroSalvar] = useState(false);
   const [erroConexao, setErroConexao] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
-  const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+  const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "" });
   const [toast, setToast] = useState(null);
   const [dica, setDica] = useState(null); // benefício da hidratação exibido nesta abertura
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
@@ -1095,7 +1133,10 @@ function AguaTracker() {
   const [valorExtra, setValorExtra] = useState("");
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
-  const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+  const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
+  const [posseExtra, setPosseExtra] = useState(lerPosseExtra); // cartões reivindicados por PIN neste dispositivo
+  const [reivindicando, setReivindicando] = useState(null); // membro em reivindicação por PIN
+  const [pinTentativa, setPinTentativa] = useState("");
 
   /* Meta diária estimada pelo peso corporal: 35 ml por kg,
      arredondada para o múltiplo de 50 ml mais próximo */
@@ -1180,7 +1221,9 @@ function AguaTracker() {
     const padrao = Date.now() - 5 * 60 * 1000;
     const visto = Number(localStorage.getItem(VISTO_KEY) || padrao);
     const meus = new Set(
-      dados.members.filter((m) => m.ownerId === meuDispositivo).map((m) => m.id)
+      dados.members
+        .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
+        .map((m) => m.id)
     );
     const novos = dados.nudges.filter((n) => n.at > visto && meus.has(n.to));
     if (novos.length === 0) return;
@@ -1204,7 +1247,7 @@ function AguaTracker() {
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
     piscarTitulo();
     if (document.hidden) iniciarFaviconAlerta();
-  }, [dados]);
+  }, [dados, posseExtra]);
 
   /* Ao abrir/voltar para a aba, o favicon volta ao normal —
      mesmo com avisos ainda não fechados. Cobre visibilidade,
@@ -1229,7 +1272,7 @@ function AguaTracker() {
     const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {});
     const novas = [];
     dados.members
-      .filter((m) => m.ownerId === meuDispositivo)
+      .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
       .forEach((m) => {
         const chaveLS = `agua-conq-${m.id}`;
         let salvas = [];
@@ -1252,7 +1295,7 @@ function AguaTracker() {
       setTimeout(() => setToast(null), 6000);
       tocarSom();
     }
-  }, [dados]);
+  }, [dados, posseExtra]);
 
   /* Benefício da hidratação: sorteado de um "baralho" local sem repetição
      até os 45 saírem (aí o ciclo recomeça embaralhado). Intervalo mínimo
@@ -1361,7 +1404,9 @@ function AguaTracker() {
   const dia = hoje();
   const registrosHoje = dados.intake[dia] || {};
   const extrasHoje = (dados.extras && dados.extras[dia]) || {};
-  const tenhoCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
+  const tenhoCartao = dados.members.some(
+    (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
+  );
 
   const totalHoje = dados.members.reduce(
     (soma, m) =>
@@ -1480,6 +1525,8 @@ function AguaTracker() {
       bottleMl: membro.bottleMl,
       goalMl: membro.goalMl,
       peso: "",
+      pin: "",
+      removerPin: false,
     });
     setEditando(membro);
   };
@@ -1490,13 +1537,42 @@ function AguaTracker() {
     setFormEd((f) => ({ ...f, goalMl: Math.round((p * 35) / 50) * 50 }));
   };
 
-  const salvarEdicao = () => {
+  const salvarEdicao = async () => {
     if (!editando) return;
-    if (editando.ownerId !== meuDispositivo) return; /* só o próprio cartão */
+    const souDono =
+      editando.ownerId === meuDispositivo || posseExtra.includes(editando.id);
+    if (!souDono) return; /* só o próprio cartão */
     const nome = String(formEd.name).trim();
     const garrafa = Number(formEd.bottleMl);
     const meta = Number(formEd.goalMl);
     if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    if (
+      dados.members.some(
+        (m) =>
+          m.id !== editando.id &&
+          nomeNormalizado(m.name) === nomeNormalizado(nome)
+      )
+    ) {
+      setToast(`Já existe uma garrafa com o nome "${nome}" — use outro nome`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const pin = String(formEd.pin || "").trim();
+    let pinHashNovo = null;
+    if (!formEd.removerPin && pin) {
+      if (!PIN_VALIDO.test(pin)) {
+        setToast("O PIN deve ter de 4 a 6 dígitos");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      try {
+        pinHashNovo = await hashPin(pin);
+      } catch {
+        setToast("Não foi possível gerar o PIN neste navegador");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+    }
     const novo = structuredClone(dados);
     const alvo = novo.members.find((m) => m.id === editando.id);
     if (!alvo) return;
@@ -1525,10 +1601,71 @@ function AguaTracker() {
     alvo.name = nome;
     alvo.bottleMl = garrafa;
     alvo.goalMl = meta;
+    if (formEd.removerPin) {
+      delete alvo.pinHash;
+    } else if (pinHashNovo) {
+      alvo.pinHash = pinHashNovo;
+    }
     persistir(novo);
     setToast("Cartão atualizado ✏️");
     setTimeout(() => setToast(null), 4000);
     setEditando(null);
+  };
+
+  /* Reivindicação por PIN: outro dispositivo assume o controle do cartão */
+  const abrirReivindicacao = (membro) => {
+    setPinTentativa("");
+    setReivindicando(membro);
+  };
+
+  const confirmarReivindicacao = async () => {
+    if (!reivindicando) return;
+    const chaveTent = `agua-pin-tent-${reivindicando.id}`;
+    let controle = { erros: 0, ate: 0 };
+    try {
+      controle = { ...controle, ...JSON.parse(localStorage.getItem(chaveTent) || "{}") };
+    } catch {}
+    const agora = Date.now();
+    if (controle.ate > agora) {
+      const min = Math.ceil((controle.ate - agora) / 60000);
+      setToast(`Muitas tentativas — aguarde ${min} min`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const pin = pinTentativa.trim();
+    if (!PIN_VALIDO.test(pin)) {
+      setToast("O PIN tem de 4 a 6 dígitos");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    let h = "";
+    try {
+      h = await hashPin(pin);
+    } catch {
+      setToast("Não foi possível validar o PIN neste navegador");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (h === reivindicando.pinHash) {
+      const nova = [...new Set([...posseExtra, reivindicando.id])];
+      setPosseExtra(nova);
+      localStorage.setItem(POSSE_KEY, JSON.stringify(nova));
+      localStorage.removeItem(chaveTent);
+      setToast(`🔑 Cartão de ${reivindicando.name} reivindicado — este dispositivo agora o controla`);
+      setTimeout(() => setToast(null), 5000);
+      setReivindicando(null);
+      setPinTentativa("");
+    } else {
+      controle.erros = (controle.erros || 0) + 1;
+      if (controle.erros >= 5) {
+        controle = { erros: 0, ate: agora + 5 * 60 * 1000 };
+        setToast("PIN incorreto 5 vezes — tente de novo em 5 min");
+      } else {
+        setToast(`PIN incorreto (${controle.erros}/5)`);
+      }
+      localStorage.setItem(chaveTent, JSON.stringify(controle));
+      setTimeout(() => setToast(null), 4000);
+    }
   };
 
   /* Toques enviados PARA um membro específico nos últimos 10 minutos */
@@ -1549,7 +1686,9 @@ function AguaTracker() {
      de 2 sinos por membro-alvo a cada 10 min (janela deslizante).
      Membros diferentes têm contadores independentes, sem limite global */
   const abrirSino = (membro) => {
-    const meuCartao = dados.members.some((m) => m.ownerId === meuDispositivo);
+    const meuCartao = dados.members.some(
+      (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
+    );
     if (!meuCartao) {
       setToast("Crie a sua garrafa para poder tocar o sino 🔔");
       setTimeout(() => setToast(null), 4000);
@@ -1586,7 +1725,9 @@ function AguaTracker() {
       SINOS_POR_MEMBRO + membro.id,
       JSON.stringify(toques)
     );
-    const meuCartao = dados.members.find((m) => m.ownerId === meuDispositivo);
+    const meuCartao = dados.members.find(
+      (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
+    );
     const novo = structuredClone(dados);
     if (!Array.isArray(novo.nudges)) novo.nudges = [];
     // Mantém só os sinos das últimas 2 horas para o arquivo não crescer
@@ -1603,21 +1744,48 @@ function AguaTracker() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const adicionar = () => {
+  const adicionar = async () => {
     const nome = form.name.trim();
     const garrafa = Number(form.bottleMl);
     const meta = Number(form.goalMl);
     if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    if (
+      dados.members.some(
+        (m) => nomeNormalizado(m.name) === nomeNormalizado(nome)
+      )
+    ) {
+      setToast(`Já existe uma garrafa com o nome "${nome}" — use outro nome`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const pin = String(form.pin || "").trim();
+    let pinHash = null;
+    if (pin) {
+      if (!PIN_VALIDO.test(pin)) {
+        setToast("O PIN deve ter de 4 a 6 dígitos");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      try {
+        pinHash = await hashPin(pin);
+      } catch {
+        setToast("Não foi possível gerar o PIN neste navegador");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+    }
     const novo = structuredClone(dados);
-    novo.members.push({
+    const membroNovo = {
       id: `m-${Date.now()}`,
       name: nome,
       bottleMl: garrafa,
       goalMl: meta,
       ownerId: meuDispositivo,
-    });
+    };
+    if (pinHash) membroNovo.pinHash = pinHash;
+    novo.members.push(membroNovo);
     persistir(novo);
-    setForm({ name: "", bottleMl: 500, goalMl: 2000, peso: "" });
+    setForm({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "" });
     setMostrarForm(false);
   };
 
@@ -1702,7 +1870,10 @@ function AguaTracker() {
         {dados.members.map((m) => {
           const c = registrosHoje[m.id] || 0;
           const extraMl = extrasHoje[m.id] || 0;
-          const donoDoCartao = !m.ownerId || m.ownerId === meuDispositivo;
+          const donoDoCartao =
+            !m.ownerId ||
+            m.ownerId === meuDispositivo ||
+            posseExtra.includes(m.id);
           const bateuMeta = c * m.bottleMl + extraMl >= m.goalMl;
           return (
             <CartaoMembro
@@ -1716,8 +1887,9 @@ function AguaTracker() {
               selos={CONQUISTAS.filter(
                 (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
               )}
-              podeEditar={m.ownerId === meuDispositivo}
+              podeEditar={m.ownerId === meuDispositivo || posseExtra.includes(m.id)}
               onEditar={abrirEdicao}
+              onReivindicar={abrirReivindicacao}
               onConquistas={setConquistasDe}
               onSino={abrirSino}
               onExtra={abrirExtra}
@@ -1801,6 +1973,22 @@ function AguaTracker() {
             <p className="dica">
               Referência geral: 35 ml por kg. O resultado preenche a meta diária
               acima — ajuste como quiser.
+            </p>
+            <label className="campo">
+              PIN (opcional)
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="4 a 6 dígitos"
+                value={form.pin}
+                onChange={(e) => setForm({ ...form, pin: e.target.value })}
+              />
+            </label>
+            <p className="dica">
+              Com PIN, você pode assumir este cartão em outros dispositivos pelo
+              link "🔑 Este cartão é meu". Sem PIN, tudo funciona normalmente
+              neste dispositivo.
             </p>
             <div className="cartao-acoes">
               <button className="beber" onClick={adicionar}>
@@ -1940,11 +2128,77 @@ function AguaTracker() {
                 </button>
               </div>
             </label>
+            <label className="campo">
+              PIN (opcional)
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder={
+                  editando.pinHash
+                    ? "definido — digite para trocar"
+                    : "4 a 6 dígitos"
+                }
+                value={formEd.pin}
+                onChange={(e) =>
+                  setFormEd({ ...formEd, pin: e.target.value, removerPin: false })
+                }
+              />
+            </label>
+            <p className="dica">
+              Deixe em branco para manter como está. O PIN permite assumir este
+              cartão em outros dispositivos.
+            </p>
+            {editando.pinHash && (
+              <button
+                className="zerar-extra"
+                onClick={() =>
+                  setFormEd({ ...formEd, pin: "", removerPin: !formEd.removerPin })
+                }
+              >
+                {formEd.removerPin
+                  ? "O PIN será removido ao salvar — clique para desfazer"
+                  : "Remover PIN deste cartão"}
+              </button>
+            )}
             <div className="cartao-acoes">
               <button className="beber" onClick={salvarEdicao}>
                 Salvar
               </button>
               <button className="desfazer" onClick={() => setEditando(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reivindicando && (
+        <div className="modal-fundo" onClick={() => setReivindicando(null)}>
+          <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🔑 Este cartão é meu</h2>
+            <p className="sub">
+              Digite o PIN de {reivindicando.name} para controlar o cartão
+              também neste dispositivo. O dispositivo original continua
+              funcionando normalmente.
+            </p>
+            <label className="campo">
+              PIN
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+                value={pinTentativa}
+                onChange={(e) => setPinTentativa(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && confirmarReivindicacao()}
+              />
+            </label>
+            <div className="cartao-acoes">
+              <button className="beber" onClick={confirmarReivindicacao}>
+                Confirmar
+              </button>
+              <button className="desfazer" onClick={() => setReivindicando(null)}>
                 Cancelar
               </button>
             </div>
