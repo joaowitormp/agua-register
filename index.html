@@ -284,6 +284,17 @@ body { margin: 0; }
 }
 .aviso-agua-botao { width: 100%; margin-top: 14px; }
 .aviso-agua-nota { margin: 8px 0 0; font-size: 11px; text-align: center; color: #9FBFCC; }
+.comemoracao { text-align: center; }
+.comemoracao .lista-conquistas { text-align: left; }
+.comemoracao-emoji {
+  margin: 0 0 6px; font-size: 44px; line-height: 1;
+  animation: pular-trofeu 0.7s ease;
+}
+@keyframes pular-trofeu {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -342,7 +353,7 @@ body { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .barra-fill, .garrafa-btn, .sino { transition: none; }
-  .cartao.alertando, .banner-alerta, .dica-agua { animation: none; }
+  .cartao.alertando, .banner-alerta, .dica-agua, .comemoracao-emoji { animation: none; }
 }
 </style>
 </head>
@@ -1208,6 +1219,7 @@ function AguaTracker() {
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
+  const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
   const [posseExtra, setPosseExtra] = useState(lerPosseExtra); // cartões reivindicados por PIN neste dispositivo
@@ -1360,15 +1372,13 @@ function AguaTracker() {
         atuais.forEach((id) => {
           if (!salvasSet.has(id)) {
             const c = CONQUISTAS.find((x) => x.id === id);
-            if (c) novas.push(c.nome);
+            if (c) novas.push(c);
           }
         });
         localStorage.setItem(chaveLS, JSON.stringify(atuais));
       });
     if (novas.length > 0) {
-      const plural = novas.length > 1 ? "s" : "";
-      setToast(`🏆 Conquista${plural} desbloqueada${plural}: ${novas.join(", ")}`);
-      setTimeout(() => setToast(null), 6000);
+      setConquistasNovas(novas);
       tocarSom();
     }
   }, [dados, posseExtra]);
@@ -2287,6 +2297,40 @@ function AguaTracker() {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {conquistasNovas.length > 0 && (
+        <div className="modal-fundo" onClick={() => setConquistasNovas([])}>
+          <div
+            className="modal-sino comemoracao"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="comemoracao-emoji" aria-hidden="true">🏆</p>
+            <h2 className="nome">
+              Conquista{conquistasNovas.length > 1 ? "s" : ""} desbloqueada
+              {conquistasNovas.length > 1 ? "s" : ""}!
+            </h2>
+            <div className="lista-conquistas">
+              {conquistasNovas.map((c) => (
+                <div key={c.id} className="conquista ok">
+                  <span className="circulo-conquista modal-circulo">
+                    <IconeConquista conquista={c} tamanho={13} />
+                  </span>
+                  <span className="conquista-texto">
+                    <strong>{c.nome}</strong>
+                    <span>{c.desc}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button
+              className="beber fechar-modal"
+              onClick={() => setConquistasNovas([])}
+            >
+              Aê! 🎉
+            </button>
           </div>
         </div>
       )}
