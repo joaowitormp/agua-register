@@ -439,6 +439,15 @@ const FRASES = [
   "Seus rins estão redigindo a carta de demissão.",
   "Isso não é um pedido: BEBA. ÁGUA. AGORA.",
   "Última chamada antes de virar uva-passa.",
+  "Chegou sua entrega: 1 gole, frete grátis.",
+  "Status da sua hidratação: visto por último ontem.",
+  "Previsão do tempo aí na sua mesa: 0% de umidade.",
+  "A impressora consumiu mais tinta que você consumiu água hoje.",
+  "Emergência declarada: colaborador operando 100% a café.",
+  "Arqueólogos já encontraram fósseis mais hidratados que você.",
+  "Últimas notícias: garrafa segue intacta há horas. População apreensiva.",
+  "O banco aprovou seu empréstimo de 500 ml. Juros: zero.",
+  "Trânsito livre entre você e a garrafa. Aproveite.",
 ];
 
 /* Benefícios do consumo de água — exibidos um por vez, em ordem
@@ -780,6 +789,14 @@ const fmt = (ml) =>
     ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
     : `${ml} ml`;
 
+/* Como fmt, mas truncando em vez de arredondar — usado no volume bebido,
+   para nunca exibir mais do que foi realmente registrado (2.149 ml
+   aparece como 2,14 L, e não como 2,15 L) */
+const fmtPiso = (ml) =>
+  ml >= 1000
+    ? `${(Math.floor(ml / 10) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
+    : `${ml} ml`;
+
 /* Compara nomes ignorando maiúsculas, acentos e espaços extras
    ("Ana", "ana " e "Âna" contam como o mesmo nome) */
 const nomeNormalizado = (n) =>
@@ -940,7 +957,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           </div>
         )}
         <div className="numeros">
-          <p className="bebido">{fmt(bebido)}</p>
+          <p className="bebido">{fmtPiso(bebido)}</p>
           <p className="de-meta">de {fmt(membro.goalMl)}</p>
           {bateu && <p className="status ok">Meta batida! 🎉</p>}
           <button
@@ -1903,7 +1920,7 @@ function AguaTracker() {
           <h1 className="titulo">Hidratação do time</h1>
         </div>
         <div className="resumo">
-          <p className="resumo-num">{fmt(totalHoje)}</p>
+          <p className="resumo-num">{fmtPiso(totalHoje)}</p>
           <p className="resumo-label">
             {metaTotal > 0 ? `de ${fmt(metaTotal)} do time hoje` : "registrado hoje"}
           </p>
