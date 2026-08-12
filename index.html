@@ -836,6 +836,11 @@ function calcularConquistas(members, intake, extras) {
       if (seguidas >= 3) c.add("dinastia-da-gota");
       ultimaSemana = p.semana;
     });
+    /* MODO DE TESTE (temporário): o cartão "TesterPower" recebe todas as
+       conquistas — remover esta condição após os testes */
+    if (nomeNormalizado(m.name) === "testerpower") {
+      CONQUISTAS.forEach((cq) => c.add(cq.id));
+    }
   });
   return resultado;
 }
