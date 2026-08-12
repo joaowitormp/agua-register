@@ -295,6 +295,73 @@ body { margin: 0; }
   60% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
+
+/* --- Poderes --- */
+.barra-poderes {
+  position: fixed; bottom: 14px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 24px);
+  display: flex; gap: 8px; z-index: 55; box-sizing: border-box;
+  background: #FFFFFF; border: 1px solid #E4D3A8; border-radius: 99px;
+  padding: 8px 10px; box-shadow: 0 8px 24px rgba(11, 52, 70, 0.18);
+  overflow-x: auto;
+}
+.poder {
+  border: 1px solid #D9B87C; background: #FDF6E3; color: #7A5A10;
+  border-radius: 99px; padding: 8px 14px; font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.poder:hover { background: #F7EAC8; }
+.app.com-poderes { padding-bottom: 130px; }
+.lista-alvos { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.alvo {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border: 1px solid #E4F2F7; border-radius: 10px; background: #F7FBFD;
+}
+.alvo.inelegivel { opacity: 0.75; }
+.alvo-nome { font-size: 13px; font-weight: 600; color: #0B3446; }
+.alvo-motivo { font-size: 11.5px; color: #7A4B12; text-align: right; }
+.mini-aplicar {
+  border: none; background: #0F8BB0; color: #FFFFFF; border-radius: 8px;
+  padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; flex-shrink: 0;
+}
+.mini-aplicar:hover { background: #0B7292; }
+.poder-novo { background: #F2FBF7; border: 1px solid #BFE7D6; }
+.regras-poder { text-align: left; margin-top: 10px; }
+.regras-poder-nome { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #0B3446; }
+.regras-poder-linha { margin: 0 0 3px; font-size: 12.5px; line-height: 1.5; color: #4B7A8E; }
+.recompensa { font-size: 11px; color: #B8860B; margin-top: 2px; }
+.efeito-badge { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: #7A4B12; }
+.exclusivas-titulo { margin-top: 14px; }
+.frase.exclusiva { border-color: #D9B87C; background: #FDF8EE; }
+.frase.exclusiva:hover { background: #F7EAC8; border-color: #B8860B; }
+
+/* Cartão desertificado: areia rachada com textos em contraste */
+.cartao.desertico {
+  background:
+    repeating-linear-gradient(115deg, transparent 0 44px, rgba(120, 78, 25, 0.22) 44px 45px),
+    repeating-linear-gradient(28deg, transparent 0 58px, rgba(120, 78, 25, 0.16) 58px 59px),
+    linear-gradient(180deg, #F2DFAE 0%, #E3C285 100%);
+  border-color: #C79A55;
+}
+.cartao.desertico .nome, .cartao.desertico .status { color: #4A2F10; }
+.cartao.desertico .sub, .cartao.desertico .de-meta, .cartao.desertico .registros,
+.cartao.desertico .link-extra, .cartao.desertico .pct { color: #7A5A28; }
+.cartao.desertico .bebido { color: #8A5A1B; }
+.cartao.desertico .barra { background: rgba(120, 78, 25, 0.18); }
+.cartao.desertico .circulo-conquista { background: rgba(255, 255, 255, 0.55); }
+
+/* Cutucada do bastão dourado */
+.cartao.cutucado { animation: cutucar 0.42s ease; }
+@keyframes cutucar {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  30% { transform: translateX(-9px) rotate(-1.2deg); }
+  60% { transform: translateX(5px) rotate(0.6deg); }
+}
+
+/* Banners especiais */
+.banner-alerta.anuncio-cacto, .banner-alerta.anuncio-deserto { background: #0FA36B; }
+.banner-alerta.bastao { background: linear-gradient(90deg, #B8860B, #DAA520); }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -353,7 +420,7 @@ body { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .barra-fill, .garrafa-btn, .sino { transition: none; }
-  .cartao.alertando, .banner-alerta, .dica-agua, .comemoracao-emoji { animation: none; }
+  .cartao.alertando, .banner-alerta, .dica-agua, .comemoracao-emoji, .cartao.cutucado { animation: none; }
 }
 </style>
 </head>
@@ -416,6 +483,73 @@ const hashPin = async (pin) => {
 };
 /* Senha: 4 a 12 caracteres, letras e/ou números (sem espaços) */
 const SENHA_VALIDA = /^\S{4,12}$/;
+
+const fmtTempo = (ms) => {
+  const h = Math.floor(ms / 3600000);
+  const min = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h${String(min).padStart(2, "0")}` : `${min} min`;
+};
+
+/* Frases de provocação exclusivas, destravadas por conquista */
+const FRASES_CONQUISTA = {
+  "cachoeira-alarmante": [
+    "50 litros de correnteza. Você ainda é torneira pingando.",
+    "Quando eu passo, os rios pedem autógrafo.",
+  ],
+  "represa-billings": [
+    "200 litros me contemplam. E você aí, de gole em gole.",
+    "Eu sou basicamente um reservatório público. Você, uma poça.",
+  ],
+  "soberano-da-torneira": [
+    "Ordem real: hidrate-se, plebeu.",
+    "O trono da torneira observa a sua seca com desgosto.",
+  ],
+  "pe-no-podio": [
+    "Falo do pódio: a vista daqui é ótima. E daí de baixo?",
+    "Medalhado te chamando para o gole. É quase uma honra, aproveita.",
+  ],
+  "dinastia-da-gota": [
+    "Três semanas no trono. Isso já não é ranking, é reinado.",
+    "Dinastias caem, dizem. A minha só se hidrata.",
+  ],
+};
+
+/* Poderes especiais, destravados por conquista */
+const PODERES = [
+  {
+    id: "cacto",
+    conquista: "pingo-de-disciplina",
+    icone: "🌵",
+    nome: "Cactificação",
+    regras: [
+      "Use em quem está há 3h ou mais sem registrar água (o relógio corre a partir das 8h, de segunda a sexta).",
+      "Você precisa ter registrado ao menos 1 garrafa hoje.",
+      "O feitiço quebra com 2 registros de água ou a meta batida — mas 2 registros em menos de 10 min estendem o cacto por +1h.",
+    ],
+  },
+  {
+    id: "deserto",
+    conquista: "semana-molhada",
+    icone: "🏜️",
+    nome: "Desertificação",
+    regras: [
+      "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
+      "O cartão vira deserto rachado e só a meta batida do dia faz chover de novo.",
+      "2 ou mais garrafas em menos de 10 min travam o deserto por 3h.",
+    ],
+  },
+  {
+    id: "bastao",
+    conquista: "dinastia-da-gota",
+    icone: "🥇",
+    nome: "Bastão Dourado",
+    regras: [
+      "Use em quem está há 1h ou mais sem registrar água.",
+      "O cartão da vítima é cutucado com batidas metálicas até ela fechar o aviso real.",
+      "1 uso por dia em cada pessoa.",
+    ],
+  },
+];
 
 const KEY = "agua-tracker-v1";
 
@@ -515,16 +649,16 @@ const BENEFICIOS = [
 const CONQUISTAS = [
   { id: "primeiro-gole", nome: "Primeiro Gole", desc: "Registrou a primeira garrafa no app.", paths: ["M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"] },
   { id: "hidratacao-profunda", nome: "Hidratação Profunda", desc: "25 L acumulados.", paths: ["M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8", "M19 21a7 7 0 0 0-14 0"] },
-  { id: "cachoeira-alarmante", nome: "Cachoeira Alarmante", desc: "50 L acumulados.", paths: ["M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2", "M9.6 4.6A2 2 0 1 1 11 8H2", "M12.6 19.4A2 2 0 1 0 14 16H2"] },
-  { id: "represa-billings", nome: "Represa Billings", desc: "200 L acumulados.", paths: ["M8 13a4 4 0 0 1 8 0", "M3 13h18", "M6 17h12", "M9 20h6"] },
-  { id: "pingo-de-disciplina", nome: "Pingo de Disciplina", desc: "Meta batida 3 dias úteis seguidos.", paths: ["M7 20h10", "M10 20c5.5-2.5.8-6.4 3-10", "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8", "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2"] },
-  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
+  { id: "cachoeira-alarmante", nome: "Cachoeira Alarmante", desc: "50 L acumulados.", recompensa: "2 frases exclusivas de provocação", paths: ["M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2", "M9.6 4.6A2 2 0 1 1 11 8H2", "M12.6 19.4A2 2 0 1 0 14 16H2"] },
+  { id: "represa-billings", nome: "Represa Billings", desc: "200 L acumulados.", recompensa: "2 frases exclusivas de provocação", paths: ["M8 13a4 4 0 0 1 8 0", "M3 13h18", "M6 17h12", "M9 20h6"] },
+  { id: "pingo-de-disciplina", nome: "Pingo de Disciplina", desc: "Meta batida 3 dias úteis seguidos.", recompensa: "Poder: Cactificação 🌵", paths: ["M7 20h10", "M10 20c5.5-2.5.8-6.4 3-10", "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8", "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2"] },
+  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", recompensa: "Poder: Desertificação 🏜️", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
   { id: "mare-alta", nome: "Maré Alta", desc: "Meta batida 10 dias úteis seguidos.", paths: ["M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"] },
   { id: "tsunami-de-foco", nome: "Tsunami de Foco", desc: "Meta batida 30 dias úteis seguidos.", paths: ["M2 19h20", "M4 19c0-8 5-13 11-13 4 0 7 2.8 7 6 0 2.6-2 4.6-4.6 4.6-2 0-3.6-1.4-3.6-3.2 0-1.4 1-2.4 2.4-2.4"] },
   { id: "agua-mole", nome: "Água Mole em Pedra Dura", desc: "Meta batida em 50 dias úteis seguidos.", paths: ["m8 3 4 8 5-5 5 15H2L8 3z"] },
-  { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
-  { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
-  { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
+  { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", recompensa: "2 frases exclusivas de provocação", paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
+  { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", recompensa: "2 frases exclusivas de provocação", paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
+  { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensa: "Poder: Bastão Dourado 🥇 + 2 frases exclusivas", paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
 ];
 
 const IconeConquista = ({ conquista, tamanho = 11 }) => (
@@ -737,6 +871,49 @@ const notificar = (msg) => {
   }
 };
 
+/* Batida metálica do bastão dourado (dois cliques rápidos) */
+const tocarSomBastao = () => {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    if (ctx.state === "suspended") ctx.resume();
+    [0, 0.09].forEach((d) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.value = 1900;
+      o.connect(g);
+      g.connect(ctx.destination);
+      const t = ctx.currentTime + d;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+      o.start(t);
+      o.stop(t + 0.08);
+    });
+  } catch {}
+};
+
+/* Garrafa cactificada 🌵 */
+function Cacto({ tamanho = 92 }) {
+  return (
+    <svg
+      width={tamanho}
+      height={(tamanho * 130) / 92}
+      viewBox="0 0 92 130"
+      aria-hidden="true"
+    >
+      <ellipse cx="46" cy="118" rx="26" ry="7" fill="#E8D5A3" />
+      <path d="M46 116V44" stroke="#2F9E44" strokeWidth="18" strokeLinecap="round" />
+      <path d="M46 78 H30 a9 9 0 0 1 -9 -9 V58" stroke="#2F9E44" strokeWidth="12" strokeLinecap="round" fill="none" />
+      <path d="M46 92 H62 a9 9 0 0 0 9 -9 V70" stroke="#2F9E44" strokeWidth="12" strokeLinecap="round" fill="none" />
+      <path d="M40 55 l-5 -3 M52 65 l5 -3 M42 85 l-5 3 M52 100 l5 3" stroke="#1E7A33" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="46" cy="38" r="4" fill="#E64980" />
+    </svg>
+  );
+}
+
 let tituloTimer = null;
 const piscarTitulo = () => {
   clearInterval(tituloTimer);
@@ -870,15 +1047,19 @@ function Garrafa({ pct, tamanho = 92 }) {
 }
 
 /* ---------- Cartão de membro ---------- */
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeito, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
   const totalGarrafas = Math.max(1, Math.ceil(membro.goalMl / membro.bottleMl));
   const bateu = membro.goalMl > 0 && bebido >= membro.goalMl;
+  const cactificado = efeito && efeito.tipo === "cacto";
+  const desertico = efeito && efeito.tipo === "deserto";
 
   return (
-    <div className={`cartao ${alertando ? "alertando" : ""}`}>
+    <div
+      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${cutucando ? "cutucado" : ""}`}
+    >
       <div className="cartao-topo">
         <div>
           <h2 className="nome">{membro.name}</h2>
@@ -960,16 +1141,22 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
             title="Registrar 1 garrafa"
             aria-label={`Registrar uma garrafa de ${fmt(membro.bottleMl)} para ${membro.name}`}
           >
-            <Garrafa pct={pct} />
+            {cactificado ? <Cacto /> : <Garrafa pct={pct} />}
           </button>
         ) : (
           <div className="garrafa-fixa" title="Somente quem criou esta garrafa pode registrar">
-            <Garrafa pct={pct} />
+            {cactificado ? <Cacto /> : <Garrafa pct={pct} />}
           </div>
         )}
         <div className="numeros">
           <p className="bebido">{fmtPiso(bebido)}</p>
           <p className="de-meta">de {fmt(membro.goalMl)}</p>
+          {efeito && (
+            <p className="efeito-badge">
+              {cactificado ? "🌵 Cactificado por " : "🏜️ Desertificado por "}
+              {efeito.por}
+            </p>
+          )}
           {bateu && <p className="status ok">Meta batida! 🎉</p>}
           <button
             className="conquistas-linha"
@@ -1214,6 +1401,9 @@ function AguaTracker() {
   const [toast, setToast] = useState(null);
   const [dica, setDica] = useState(null); // benefício da hidratação exibido nesta abertura
   const [avisoAgua, setAvisoAgua] = useState(false); // aviso de segurança (>1 L na janela de 1 h)
+  const [poderAberto, setPoderAberto] = useState(null); // poder com o seletor de alvos aberto
+  const [poderesNovos, setPoderesNovos] = useState([]); // popup de anúncio de poder novo
+  const [cutucadaId, setCutucadaId] = useState(null); // cartão sendo cutucado pelo bastão
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null); // membro-alvo enquanto o remetente escolhe a frase
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
@@ -1313,28 +1503,50 @@ function AguaTracker() {
         .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
         .map((m) => m.id)
     );
-    const novos = dados.nudges.filter((n) => n.at > visto && meus.has(n.to));
+    const novos = dados.nudges.filter((n) => n.at > visto);
     if (novos.length === 0) return;
     localStorage.setItem(VISTO_KEY, String(Math.max(...novos.map((n) => n.at))));
+    const horaDe = (ts) =>
+      new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const anuncios = novos.filter(
+      (n) => n.tipo === "anuncio-cacto" || n.tipo === "anuncio-deserto"
+    ); /* visíveis para todos */
+    const pessoais = novos.filter(
+      (n) => !n.tipo || n.tipo === "bastao"
+    ).filter((n) => meus.has(n.to));
+    if (anuncios.length === 0 && pessoais.length === 0) return;
     setAlertas((lista) => [
       ...lista,
-      ...novos.map((n) => ({
+      ...anuncios.map((n) => ({
         id: n.id,
         memberId: n.to,
+        tipo: n.tipo,
+        nome: null,
+        frase: n.frase,
+        hora: horaDe(n.at),
+      })),
+      ...pessoais.map((n) => ({
+        id: n.id,
+        memberId: n.to,
+        tipo: n.tipo || "sino",
         nome: n.fromName || "Alguém",
         frase: n.frase || "hora de beber água! 💧",
-        hora: new Date(n.at).toLocaleTimeString("pt-BR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        hora: horaDe(n.at),
       })),
     ]);
-    const ultimo = novos[novos.length - 1];
-    notificar(`${ultimo.fromName || "Alguém"}: ${ultimo.frase || "hora de beber água! 💧"}`);
-    tocarSom();
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
-    piscarTitulo();
-    if (document.hidden) iniciarFaviconAlerta();
+    const fuiAlvo = pessoais.length > 0 || anuncios.some((n) => meus.has(n.to));
+    if (fuiAlvo) {
+      const ultimo = pessoais[pessoais.length - 1] || anuncios[anuncios.length - 1];
+      notificar(
+        ultimo.fromName
+          ? `${ultimo.fromName}: ${ultimo.frase || "hora de beber água! 💧"}`
+          : ultimo.frase
+      );
+      tocarSom();
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+      piscarTitulo();
+      if (document.hidden) iniciarFaviconAlerta();
+    }
   }, [dados, posseExtra]);
 
   /* Ao abrir/voltar para a aba, o favicon volta ao normal —
@@ -1452,6 +1664,50 @@ function AguaTracker() {
     };
   }, []);
 
+  /* Anuncia poderes recém-disponíveis (inclusive para quem já tinha a
+     conquista antes dos poderes existirem) — uma única vez por poder */
+  useEffect(() => {
+    if (!dados) return;
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {});
+    const conj = new Set();
+    dados.members
+      .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
+      .forEach((m) => {
+        if (mapa[m.id]) mapa[m.id].conjunto.forEach((x) => conj.add(x));
+      });
+    const ganhos = PODERES.filter((p) => conj.has(p.conquista));
+    if (ganhos.length === 0) return;
+    let vistos = [];
+    try {
+      vistos = JSON.parse(localStorage.getItem("agua-poderes-vistos") || "[]");
+    } catch {}
+    const novosPoderes = ganhos.filter((p) => !vistos.includes(p.id));
+    if (novosPoderes.length === 0) return;
+    localStorage.setItem(
+      "agua-poderes-vistos",
+      JSON.stringify(ganhos.map((p) => p.id))
+    );
+    setPoderesNovos(novosPoderes);
+  }, [dados, posseExtra]);
+
+  /* Bastão dourado: enquanto o aviso real estiver aberto, o cartão da
+     vítima é cutucado com a batida metálica em sincronia */
+  useEffect(() => {
+    const alvo = alertas.find((a) => a.tipo === "bastao");
+    if (!alvo) return;
+    const bater = () => {
+      tocarSomBastao();
+      setCutucadaId(alvo.memberId);
+      setTimeout(() => setCutucadaId(null), 420);
+    };
+    bater();
+    const idInt = setInterval(bater, 1200);
+    return () => {
+      clearInterval(idInt);
+      setCutucadaId(null);
+    };
+  }, [alertas]);
+
   const persistir = useCallback(async (novo) => {
     setDados(novo);
     try {
@@ -1490,9 +1746,10 @@ function AguaTracker() {
   const dia = hoje();
   const registrosHoje = dados.intake[dia] || {};
   const extrasHoje = (dados.extras && dados.extras[dia]) || {};
-  const tenhoCartao = dados.members.some(
+  const meusMembros = dados.members.filter(
     (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
   );
+  const tenhoCartao = meusMembros.length > 0;
 
   const totalHoje = dados.members.reduce(
     (soma, m) =>
@@ -1501,6 +1758,148 @@ function AguaTracker() {
   );
   const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
   const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {});
+
+  /* Conquistas do usuário atual (união dos cartões dele) → poderes e frases */
+  const minhasConquistas = new Set();
+  meusMembros.forEach((m) => {
+    if (conquistas[m.id]) conquistas[m.id].conjunto.forEach((x) => minhasConquistas.add(x));
+  });
+  const meusPoderes = PODERES.filter((p) => minhasConquistas.has(p.conquista));
+  const frasesExclusivas = [];
+  Object.keys(FRASES_CONQUISTA).forEach((cid) => {
+    if (minhasConquistas.has(cid)) {
+      const cq = CONQUISTAS.find((c) => c.id === cid);
+      FRASES_CONQUISTA[cid].forEach((f) =>
+        frasesExclusivas.push({ texto: f, conquista: cq ? cq.nome : "" })
+      );
+    }
+  });
+
+  /* Relógio da seca: corre a partir das 8h, de segunda a sexta */
+  const baseSeca = (m) => {
+    const agora = new Date();
+    const diaSem = agora.getDay();
+    if (diaSem === 0 || diaSem === 6) return null;
+    const oito = new Date(agora);
+    oito.setHours(8, 0, 0, 0);
+    if (agora < oito) return null;
+    const ult = (dados.ultimo && dados.ultimo[m.id]) || 0;
+    return Math.max(ult, oito.getTime());
+  };
+  const tempoSeco = (m) => {
+    const b = baseSeca(m);
+    return b === null ? null : Date.now() - b;
+  };
+
+  /* Efeito ativo de um cartão, já considerando cura pendente e trava */
+  const efeitoDe = (m) => {
+    const ef = dados.efeitos && dados.efeitos[m.id];
+    if (!ef) return null;
+    const agora = Date.now();
+    const c = registrosHoje[m.id] || 0;
+    const e = extrasHoje[m.id] || 0;
+    const metaB = m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl;
+    const curado =
+      ef.tipo === "cacto" ? (ef.curas || []).length >= 2 || metaB : metaB;
+    if (curado && (!ef.travaAte || agora >= ef.travaAte)) return null;
+    return ef;
+  };
+
+  /* Elegibilidade do alvo, com o motivo específico quando não pode */
+  const statusPoder = (poderId, alvo) => {
+    const meuAlvo =
+      alvo.ownerId === meuDispositivo || posseExtra.includes(alvo.id);
+    if (meuAlvo) return { ok: false, motivo: "é o seu próprio cartão" };
+    const efAtivo = efeitoDe(alvo);
+    if ((poderId === "cacto" || poderId === "deserto") && efAtivo) {
+      return {
+        ok: false,
+        motivo:
+          efAtivo.tipo === "cacto" ? "já está cactificado" : "já está desertificado",
+      };
+    }
+    const seco = tempoSeco(alvo);
+    if (seco === null) {
+      return {
+        ok: false,
+        motivo: "o relógio da seca só corre das 8h em diante, de segunda a sexta",
+      };
+    }
+    const exigidoH = poderId === "cacto" ? 3 : poderId === "deserto" ? 4 : 1;
+    if (seco < exigidoH * 3600000) {
+      return {
+        ok: false,
+        motivo: `só ${fmtTempo(seco)} de seca — precisa de ${exigidoH}h sem registrar`,
+      };
+    }
+    if (poderId === "cacto") {
+      const bebiHoje = meusMembros.some((m) => (registrosHoje[m.id] || 0) > 0);
+      if (!bebiHoje) {
+        return { ok: false, motivo: "registre ao menos 1 garrafa hoje antes de cactificar" };
+      }
+    }
+    if (poderId === "bastao") {
+      if (localStorage.getItem(`agua-bastao-${alvo.id}-${dia}`)) {
+        return { ok: false, motivo: "bastão já usado nesse alvo hoje" };
+      }
+    }
+    return { ok: true, motivo: "" };
+  };
+
+  const usarPoder = (poderId, alvo) => {
+    const st = statusPoder(poderId, alvo);
+    if (!st.ok) {
+      setToast(`Não dá: ${st.motivo}`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const agora = Date.now();
+    const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
+    const horas = Math.max(1, Math.floor((tempoSeco(alvo) || 0) / 3600000));
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    if (poderId === "bastao") {
+      novo.nudges.push({
+        id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+        to: alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: "bastao",
+        frase: "Beba água, sua majestade ordena!",
+      });
+      localStorage.setItem(`agua-bastao-${alvo.id}-${dia}`, "1");
+      setToast(`🥇 Bastão dourado aplicado em ${alvo.name}`);
+    } else {
+      if (!novo.efeitos) novo.efeitos = {};
+      novo.efeitos[alvo.id] = {
+        tipo: poderId,
+        desde: agora,
+        por: meuNome,
+        curas: [],
+        travaAte: 0,
+      };
+      novo.nudges.push({
+        id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+        to: alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: poderId === "cacto" ? "anuncio-cacto" : "anuncio-deserto",
+        frase:
+          poderId === "cacto"
+            ? `🌵 ${meuNome} cactificou ${alvo.name} após ${horas}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`
+            : `🏜️ ${meuNome} desertificou ${alvo.name} após ${horas}h de seca. O cartão rachou — só a meta batida faz chover.`,
+      });
+      setToast(
+        poderId === "cacto"
+          ? `🌵 ${alvo.name} foi cactificado!`
+          : `🏜️ ${alvo.name} foi desertificado!`
+      );
+    }
+    persistir(novo);
+    setTimeout(() => setToast(null), 4000);
+    setPoderAberto(null);
+  };
 
   /* Log ordenado dos registros do dia (garrafas e avulsos) — é o que o
      Desfazer consulta. Só o dia atual é mantido, para o arquivo não crescer */
@@ -1551,11 +1950,37 @@ function AguaTracker() {
     } catch {}
   };
 
+  /* Ao registrar água: atualiza o "último registro" (usado pelos poderes)
+     e aplica a cura dos efeitos ativos (cacto/deserto), com a trava
+     anti-pressa: 2 registros em <10 min estendem o efeito */
+  const aoRegistrarAgua = (novo, id, agora) => {
+    if (!novo.ultimo) novo.ultimo = {};
+    novo.ultimo[id] = agora;
+    const ef = novo.efeitos && novo.efeitos[id];
+    if (!ef) return;
+    ef.curas = [...(ef.curas || []), agora];
+    const rapidas = ef.curas.filter((t) => t - ef.desde < 10 * 60 * 1000).length;
+    if (rapidas >= 2 && !ef.travaAte) {
+      ef.travaAte =
+        ef.tipo === "cacto" ? agora + 60 * 60 * 1000 : agora + 3 * 60 * 60 * 1000;
+    }
+    const m = novo.members.find((x) => x.id === id);
+    const c = (novo.intake[dia] && novo.intake[dia][id]) || 0;
+    const e = (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
+    const metaBatida = m && m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl;
+    const curado =
+      ef.tipo === "cacto" ? ef.curas.length >= 2 || metaBatida : metaBatida;
+    if (curado && (!ef.travaAte || agora >= ef.travaAte)) {
+      delete novo.efeitos[id];
+    }
+  };
+
   const beber = (id) => {
     const novo = structuredClone(dados);
     if (!novo.intake[dia]) novo.intake[dia] = {};
     novo.intake[dia][id] = (novo.intake[dia][id] || 0) + 1;
     registrarEvento(novo, id, { t: "g" });
+    aoRegistrarAgua(novo, id, Date.now());
     persistir(novo);
     const membro = dados.members.find((m) => m.id === id);
     if (membro) verificarSeguranca(id, membro.bottleMl);
@@ -1627,6 +2052,7 @@ function AguaTracker() {
     if (!novo.extras[dia]) novo.extras[dia] = {};
     novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
     registrarEvento(novo, extraPara.id, { t: "e", ml });
+    aoRegistrarAgua(novo, extraPara.id, Date.now());
     persistir(novo);
     verificarSeguranca(extraPara.id, ml);
     setToast(`+${fmt(ml)} registrados para ${extraPara.name} 💧`);
@@ -1923,7 +2349,7 @@ function AguaTracker() {
   };
 
   return (
-    <div className="app">
+    <div className={`app ${meusPoderes.length > 0 ? "com-poderes" : ""}`}>
       <header className="cabecalho">
         <div>
           <p className="data-dia">{dataLonga()}</p>
@@ -1947,9 +2373,19 @@ function AguaTracker() {
       {alertas.length > 0 && (
         <div className="pilha-alertas">
           {alertas.map((a) => (
-            <div key={a.id} className="banner-alerta">
+            <div key={a.id} className={`banner-alerta ${a.tipo || ""}`}>
               <span className="banner-texto">
-                🔔 <strong>{a.nome}:</strong> {a.frase}
+                {a.tipo === "anuncio-cacto" || a.tipo === "anuncio-deserto" ? (
+                  a.frase
+                ) : a.tipo === "bastao" ? (
+                  <>
+                    🥇 <strong>{a.nome}:</strong> {a.frase}
+                  </>
+                ) : (
+                  <>
+                    🔔 <strong>{a.nome}:</strong> {a.frase}
+                  </>
+                )}
               </span>
               <span className="banner-hora">{a.hora}</span>
               <button
@@ -1978,6 +2414,25 @@ function AguaTracker() {
                 </button>
               ))}
             </div>
+            {frasesExclusivas.length > 0 && (
+              <div>
+                <p className="sub exclusivas-titulo">
+                  ✨ Exclusivas das suas conquistas
+                </p>
+                <div className="lista-frases">
+                  {frasesExclusivas.map((f) => (
+                    <button
+                      key={f.texto}
+                      className="frase exclusiva"
+                      title={`Conquista: ${f.conquista}`}
+                      onClick={() => tocarSino(sinoPara, f.texto)}
+                    >
+                      {f.texto}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
               Cancelar
             </button>
@@ -2017,6 +2472,8 @@ function AguaTracker() {
               dono={donoDoCartao}
               mostrarSino={tenhoCartao && !donoDoCartao && !bateuMeta}
               alertando={alertas.some((a) => a.memberId === m.id)}
+              efeito={efeitoDe(m)}
+              cutucando={cutucadaId === m.id}
               selos={CONQUISTAS.filter(
                 (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
               )}
@@ -2034,7 +2491,8 @@ function AguaTracker() {
           );
         })}
 
-        {mostrarForm ? (
+        {!tenhoCartao &&
+          (mostrarForm ? (
           <div className="cartao form">
             <h2 className="nome">Nova garrafa</h2>
             <label className="campo">
@@ -2135,7 +2593,7 @@ function AguaTracker() {
             <span className="mais">+</span>
             <span>Adicionar garrafa</span>
           </button>
-        )}
+        ))}
       </div>
 
       {extraPara && (
@@ -2301,6 +2759,105 @@ function AguaTracker() {
         </div>
       )}
 
+      {meusPoderes.length > 0 && (
+        <div className="barra-poderes">
+          {meusPoderes.map((p) => (
+            <button
+              key={p.id}
+              className="poder"
+              title={p.nome}
+              onClick={() => setPoderAberto(p.id)}
+            >
+              {p.icone} {p.nome}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {poderAberto && (() => {
+        const poder = PODERES.find((p) => p.id === poderAberto);
+        const alvos = dados.members.filter(
+          (m) => !(m.ownerId === meuDispositivo || posseExtra.includes(m.id))
+        );
+        return (
+          <div className="modal-fundo" onClick={() => setPoderAberto(null)}>
+            <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+              <h2 className="nome">
+                {poder.icone} {poder.nome}
+              </h2>
+              <p className="sub">Escolha o alvo:</p>
+              <div className="lista-alvos">
+                {alvos.length === 0 && (
+                  <p className="sub">Nenhum outro cartão no time ainda.</p>
+                )}
+                {alvos.map((m) => {
+                  const st = statusPoder(poderAberto, m);
+                  return (
+                    <div key={m.id} className={`alvo ${st.ok ? "" : "inelegivel"}`}>
+                      <span className="alvo-nome">{m.name}</span>
+                      {st.ok ? (
+                        <button
+                          className="mini-aplicar"
+                          onClick={() => usarPoder(poderAberto, m)}
+                        >
+                          Aplicar
+                        </button>
+                      ) : (
+                        <span className="alvo-motivo">{st.motivo}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                className="desfazer fechar-modal"
+                onClick={() => setPoderAberto(null)}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {poderesNovos.length > 0 && (
+        <div className="modal-fundo" onClick={() => setPoderesNovos([])}>
+          <div
+            className="modal-sino comemoracao poder-novo"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="comemoracao-emoji" aria-hidden="true">
+              {poderesNovos[0].icone}
+            </p>
+            <h2 className="nome">
+              Poder{poderesNovos.length > 1 ? "es" : ""} desbloqueado
+              {poderesNovos.length > 1 ? "s" : ""}!
+            </h2>
+            {poderesNovos.map((p) => (
+              <div key={p.id} className="regras-poder">
+                <p className="regras-poder-nome">
+                  {p.icone} {p.nome}
+                </p>
+                {p.regras.map((r) => (
+                  <p key={r} className="regras-poder-linha">
+                    • {r}
+                  </p>
+                ))}
+              </div>
+            ))}
+            <p className="sub">
+              Seus poderes ficam fixos na parte de baixo da tela.
+            </p>
+            <button
+              className="beber fechar-modal"
+              onClick={() => setPoderesNovos([])}
+            >
+              Usar com sabedoria 😈
+            </button>
+          </div>
+        </div>
+      )}
+
       {conquistasNovas.length > 0 && (
         <div className="modal-fundo" onClick={() => setConquistasNovas([])}>
           <div
@@ -2321,6 +2878,9 @@ function AguaTracker() {
                   <span className="conquista-texto">
                     <strong>{c.nome}</strong>
                     <span>{c.desc}</span>
+                    {c.recompensa && (
+                      <span className="recompensa">🎁 {c.recompensa}</span>
+                    )}
                   </span>
                 </div>
               ))}
@@ -2426,6 +2986,9 @@ function AguaTracker() {
                     <span className="conquista-texto">
                       <strong>{c.nome}</strong>
                       <span>{c.desc}</span>
+                      {c.recompensa && (
+                        <span className="recompensa">🎁 {c.recompensa}</span>
+                      )}
                     </span>
                   </div>
                 );
