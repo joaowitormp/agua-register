@@ -2425,7 +2425,10 @@ function AguaTracker() {
       {alertas.length > 0 && (
         <div className="pilha-alertas">
           {alertas.map((a) => (
-            <div key={a.id} className={`banner-alerta ${a.tipo || ""}`}>
+            <div
+              key={a.id}
+              className={`banner-alerta ${a.tipo && a.tipo !== "sino" ? a.tipo : ""}`}
+            >
               <span className="banner-texto">
                 {a.tipo === "anuncio-cacto" || a.tipo === "anuncio-deserto" ? (
                   a.frase
