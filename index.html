@@ -368,6 +368,20 @@ body { margin: 0; }
 /* Banners especiais */
 .banner-alerta.anuncio-cacto, .banner-alerta.anuncio-deserto { background: #0FA36B; }
 .banner-alerta.bastao { background: linear-gradient(90deg, #B8860B, #DAA520); }
+
+/* Histórico individual */
+.lista-historico {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 12px;
+  max-height: 50vh; overflow-y: auto;
+}
+.hist-item {
+  display: flex; gap: 10px; align-items: baseline; padding: 7px 10px;
+  border-radius: 8px; background: #F7FBFD; border: 1px solid #EEF6FA;
+}
+.hist-data {
+  font-size: 11px; color: #9FBFCC; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.hist-texto { font-size: 13px; color: #0B3446; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -1049,7 +1063,7 @@ function Garrafa({ pct, tamanho = 92 }) {
 }
 
 /* ---------- Cartão de membro ---------- */
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeito, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeito, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -1219,6 +1233,11 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
       {dono && (
         <button className="link-extra" onClick={() => onExtra(membro)}>
           Adicionar outra medida
+        </button>
+      )}
+      {dono && (
+        <button className="link-extra" onClick={() => onHistorico(membro)}>
+          📜 Ver histórico
         </button>
       )}
       {mostrarReivindicar && (
@@ -1412,6 +1431,7 @@ function AguaTracker() {
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
+  const [historicoDe, setHistoricoDe] = useState(null); // membro cujo histórico está aberto
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
@@ -1801,9 +1821,8 @@ function AguaTracker() {
     const agora = Date.now();
     const c = registrosHoje[m.id] || 0;
     const e = extrasHoje[m.id] || 0;
-    const metaB = m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl;
-    const curado =
-      ef.tipo === "cacto" ? (ef.curas || []).length >= 2 || metaB : metaB;
+    const pctMeta = m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+    const curado = ef.tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
     if (curado && (!ef.travaAte || agora >= ef.travaAte)) return null;
     return ef;
   };
@@ -1856,7 +1875,12 @@ function AguaTracker() {
     if (poderId === "cacto" || poderId === "deserto") {
       const cAlvo = registrosHoje[alvo.id] || 0;
       const eAlvo = extrasHoje[alvo.id] || 0;
-      if (alvo.goalMl > 0 && cAlvo * alvo.bottleMl + eAlvo >= alvo.goalMl) {
+      const pctAlvo =
+        alvo.goalMl > 0 ? (cAlvo * alvo.bottleMl + eAlvo) / alvo.goalMl : 0;
+      if (poderId === "cacto" && pctAlvo >= 0.6) {
+        return { ok: false, motivo: "já bebeu 60%+ da meta — imune" };
+      }
+      if (poderId === "deserto" && pctAlvo >= 1) {
         return { ok: false, motivo: "já bateu a meta de hoje — imune" };
       }
     }
@@ -1888,17 +1912,64 @@ function AguaTracker() {
     return { ok: true, motivo: "" };
   };
 
-  const usarPoder = (poderId, alvo) => {
-    const st = statusPoder(poderId, alvo);
-    if (!st.ok) {
-      setToast(`Não dá: ${st.motivo}`);
+  const usarPoder = async (poderId, alvo) => {
+    const previa = statusPoder(poderId, alvo);
+    if (!previa.ok) {
+      setToast(`Não dá: ${previa.motivo}`);
       setTimeout(() => setToast(null), 4000);
       return;
     }
+    /* Checagem FINAL com dados frescos do servidor: a tela sincroniza a
+       cada 30 s, então o alvo pode ter registrado água segundos atrás sem
+       que o lançador veja — o poder é negado aqui, na hora do golpe */
+    let base = dados;
+    try {
+      const r = await storage.get(KEY);
+      if (r && r.value) base = JSON.parse(r.value);
+    } catch {}
     const agora = Date.now();
+    let horasAnuncio = 1;
+    if (poderId === "cacto" || poderId === "deserto") {
+      const oito = new Date();
+      oito.setHours(8, 0, 0, 0);
+      const diaSem = new Date().getDay();
+      const ultimoF = (base.ultimo && base.ultimo[alvo.id]) || 0;
+      const baseRelogio =
+        diaSem === 0 || diaSem === 6 || agora < oito.getTime()
+          ? null
+          : Math.max(ultimoF, oito.getTime());
+      const secoF = baseRelogio === null ? null : agora - baseRelogio;
+      const exigidoH = poderId === "cacto" ? 3 : 4;
+      const cF = (base.intake[dia] && base.intake[dia][alvo.id]) || 0;
+      const eF =
+        (base.extras && base.extras[dia] && base.extras[dia][alvo.id]) || 0;
+      const pctF =
+        alvo.goalMl > 0 ? (cF * alvo.bottleMl + eF) / alvo.goalMl : 0;
+      const imuneF = poderId === "cacto" ? pctF >= 0.6 : pctF >= 1;
+      const efF = base.efeitos && base.efeitos[alvo.id];
+      let motivo = null;
+      if (efF) {
+        motivo = efF.tipo === "cacto" ? "já está cactificado" : "já está desertificado";
+      } else if (imuneF) {
+        motivo =
+          poderId === "cacto"
+            ? "acabou de passar dos 60% da meta — imune"
+            : "acabou de bater a meta — imune";
+      } else if (secoF === null || secoF < exigidoH * 3600000) {
+        motivo = `registrou água agora há pouco — só ${
+          secoF === null ? "0 min" : fmtTempo(secoF)
+        } de seca`;
+      }
+      if (motivo) {
+        setDados(base); /* atualiza a tela com a verdade fresca */
+        setToast(`Não dá: ${motivo}`);
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      horasAnuncio = Math.max(1, Math.floor(secoF / 3600000));
+    }
     const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
-    const horas = Math.max(1, Math.floor((tempoSeco(alvo) || 0) / 3600000));
-    const novo = structuredClone(dados);
+    const novo = structuredClone(base);
     if (!Array.isArray(novo.nudges)) novo.nudges = [];
     novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
     if (poderId === "bastao") {
@@ -1921,6 +1992,7 @@ function AguaTracker() {
         curas: [],
         travaAte: 0,
       };
+      registrarHistorico(novo, alvo.id, { t: agora, tipo: poderId, por: meuNome });
       if (poderId === "cacto") {
         localStorage.setItem("agua-cacto-cooldown", String(agora));
       } else if (poderId === "deserto") {
@@ -1934,8 +2006,8 @@ function AguaTracker() {
         tipo: poderId === "cacto" ? "anuncio-cacto" : "anuncio-deserto",
         frase:
           poderId === "cacto"
-            ? `🌵 ${meuNome} cactificou ${alvo.name} após ${horas}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`
-            : `🏜️ ${meuNome} desertificou ${alvo.name} após ${horas}h de seca. O cartão rachou — só a meta batida faz chover.`,
+            ? `🌵 ${meuNome} cactificou ${alvo.name} após ${horasAnuncio}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`
+            : `🏜️ ${meuNome} desertificou ${alvo.name} após ${horasAnuncio}h de seca. O cartão rachou — só a meta batida faz chover.`,
       });
       setToast(
         poderId === "cacto"
@@ -2006,8 +2078,10 @@ function AguaTracker() {
   };
 
   /* Ao registrar água: atualiza o "último registro" (usado pelos poderes)
-     e aplica a cura dos efeitos ativos (cacto/deserto), com a trava
-     anti-pressa: 2 registros em <10 min estendem o efeito */
+     e aplica a cura dos efeitos ativos. Cacto: sai com 60% da meta bebida
+     (a meta batida, portanto, também liberta). Deserto: sai com a meta.
+     Anti-fraude: 2 registros em <10 min não curam e travam o efeito
+     (cacto: +1h30; deserto: +3h) */
   const aoRegistrarAgua = (novo, id, agora) => {
     if (!novo.ultimo) novo.ultimo = {};
     novo.ultimo[id] = agora;
@@ -2017,25 +2091,55 @@ function AguaTracker() {
     const rapidas = ef.curas.filter((t) => t - ef.desde < 10 * 60 * 1000).length;
     if (rapidas >= 2 && !ef.travaAte) {
       ef.travaAte =
-        ef.tipo === "cacto" ? agora + 60 * 60 * 1000 : agora + 3 * 60 * 60 * 1000;
+        ef.tipo === "cacto"
+          ? agora + 90 * 60 * 1000
+          : agora + 3 * 60 * 60 * 1000;
     }
     const m = novo.members.find((x) => x.id === id);
     const c = (novo.intake[dia] && novo.intake[dia][id]) || 0;
     const e = (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
-    const metaBatida = m && m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl;
-    const curado =
-      ef.tipo === "cacto" ? ef.curas.length >= 2 || metaBatida : metaBatida;
+    const pctMeta =
+      m && m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+    const curado = ef.tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
     if (curado && (!ef.travaAte || agora >= ef.travaAte)) {
       delete novo.efeitos[id];
     }
   };
 
+  /* Histórico individual: cada registro de água (com horário e volume)
+     e cada cactificação/desertificação sofrida. Mantém as 100 entradas
+     mais recentes por pessoa, para o arquivo não crescer sem limite */
+  const registrarHistorico = (novo, id, entrada) => {
+    if (!novo.historico) novo.historico = {};
+    if (!novo.historico[id]) novo.historico[id] = [];
+    novo.historico[id].push(entrada);
+    if (novo.historico[id].length > 100) {
+      novo.historico[id] = novo.historico[id].slice(-100);
+    }
+  };
+
+  const removerDoHistorico = (novo, id, tipo) => {
+    const h = novo.historico && novo.historico[id];
+    if (!h) return;
+    for (let i = h.length - 1; i >= 0; i--) {
+      if (h[i].tipo === tipo) {
+        h.splice(i, 1);
+        return;
+      }
+    }
+  };
+
   const beber = (id) => {
+    const agora = Date.now();
     const novo = structuredClone(dados);
     if (!novo.intake[dia]) novo.intake[dia] = {};
     novo.intake[dia][id] = (novo.intake[dia][id] || 0) + 1;
     registrarEvento(novo, id, { t: "g" });
-    aoRegistrarAgua(novo, id, Date.now());
+    const alvoNovo = novo.members.find((m) => m.id === id);
+    if (alvoNovo) {
+      registrarHistorico(novo, id, { t: agora, tipo: "g", ml: alvoNovo.bottleMl });
+    }
+    aoRegistrarAgua(novo, id, agora);
     persistir(novo);
     const membro = dados.members.find((m) => m.id === id);
     if (membro) verificarSeguranca(id, membro.bottleMl);
@@ -2052,6 +2156,7 @@ function AguaTracker() {
         if (novo.intake[dia] && novo.intake[dia][id] > 0) {
           novo.intake[dia][id] -= 1;
         }
+        removerDoHistorico(novo, id, "g");
         const membro = dados.members.find((m) => m.id === id);
         if (membro) descontarSeguranca(id, membro.bottleMl);
       } else {
@@ -2062,6 +2167,7 @@ function AguaTracker() {
           if (restante > 0) novo.extras[dia][id] = restante;
           else delete novo.extras[dia][id];
         }
+        removerDoHistorico(novo, id, "e");
         descontarSeguranca(id, ultimo.ml || 0);
       }
       persistir(novo);
@@ -2107,6 +2213,7 @@ function AguaTracker() {
     if (!novo.extras[dia]) novo.extras[dia] = {};
     novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
     registrarEvento(novo, extraPara.id, { t: "e", ml });
+    registrarHistorico(novo, extraPara.id, { t: Date.now(), tipo: "e", ml });
     aoRegistrarAgua(novo, extraPara.id, Date.now());
     persistir(novo);
     verificarSeguranca(extraPara.id, ml);
@@ -2550,6 +2657,7 @@ function AguaTracker() {
               onEditar={abrirEdicao}
               onReivindicar={abrirReivindicacao}
               onConquistas={setConquistasDe}
+              onHistorico={setHistoricoDe}
               onSino={abrirSino}
               onExtra={abrirExtra}
               onBeber={beber}
@@ -3044,6 +3152,53 @@ function AguaTracker() {
           </div>
         </div>
       )}
+
+      {historicoDe && (() => {
+        const lista = (
+          (dados.historico && dados.historico[historicoDe.id]) ||
+          []
+        )
+          .slice()
+          .reverse();
+        const fmtData = (ts) => {
+          const d = new Date(ts);
+          return `${String(d.getDate()).padStart(2, "0")}/${String(
+            d.getMonth() + 1
+          ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
+            d.getMinutes()
+          ).padStart(2, "0")}`;
+        };
+        return (
+          <div className="modal-fundo" onClick={() => setHistoricoDe(null)}>
+            <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+              <h2 className="nome">📜 Histórico de {historicoDe.name}</h2>
+              <p className="sub">Registros mais recentes primeiro (até 100).</p>
+              <div className="lista-historico">
+                {lista.length === 0 && (
+                  <p className="sub">Nada registrado por aqui ainda.</p>
+                )}
+                {lista.map((e, i) => (
+                  <div key={`${e.t}-${i}`} className="hist-item">
+                    <span className="hist-data">{fmtData(e.t)}</span>
+                    <span className="hist-texto">
+                      {e.tipo === "g" && `🍶 Garrafa · ${fmt(e.ml || 0)}`}
+                      {e.tipo === "e" && `💧 Medida avulsa · ${fmt(e.ml || 0)}`}
+                      {e.tipo === "cacto" && `🌵 Cactificado por ${e.por || "alguém"}`}
+                      {e.tipo === "deserto" && `🏜️ Desertificado por ${e.por || "alguém"}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="desfazer fechar-modal"
+                onClick={() => setHistoricoDe(null)}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {conquistasDe && (
         <div className="modal-fundo" onClick={() => setConquistasDe(null)}>
