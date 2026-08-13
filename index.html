@@ -1958,21 +1958,29 @@ function AguaTracker() {
 
   /* Segurança (hiponatremia): a janela de 60 min começa a contar no
      PRIMEIRO registro; quando expira, o próximo registro abre uma janela
-     nova. Passou de 1 L dentro da janela → aviso (no máx. 1 a cada 30 min) */
+     nova. O aviso surge quando o total da janela passa de 1 L E o consumo
+     foi de fato rápido: vários registros na janela, ou um registro único
+     grande feito a menos de 1 h do registro anterior. Um garrafão de
+     1,5 L registrado de uma vez, horas depois do último gole, não alerta */
   const verificarSeguranca = (membroId, ml) => {
     try {
       const chave = `agua-seg-${membroId}`;
       const agora = Date.now();
-      let ctl = { inicio: 0, ml: 0 };
+      let ctl = { inicio: 0, ml: 0, n: 0, ultimoTs: 0 };
       try {
         ctl = { ...ctl, ...JSON.parse(localStorage.getItem(chave) || "{}") };
       } catch {}
+      const intervaloAnterior = ctl.ultimoTs ? agora - ctl.ultimoTs : Infinity;
       if (!ctl.inicio || agora - ctl.inicio >= 60 * 60 * 1000) {
-        ctl = { inicio: agora, ml: 0 };
+        ctl = { inicio: agora, ml: 0, n: 0, ultimoTs: ctl.ultimoTs };
       }
       ctl.ml += ml;
+      ctl.n = (ctl.n || 0) + 1;
+      ctl.ultimoTs = agora;
       localStorage.setItem(chave, JSON.stringify(ctl));
-      if (ctl.ml > 1000) {
+      const passouDeUmLitro = ctl.ml > 1000;
+      const consumoRapido = ctl.n >= 2 || intervaloAnterior < 60 * 60 * 1000;
+      if (passouDeUmLitro && consumoRapido) {
         const ultimoAviso = Number(localStorage.getItem("agua-seg-aviso") || 0);
         if (agora - ultimoAviso >= 30 * 60 * 1000) {
           localStorage.setItem("agua-seg-aviso", String(agora));
