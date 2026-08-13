@@ -527,28 +527,6 @@ const PODERES = [
       "O feitiço quebra com 2 registros de água ou a meta batida — mas 2 registros em menos de 10 min estendem o cacto por +1h.",
     ],
   },
-  {
-    id: "deserto",
-    conquista: "semana-molhada",
-    icone: "🏜️",
-    nome: "Desertificação",
-    regras: [
-      "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
-      "O cartão vira deserto rachado e só a meta batida do dia faz chover de novo.",
-      "2 ou mais garrafas em menos de 10 min travam o deserto por 3h.",
-    ],
-  },
-  {
-    id: "bastao",
-    conquista: "dinastia-da-gota",
-    icone: "🥇",
-    nome: "Bastão Dourado",
-    regras: [
-      "Use em quem está há 1h ou mais sem registrar água.",
-      "O cartão da vítima é cutucado com batidas metálicas até ela fechar o aviso real.",
-      "1 uso por dia em cada pessoa.",
-    ],
-  },
 ];
 
 const KEY = "agua-tracker-v1";
@@ -652,13 +630,13 @@ const CONQUISTAS = [
   { id: "cachoeira-alarmante", nome: "Cachoeira Alarmante", desc: "50 L acumulados.", recompensa: "2 frases exclusivas de provocação", paths: ["M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2", "M9.6 4.6A2 2 0 1 1 11 8H2", "M12.6 19.4A2 2 0 1 0 14 16H2"] },
   { id: "represa-billings", nome: "Represa Billings", desc: "200 L acumulados.", recompensa: "2 frases exclusivas de provocação", paths: ["M8 13a4 4 0 0 1 8 0", "M3 13h18", "M6 17h12", "M9 20h6"] },
   { id: "pingo-de-disciplina", nome: "Pingo de Disciplina", desc: "Meta batida 3 dias úteis seguidos.", recompensa: "Poder: Cactificação 🌵", paths: ["M7 20h10", "M10 20c5.5-2.5.8-6.4 3-10", "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8", "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2"] },
-  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", recompensa: "Poder: Desertificação 🏜️", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
+  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
   { id: "mare-alta", nome: "Maré Alta", desc: "Meta batida 10 dias úteis seguidos.", paths: ["M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"] },
   { id: "tsunami-de-foco", nome: "Tsunami de Foco", desc: "Meta batida 30 dias úteis seguidos.", paths: ["M2 19h20", "M4 19c0-8 5-13 11-13 4 0 7 2.8 7 6 0 2.6-2 4.6-4.6 4.6-2 0-3.6-1.4-3.6-3.2 0-1.4 1-2.4 2.4-2.4"] },
   { id: "agua-mole", nome: "Água Mole em Pedra Dura", desc: "Meta batida em 50 dias úteis seguidos.", paths: ["m8 3 4 8 5-5 5 15H2L8 3z"] },
   { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", recompensa: "2 frases exclusivas de provocação", paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
   { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", recompensa: "2 frases exclusivas de provocação", paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
-  { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensa: "Poder: Bastão Dourado 🥇 + 2 frases exclusivas", paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
+  { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensa: "2 frases exclusivas de provocação", paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
 ];
 
 const IconeConquista = ({ conquista, tamanho = 11 }) => (
