@@ -330,6 +330,7 @@ body { margin: 0; }
 .regras-poder { text-align: left; margin-top: 10px; }
 .regras-poder-nome { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #0B3446; }
 .regras-poder-linha { margin: 0 0 3px; font-size: 12.5px; line-height: 1.5; color: #4B7A8E; }
+.link-regras { margin: 6px 0 0; display: inline-block; font-size: 12px; }
 .recompensa { font-size: 11px; color: #B8860B; margin-top: 2px; }
 .efeito-badge { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: #7A4B12; }
 .exclusivas-titulo { margin-top: 14px; }
@@ -523,8 +524,9 @@ const PODERES = [
     nome: "Cactificação",
     regras: [
       "Use em quem está há 3h ou mais sem registrar água (o relógio corre a partir das 8h, de segunda a sexta).",
-      "Você precisa ter registrado ao menos 1 garrafa hoje.",
+      "Você precisa ter registrado ao menos 1 garrafa hoje — e quem está cactificado não cactifica ninguém.",
       "O feitiço quebra com 2 registros de água ou a meta batida — mas 2 registros em menos de 10 min estendem o cacto por +1h.",
+      "O poder tem recarga de 1 hora entre usos.",
     ],
   },
 ];
@@ -1385,6 +1387,7 @@ function AguaTracker() {
   const [dica, setDica] = useState(null); // benefício da hidratação exibido nesta abertura
   const [avisoAgua, setAvisoAgua] = useState(false); // aviso de segurança (>1 L na janela de 1 h)
   const [poderAberto, setPoderAberto] = useState(null); // poder com o seletor de alvos aberto
+  const [regrasAbertas, setRegrasAbertas] = useState(false); // "saber mais" das regras do poder
   const [poderesNovos, setPoderesNovos] = useState([]); // popup de anúncio de poder novo
   const [cutucadaId, setCutucadaId] = useState(null); // cartão sendo cutucado pelo bastão
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
@@ -1793,6 +1796,28 @@ function AguaTracker() {
     const meuAlvo =
       alvo.ownerId === meuDispositivo || posseExtra.includes(alvo.id);
     if (meuAlvo) return { ok: false, motivo: "é o seu próprio cartão" };
+    if (poderId === "cacto") {
+      /* Cacto não cactifica ninguém */
+      const euCactificado = meusMembros.some((m) => {
+        const efMeu = efeitoDe(m);
+        return efMeu && efMeu.tipo === "cacto";
+      });
+      if (euCactificado) {
+        return {
+          ok: false,
+          motivo: "você está cactificado — cacto não cactifica ninguém",
+        };
+      }
+      /* Recarga: 1 uso do poder por hora */
+      const ultimoUso = Number(localStorage.getItem("agua-cacto-cooldown") || 0);
+      const resto = 60 * 60 * 1000 - (Date.now() - ultimoUso);
+      if (ultimoUso && resto > 0) {
+        return {
+          ok: false,
+          motivo: `poder em recarga — libera em ${fmtTempo(resto)}`,
+        };
+      }
+    }
     const efAtivo = efeitoDe(alvo);
     if ((poderId === "cacto" || poderId === "deserto") && efAtivo) {
       return {
@@ -1800,6 +1825,13 @@ function AguaTracker() {
         motivo:
           efAtivo.tipo === "cacto" ? "já está cactificado" : "já está desertificado",
       };
+    }
+    if (poderId === "cacto" || poderId === "deserto") {
+      const cAlvo = registrosHoje[alvo.id] || 0;
+      const eAlvo = extrasHoje[alvo.id] || 0;
+      if (alvo.goalMl > 0 && cAlvo * alvo.bottleMl + eAlvo >= alvo.goalMl) {
+        return { ok: false, motivo: "já bateu a meta de hoje — imune" };
+      }
     }
     const seco = tempoSeco(alvo);
     if (seco === null) {
@@ -1862,6 +1894,9 @@ function AguaTracker() {
         curas: [],
         travaAte: 0,
       };
+      if (poderId === "cacto") {
+        localStorage.setItem("agua-cacto-cooldown", String(agora));
+      }
       novo.nudges.push({
         id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
         to: alvo.id,
@@ -2749,7 +2784,10 @@ function AguaTracker() {
               key={p.id}
               className="poder"
               title={p.nome}
-              onClick={() => setPoderAberto(p.id)}
+              onClick={() => {
+                setRegrasAbertas(false);
+                setPoderAberto(p.id);
+              }}
             >
               {p.icone} {p.nome}
             </button>
@@ -2768,6 +2806,21 @@ function AguaTracker() {
               <h2 className="nome">
                 {poder.icone} {poder.nome}
               </h2>
+              <button
+                className="link-extra link-regras"
+                onClick={() => setRegrasAbertas((v) => !v)}
+              >
+                {regrasAbertas ? "Ocultar as regras" : "📖 Saber mais sobre as regras"}
+              </button>
+              {regrasAbertas && (
+                <div className="regras-poder">
+                  {poder.regras.map((r) => (
+                    <p key={r} className="regras-poder-linha">
+                      • {r}
+                    </p>
+                  ))}
+                </div>
+              )}
               <p className="sub">Escolha o alvo:</p>
               <div className="lista-alvos">
                 {alvos.length === 0 && (
