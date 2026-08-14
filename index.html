@@ -79,7 +79,14 @@ body { margin: 0; }
   display: flex; flex-direction: column;
 }
 .cartao-topo { display: flex; justify-content: space-between; align-items: flex-start; }
-.nome { margin: 0; font-size: 18px; font-weight: 800; }
+.nome { margin: 0; font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+.nome-linha { display: flex; align-items: center; gap: 5px; }
+.btn-historico {
+  border: none; background: transparent; color: #9FBFCC; cursor: pointer;
+  padding: 3px 4px; border-radius: 6px; line-height: 1; display: inline-flex;
+  flex-shrink: 0;
+}
+.btn-historico:hover { color: #0F8BB0; background: #EAF6FA; }
 .sub { margin: 3px 0 0; font-size: 12px; color: #4B7A8E; }
 
 .remover {
@@ -1078,7 +1085,31 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
     >
       <div className="cartao-topo">
         <div>
-          <h2 className="nome">{membro.name}</h2>
+          <div className="nome-linha">
+            <h2 className="nome">{membro.name}</h2>
+            <button
+              className="btn-historico"
+              title={`Ver histórico de ${membro.name}`}
+              aria-label={`Ver histórico de ${membro.name}`}
+              onClick={() => onHistorico(membro)}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12.5 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v4.5" />
+                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                <path d="M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+              </svg>
+            </button>
+          </div>
           <p className="sub">
             Garrafa de {fmt(membro.bottleMl)} · meta {fmt(membro.goalMl)}
           </p>
@@ -1233,11 +1264,6 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
       {dono && (
         <button className="link-extra" onClick={() => onExtra(membro)}>
           Adicionar outra medida
-        </button>
-      )}
-      {dono && (
-        <button className="link-extra" onClick={() => onHistorico(membro)}>
-          📜 Ver histórico
         </button>
       )}
       {mostrarReivindicar && (
@@ -1814,10 +1840,13 @@ function AguaTracker() {
     return b === null ? null : Date.now() - b;
   };
 
-  /* Efeito ativo de um cartão, já considerando cura pendente e trava */
+  /* Efeito ativo de um cartão, já considerando cura pendente e trava.
+     Efeitos não atravessam a meia-noite: o cacto/deserto de ontem
+     expira às 00:00 e a garrafa volta ao normal */
   const efeitoDe = (m) => {
     const ef = dados.efeitos && dados.efeitos[m.id];
     if (!ef) return null;
+    if (chaveDe(new Date(ef.desde || 0)) !== dia) return null;
     const agora = Date.now();
     const c = registrosHoje[m.id] || 0;
     const e = extrasHoje[m.id] || 0;
@@ -1947,8 +1976,9 @@ function AguaTracker() {
         alvo.goalMl > 0 ? (cF * alvo.bottleMl + eF) / alvo.goalMl : 0;
       const imuneF = poderId === "cacto" ? pctF >= 0.6 : pctF >= 1;
       const efF = base.efeitos && base.efeitos[alvo.id];
+      const efValido = efF && chaveDe(new Date(efF.desde || 0)) === dia;
       let motivo = null;
-      if (efF) {
+      if (efValido) {
         motivo = efF.tipo === "cacto" ? "já está cactificado" : "já está desertificado";
       } else if (imuneF) {
         motivo =
@@ -2087,6 +2117,11 @@ function AguaTracker() {
     novo.ultimo[id] = agora;
     const ef = novo.efeitos && novo.efeitos[id];
     if (!ef) return;
+    /* Efeito de ontem: venceu à meia-noite — limpa e segue o dia */
+    if (chaveDe(new Date(ef.desde || 0)) !== dia) {
+      delete novo.efeitos[id];
+      return;
+    }
     ef.curas = [...(ef.curas || []), agora];
     const rapidas = ef.curas.filter((t) => t - ef.desde < 10 * 60 * 1000).length;
     if (rapidas >= 2 && !ef.travaAte) {
@@ -2267,6 +2302,11 @@ function AguaTracker() {
     const garrafa = Number(formEd.bottleMl);
     const meta = Number(formEd.goalMl);
     if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    if (nome.length > 15) {
+      setToast("O nome pode ter no máximo 15 caracteres");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
     if (
       dados.members.some(
         (m) =>
@@ -2475,6 +2515,11 @@ function AguaTracker() {
     const garrafa = Number(form.bottleMl);
     const meta = Number(form.goalMl);
     if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    if (nome.length > 15) {
+      setToast("O nome pode ter no máximo 15 caracteres");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
     if (
       dados.members.some(
         (m) => nomeNormalizado(m.name) === nomeNormalizado(nome)
@@ -2677,7 +2722,8 @@ function AguaTracker() {
                 type="text"
                 value={form.name}
                 autoFocus
-                placeholder="Ex.: Ana"
+                maxLength={15}
+                placeholder="Ex.: Ana (máx. 15 caracteres)"
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 onKeyDown={(e) => e.key === "Enter" && adicionar()}
               />
@@ -2834,6 +2880,7 @@ function AguaTracker() {
                 type="text"
                 value={formEd.name}
                 autoFocus
+                maxLength={15}
                 onChange={(e) => setFormEd({ ...formEd, name: e.target.value })}
               />
             </label>
