@@ -574,7 +574,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-14.1";
+const APP_VERSION = "2026-08-14.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2193,12 +2193,15 @@ function AguaTracker() {
     }
   };
 
+  /* Desfazer não apaga a entrada do histórico — marca como anulada.
+     A fusão no servidor respeita a anulação; uma remoção física seria
+     "ressuscitada" pela união com os dados antigos */
   const removerDoHistorico = (novo, id, tipo) => {
     const h = novo.historico && novo.historico[id];
     if (!h) return;
     for (let i = h.length - 1; i >= 0; i--) {
-      if (h[i].tipo === tipo) {
-        h.splice(i, 1);
+      if (h[i].tipo === tipo && !h[i].anulado) {
+        h[i] = { ...h[i], anulado: true };
         return;
       }
     }
@@ -3245,6 +3248,7 @@ function AguaTracker() {
           (dados.historico && dados.historico[historicoDe.id]) ||
           []
         )
+          .filter((e) => !e.anulado)
           .slice()
           .reverse();
         const fmtData = (ts) => {
