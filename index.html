@@ -570,6 +570,11 @@ const PODERES = [
 ];
 
 const KEY = "agua-tracker-v1";
+/* Versão do código em execução — o auto-atualizador compara com a
+   publicada e recarrega abas antigas (atualizar a cada deploy é
+   opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
+   manter a data ajuda a depurar) */
+const APP_VERSION = "2026-08-14.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1756,6 +1761,41 @@ function AguaTracker() {
       setCutucadaId(null);
     };
   }, [alertas]);
+
+  /* Auto-atualização: abas deixadas abertas continuam rodando o código
+     antigo mesmo após um deploy — os dados sincronizam, o código não.
+     Este verificador compara a versão em execução com a publicada e
+     recarrega a aba quando divergem (nunca no meio de uma digitação) */
+  useEffect(() => {
+    let ativo = true;
+    const conferir = async () => {
+      try {
+        const r = await fetch("/", { cache: "no-store" });
+        const texto = await r.text();
+        const m = texto.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+        if (!ativo || !m || m[1] === APP_VERSION) return;
+        const digitando =
+          document.activeElement &&
+          ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
+        if (!document.hidden && digitando) return; /* tenta de novo depois */
+        const ultima = Number(sessionStorage.getItem("agua-reload") || 0);
+        if (Date.now() - ultima > 60000) {
+          sessionStorage.setItem("agua-reload", String(Date.now()));
+          location.reload();
+        }
+      } catch {}
+    };
+    const idInt = setInterval(conferir, 5 * 60 * 1000);
+    const aoVoltar = () => {
+      if (!document.hidden) conferir();
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => {
+      ativo = false;
+      clearInterval(idInt);
+      document.removeEventListener("visibilitychange", aoVoltar);
+    };
+  }, []);
 
   const persistir = useCallback(async (novo) => {
     setDados(novo);
