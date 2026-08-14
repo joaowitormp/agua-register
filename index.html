@@ -574,7 +574,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-14.2";
+const APP_VERSION = "2026-08-14.4";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -621,51 +621,88 @@ const FRASES = [
 /* Benefícios do consumo de água — exibidos um por vez, em ordem
    aleatória e sem repetição até o ciclo dos 45 se completar */
 const BENEFICIOS = [
-  "Beber água melhora a concentração — até 2% de desidratação já reduz o foco.",
-  "Hidratação adequada ajuda a memória de curto prazo.",
-  "Dor de cabeça no fim da tarde? Falta de água é uma das causas mais comuns.",
-  "O cérebro é cerca de 75% água — ele sente primeiro quando falta.",
-  "Beber água regularmente ajuda a manter o nível de energia sem cafeína.",
-  "Desidratação leve piora o humor e aumenta a sensação de cansaço.",
-  "Água regula a temperatura do corpo — essencial em dias quentes.",
-  "Músculos bem hidratados rendem mais e têm menos cãibras.",
-  "Beber água ajuda as articulações a se manterem lubrificadas.",
-  "A hidratação ajuda o coração a bombear sangue com menos esforço.",
-  "Água transporta nutrientes e oxigênio para todas as células.",
-  "Beber água ao acordar ajuda a \"ligar\" o metabolismo.",
+  "Água pura conduz mal a eletricidade — o choque vem dos sais dissolvidos nela.",
   "Água é a melhor aliada da digestão — ajuda o intestino a funcionar no ritmo.",
-  "Beber água ajuda os rins a filtrar e eliminar toxinas.",
-  "Hidratar-se bem ajuda a prevenir pedras nos rins.",
-  "Água ajuda a controlar o apetite — sede às vezes se disfarça de fome.",
-  "Beber água antes das refeições ajuda a comer com mais consciência.",
-  "Pele hidratada começa por dentro: água ajuda na elasticidade.",
-  "A hidratação ajuda a manter os olhos e a boca confortáveis o dia todo.",
-  "Beber água ajuda o corpo a se recuperar mais rápido de gripes e resfriados.",
-  "O corpo humano é cerca de 60% água — você é praticamente uma garrafa ambulante.",
-  "Perdemos até 2,5 L de água por dia só existindo: respiração, suor e afins.",
-  "A sede já é sinal de desidratação — o ideal é beber antes dela chegar.",
-  "Água gelada ou natural? Tanto faz: a melhor água é a que você bebe.",
-  "Nenhum outro líquido substitui a água: café e refrigerante hidratam menos.",
-  "Olhos secos de tanta tela? Hidratação ajuda na produção de lágrimas.",
-  "Ar-condicionado rouba água do corpo sem você suar — hidrate-se dobrado.",
-  "Vai falar em reunião? Cordas vocais hidratadas garantem a voz firme.",
-  "Água ajuda a manter o hálito fresco — boca seca é festa para bactérias.",
-  "A saliva que protege seus dentes é feita quase toda de água.",
-  "O sangue é mais de 90% água — hidratar é literalmente manter o fluxo.",
-  "Os discos da coluna são amortecedores cheios de água: beber ajuda a preservá-los.",
-  "Hidratação adequada contribui para uma circulação melhor nas pernas.",
-  "Beber água ao longo do dia ajuda a manter a pressão arterial estável.",
-  "Beber um copo de água ativa levemente o gasto calórico — pequeno, mas de graça.",
-  "Depois do treino, a água é o primeiro \"suplemento\" da recuperação.",
-  "Em exercícios longos, cada quilo suado pede cerca de 1,5 L de reposição.",
-  "Vai voar? O ar da cabine é mais seco que deserto — embarque hidratado.",
-  "Álcool desidrata: um copo de água entre as doses faz o dia seguinte agradecer.",
-  "No frio a sede engana, mas o corpo perde água do mesmo jeito.",
-  "Dormir melhor também passa por hidratação equilibrada durante o dia.",
-  "Frutas contam: melancia e pepino são mais de 90% água.",
-  "Goles frequentes hidratam melhor que um litro de uma vez só.",
+  "Água quente pode congelar mais rápido que água fria em certas condições: é o efeito Mpemba, ainda debatido.",
   "A cor da urina é seu medidor gratuito: quanto mais clara, melhor.",
+  "O Brasil detém cerca de 12% da água doce superficial do planeta.",
+  "Uma gota que evapora aqui pode virar chuva do outro lado do mundo.",
+  "A hidratação ajuda a manter os olhos e a boca confortáveis o dia todo.",
+  "A sede já é sinal de desidratação — o ideal é beber antes dela chegar.",
+  "Um recém-nascido é cerca de 75% água; um idoso, perto de 50%.",
+  "Ar-condicionado rouba água do corpo sem você suar — hidrate-se dobrado.",
+  "22 de março é o Dia Mundial da Água.",
+  "Chove no deserto do Atacama tão pouco que há registros de décadas sem uma gota.",
+  "97% da água da Terra é salgada; só cerca de 1% está disponível para consumo.",
+  "A cloração da água no início do século 20 é apontada como uma das maiores conquistas da saúde pública.",
   "Sem água, o corpo aguenta poucos dias; sem comida, semanas — prioridade clara.",
+  "A saliva que protege seus dentes é feita quase toda de água.",
+  "O corpo humano é cerca de 60% água — você é praticamente uma garrafa ambulante.",
+  "Dor de cabeça no fim da tarde? Falta de água é uma das causas mais comuns.",
+  "No frio a sede engana, mas o corpo perde água do mesmo jeito.",
+  "O cérebro é cerca de 75% água — ele sente primeiro quando falta.",
+  "Vai falar em reunião? Cordas vocais hidratadas garantem a voz firme.",
+  "O sangue é mais de 90% água — hidratar é literalmente manter o fluxo.",
+  "Uma xícara de café carrega cerca de 130 litros de \"água virtual\" na produção.",
+  "A descoberta de que água contaminada causava cólera (Londres, 1854) fundou a epidemiologia.",
+  "Se o gelo afundasse, lagos congelariam de baixo para cima e a vida aquática não sobreviveria ao inverno.",
+  "Beber água ajuda o corpo a se recuperar mais rápido de gripes e resfriados.",
+  "Hidratar-se bem ajuda a prevenir pedras nos rins.",
+  "Beber água ajuda as articulações a se manterem lubrificadas.",
+  "Descarga antiga usa até 12 litros; as modernas, 3 a 6.",
+  "Já foi detectada água em Marte, na Lua e nas luas de Júpiter e Saturno.",
+  "Beber água antes das refeições ajuda a comer com mais consciência.",
+  "Camelos não armazenam água na corcova (é gordura) — mas bebem mais de 100 litros de uma vez.",
+  "Em exercícios longos, cada quilo suado pede cerca de 1,5 L de reposição.",
+  "Beber água ao acordar ajuda a \"ligar\" o metabolismo.",
+  "Florestas \"voam\": a Amazônia lança rios voadores de vapor que irrigam o Sudeste.",
+  "A água ferve a 100 °C ao nível do mar, mas a 90 °C no alto de uma montanha — menos pressão, menos esforço.",
+  "Água regula a temperatura do corpo — essencial em dias quentes.",
+  "Existe no espaço uma nuvem de vapor d'água com água equivalente a trilhões de oceanos.",
+  "Banho de 15 minutos pode gastar mais de 100 litros; de 5 minutos, menos de um terço disso.",
+  "Olhos secos de tanta tela? Hidratação ajuda na produção de lágrimas.",
+  "Nenhum outro líquido substitui a água: café e refrigerante hidratam menos.",
+  "A água-viva é cerca de 95% água.",
+  "Uma gota de água contém mais moléculas do que existem estrelas na Via Láctea.",
+  "Desidratação leve piora o humor e aumenta a sensação de cansaço.",
+  "Hidratação adequada ajuda a memória de curto prazo.",
+  "Perdemos até 2,5 L de água por dia só existindo: respiração, suor e afins.",
+  "Produzir 1 kg de carne bovina consome milhares de litros de água.",
+  "Músculos bem hidratados rendem mais e têm menos cãibras.",
+  "Beber água regularmente ajuda a manter o nível de energia sem cafeína.",
+  "Frutas contam: melancia e pepino são mais de 90% água.",
+  "Beber água melhora a concentração — até 2% de desidratação já reduz o foco.",
+  "O rio Amazonas despeja no oceano cerca de 20% de toda a água doce que chega aos mares.",
+  "Pele hidratada começa por dentro: água ajuda na elasticidade.",
+  "Mais de 68% da água doce do mundo está congelada em geleiras.",
+  "Goles frequentes hidratam melhor que um litro de uma vez só.",
+  "Depois do treino, a água é o primeiro \"suplemento\" da recuperação.",
+  "Água transporta nutrientes e oxigênio para todas as células.",
+  "Uma torneira pingando desperdiça dezenas de litros por dia.",
+  "Uma nuvem comum pesa centenas de toneladas — e mesmo assim flutua.",
+  "Uma molécula de água passa, em média, cerca de 9 dias na atmosfera antes de voltar como chuva.",
+  "Astronautas na estação espacial bebem água reciclada do próprio suor e urina.",
+  "A tensão superficial da água é tão alta que insetos caminham sobre ela.",
+  "Água gelada ou natural? Tanto faz: a melhor água é a que você bebe.",
+  "Você perde água só de respirar — dá para ver no vidro embaçado.",
+  "A água é uma das raras substâncias que aumentam de volume ao congelar — por isso o gelo flutua.",
+  "Dormir melhor também passa por hidratação equilibrada durante o dia.",
+  "Água ajuda a manter o hálito fresco — boca seca é festa para bactérias.",
+  "Beber água ao longo do dia ajuda a manter a pressão arterial estável.",
+  "Água ajuda a controlar o apetite — sede às vezes se disfarça de fome.",
+  "A ONU reconheceu o acesso à água potável como direito humano em 2010.",
+  "A água é chamada de \"solvente universal\": dissolve mais substâncias que qualquer outro líquido comum.",
+  "A água que você bebe hoje já passou por dinossauros: o ciclo é o mesmo há bilhões de anos.",
+  "Álcool desidrata: um copo de água entre as doses faz o dia seguinte agradecer.",
+  "O ponto mais profundo do oceano tem quase 11 km — o Everest caberia dentro com folga.",
+  "A hidratação ajuda o coração a bombear sangue com menos esforço.",
+  "Vai voar? O ar da cabine é mais seco que deserto — embarque hidratado.",
+  "Hidratação adequada contribui para uma circulação melhor nas pernas.",
+  "Beber um copo de água ativa levemente o gasto calórico — pequeno, mas de graça.",
+  "Os discos da coluna são amortecedores cheios de água: beber ajuda a preservá-los.",
+  "Os aquedutos romanos levavam água por dezenas de quilômetros usando só a gravidade.",
+  "Os ossos têm cerca de 30% de água — até eles precisam dela.",
+  "Beber água ajuda os rins a filtrar e eliminar toxinas.",
 ];
 
 /* --- Conquistas: definição (ícones em SVG) e cálculo retroativo --- */
@@ -2801,7 +2838,7 @@ function AguaTracker() {
               />
             </label>
             <div className="presets">
-              {[1500, 2000, 2500, 3000].map((v) => (
+              {[2000, 2500, 3000].map((v) => (
                 <button
                   key={v}
                   className={`preset ${Number(form.goalMl) === v ? "ativo" : ""}`}
@@ -2957,7 +2994,7 @@ function AguaTracker() {
               />
             </label>
             <div className="presets">
-              {[1500, 2000, 2500, 3000].map((v) => (
+              {[2000, 2500, 3000].map((v) => (
                 <button
                   key={v}
                   className={`preset ${Number(formEd.goalMl) === v ? "ativo" : ""}`}
