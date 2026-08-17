@@ -574,7 +574,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-14.4";
+const APP_VERSION = "2026-08-14.5";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -719,6 +719,7 @@ const CONQUISTAS = [
   { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", recompensa: "2 frases exclusivas de provocação", paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
   { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", recompensa: "2 frases exclusivas de provocação", paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
   { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensa: "2 frases exclusivas de provocação", paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
+  { id: "incactificavel", nome: "Incactificável", desc: "Nunca foi cactificado(a).", paths: ["M12 21V7", "M12 14H9.5A2.5 2.5 0 0 1 7 11.5V9", "M12 17h2.5A2.5 2.5 0 0 0 17 14.5V11", "M9 21h6", "M10.5 7a1.5 1.5 0 0 1 3 0"] },
 ];
 
 const IconeConquista = ({ conquista, tamanho = 11 }) => (
@@ -797,7 +798,23 @@ function CampoSenha({ value, onChange, placeholder, autoFocus, onEnter }) {
 const chaveDe = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-function calcularConquistas(members, intake, extras) {
+/* Cactificações sofridas ANTES de o histórico passar a registrá-las
+   (contagem informada pelo time). O histórico só é contado a partir de
+   CACTOS_DESDE, então as duas fontes não se duplicam. Para corrigir um
+   número à mão, basta editar o valor aqui */
+const CACTOS_INICIAIS = {
+  "joao witor": 0,
+  "renan": 0,
+  "isabel": 1,
+  "gui lins": 2,
+  "kaique": 0,
+  "mahmoud": 2,
+  "will": 2,
+  "gabriela": 0,
+};
+const CACTOS_DESDE = new Date("2026-08-14T14:00:00").getTime();
+
+function calcularConquistas(members, intake, extras, historico) {
   const resultado = {};
   const chaveHoje = chaveDe(new Date());
   const mlDoDia = (m, k) =>
@@ -901,6 +918,39 @@ function calcularConquistas(members, intake, extras) {
     if (nomeNormalizado(m.name) === "testerpower") {
       CONQUISTAS.forEach((cq) => c.add(cq.id));
     }
+  });
+
+  /* Incactificável: de quem nunca foi cactificado. É a única conquista que
+     se perde. Quando TODOS os membros já foram cactificados ao menos uma
+     vez, o placar zera e a conquista volta para todo mundo (reset) */
+  const cactos = {};
+  members.forEach((m) => {
+    cactos[m.id] = Number(CACTOS_INICIAIS[nomeNormalizado(m.name)] || 0);
+  });
+  const eventos = [];
+  Object.keys(historico || {}).forEach((id) => {
+    (historico[id] || []).forEach((e) => {
+      if (e && e.tipo === "cacto" && !e.anulado && Number(e.t) >= CACTOS_DESDE) {
+        eventos.push({ id, t: Number(e.t) });
+      }
+    });
+  });
+  eventos.sort((a, b) => a.t - b.t);
+  eventos.forEach((ev) => {
+    if (!(ev.id in cactos)) return;
+    cactos[ev.id] += 1;
+    if (members.length > 0 && members.every((m) => cactos[m.id] > 0)) {
+      members.forEach((m) => {
+        cactos[m.id] = 0;
+      });
+    }
+  });
+  members.forEach((m) => {
+    const r = resultado[m.id];
+    if (!r) return;
+    r.cactos = cactos[m.id] || 0;
+    if (r.cactos === 0) r.conjunto.add("incactificavel");
+    else r.conjunto.delete("incactificavel");
   });
   return resultado;
 }
@@ -1660,7 +1710,7 @@ function AguaTracker() {
   /* Celebra conquistas novas dos meus cartões (comparadas com as já vistas) */
   useEffect(() => {
     if (!dados) return;
-    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {});
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {});
     const novas = [];
     dados.members
       .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
@@ -1759,7 +1809,7 @@ function AguaTracker() {
      conquista antes dos poderes existirem) — uma única vez por poder */
   useEffect(() => {
     if (!dados) return;
-    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {});
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {});
     const conj = new Set();
     dados.members
       .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
@@ -1883,7 +1933,7 @@ function AguaTracker() {
     0
   );
   const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
-  const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {});
+  const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {});
 
   /* Conquistas do usuário atual (união dos cartões dele) → poderes e frases */
   const minhasConquistas = new Set();
@@ -3354,7 +3404,12 @@ function AguaTracker() {
                     </span>
                     <span className="conquista-texto">
                       <strong>{c.nome}</strong>
-                      <span>{c.desc}</span>
+                      <span>
+                        {c.desc}
+                        {c.id === "incactificavel" &&
+                          !ok &&
+                          ` (${(conquistas[conquistasDe.id] || {}).cactos || 0}x cacto)`}
+                      </span>
                       {c.recompensa && (
                         <span className="recompensa">🎁 {c.recompensa}</span>
                       )}
