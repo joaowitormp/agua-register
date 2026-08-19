@@ -373,8 +373,37 @@ body { margin: 0; }
 }
 
 /* Banners especiais */
-.banner-alerta.anuncio-cacto, .banner-alerta.anuncio-deserto { background: #0FA36B; }
+.banner-alerta.anuncio-cacto, .banner-alerta.anuncio-deserto, .banner-alerta.anuncio-tempestade { background: #0FA36B; }
 .banner-alerta.bastao { background: linear-gradient(90deg, #B8860B, #DAA520); }
+
+/* Tempestade de areia */
+.tempestade { position: fixed; inset: 0; z-index: 90; }
+.tempestade-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+.tempestade-topo { z-index: 91; cursor: grab; touch-action: none; }
+.tempestade-topo:active { cursor: grabbing; }
+.tempestade-aviso {
+  position: fixed; z-index: 92; left: 50%; top: 22%; transform: translateX(-50%);
+  width: min(440px, calc(100vw - 40px)); box-sizing: border-box;
+  background: rgba(11, 52, 70, 0.92); color: #EAF6FA; border-radius: 14px;
+  padding: 16px 18px; font-size: 13.5px; line-height: 1.6; pointer-events: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); text-align: center;
+}
+.tempestade-aviso p { margin: 0 0 6px; }
+.tempestade-titulo { font-size: 17px; font-weight: 800; }
+.tempestade-restante { margin: 8px 0 0; font-size: 12px; color: #9FBFCC; }
+.cartao.soterrado { border-color: #C79A55; }
+.tornados-cartao { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 16px; }
+.mini-tornado {
+  position: absolute; bottom: 12px; left: -40px; opacity: 0;
+  animation: passeio-tornado 11s ease-in-out infinite;
+}
+@keyframes passeio-tornado {
+  0% { transform: translateX(0) scale(0.75); opacity: 0; }
+  8% { opacity: 0.95; }
+  50% { transform: translateX(150px) scale(1.05) rotate(4deg); opacity: 0.95; }
+  78% { transform: translateX(300px) scale(0.8) rotate(-3deg); opacity: 0.9; }
+  86%, 100% { transform: translateX(340px) scale(0.7); opacity: 0; }
+}
 
 /* Histórico individual */
 .lista-historico {
@@ -567,6 +596,18 @@ const PODERES = [
       "O poder tem recarga de 1 hora entre usos.",
     ],
   },
+  {
+    id: "tempestade",
+    conquista: "agua-mole-pedra-dura",
+    icone: "🌪️",
+    nome: "Tempestade de Areia",
+    regras: [
+      "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
+      "Dois tornados invadem a tela da vítima e enterram tudo em areia — só ela vê o estrago por inteiro.",
+      "Para se desenterrar, ela precisa arrastar a areia para fora da tela, punhado por punhado.",
+      "Some sozinha na virada do dia. O poder tem recarga de 2 horas entre usos.",
+    ],
+  },
 ];
 
 const KEY = "agua-tracker-v1";
@@ -574,7 +615,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-14.5";
+const APP_VERSION = "2026-08-17.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -813,6 +854,15 @@ const CACTOS_INICIAIS = {
   "gabriela": 0,
 };
 const CACTOS_DESDE = new Date("2026-08-14T14:00:00").getTime();
+
+/* Efeitos por cartão: { cacto: {...}, deserto: {...}, tempestade: {...} }.
+   Cartões gravados no formato antigo (um único efeito com .tipo) são
+   convertidos na leitura, então nada se perde na transição */
+const normalizarEfeitos = (bruto) => {
+  if (!bruto || typeof bruto !== "object") return {};
+  if (typeof bruto.tipo === "string") return { [bruto.tipo]: bruto };
+  return bruto;
+};
 
 function calcularConquistas(members, intake, extras, historico) {
   const resultado = {};
@@ -1162,18 +1212,348 @@ function Garrafa({ pct, tamanho = 92 }) {
 }
 
 /* ---------- Cartão de membro ---------- */
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeito, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+/* ---------------------------------------------------------------
+   Tempestade de Areia 🌪️
+   Só a vítima vê a tela soterrada. Dois tornados atravessam a tela
+   despejando areia; para se livrar, ela precisa arrastar o mouse
+   (ou o dedo) empurrando os grãos para fora — punhado por punhado,
+   com resistência proposital e sempre sobrando restos pelo caminho.
+   --------------------------------------------------------------- */
+function TempestadeDeAreia({ por, onLimpou }) {
+  /* A função de "limpou" vive numa ref: se entrasse nas dependências do
+     efeito, cada render recriaria a tela de areia e a vítima jamais
+     conseguiria terminar a limpeza */
+  const refLimpou = React.useRef(onLimpou);
+  refLimpou.current = onLimpou;
+  const refAreia = React.useRef(null);
+  const refAnim = React.useRef(null);
+  const estado = React.useRef({
+    cels: null, cols: 0, linhas: 0, tam: 26,
+    graos: [], tornados: [], fase: "chegando", inicio: 0,
+    mouse: { ativo: false, x: 0, y: 0, px: 0, py: 0 },
+    limpou: false,
+  });
+  const [restante, setRestante] = React.useState(100);
+
+  React.useEffect(() => {
+    const areia = refAreia.current;
+    const anim = refAnim.current;
+    if (!areia || !anim) return;
+    const ctxA = areia.getContext("2d");
+    const ctxN = anim.getContext("2d");
+    const e = estado.current;
+    let rodando = true;
+    let raf = 0;
+
+    const dimensionar = () => {
+      const L = window.innerWidth;
+      const A = window.innerHeight;
+      [areia, anim].forEach((c) => {
+        c.width = L;
+        c.height = A;
+      });
+      const cols = Math.ceil(L / e.tam);
+      const linhas = Math.ceil(A / e.tam);
+      if (!e.cels) {
+        e.cols = cols;
+        e.linhas = linhas;
+        /* nivel 0..3 (3 = enterrado). Começa vazio: os tornados enchem */
+        e.cels = new Float32Array(cols * linhas);
+        e.semente = new Float32Array(cols * linhas).map(() => Math.random());
+      }
+      desenharAreia();
+    };
+
+    const corGrao = (n, i) => {
+      const s = e.semente[i];
+      const claro = 205 + Math.floor(s * 35);
+      const alfa = Math.min(1, 0.28 + n * 0.26);
+      return `rgba(${claro}, ${claro - 38 - Math.floor(s * 18)}, ${claro - 96}, ${alfa})`;
+    };
+
+    /* Camada de areia: redesenhada só quando algo muda */
+    const desenharAreia = () => {
+      const L = areia.width;
+      const A = areia.height;
+      ctxA.clearRect(0, 0, L, A);
+      const t = e.tam;
+      for (let y = 0; y < e.linhas; y++) {
+        for (let x = 0; x < e.cols; x++) {
+          const i = y * e.cols + x;
+          const n = e.cels[i];
+          if (n <= 0.02) continue;
+          const s = e.semente[i];
+          ctxA.fillStyle = corGrao(n, i);
+          /* bloco base (só quando bem coberto) + grãos soltos */
+          if (n > 1.15) {
+            ctxA.fillRect(x * t, y * t, t + 1, t + 1);
+          } else {
+            const pontos = Math.max(1, Math.round(n * 7));
+            for (let k = 0; k < pontos; k++) {
+              const px = x * t + ((s * 977 + k * 137) % t);
+              const py = y * t + ((s * 613 + k * 271) % t);
+              const r = 1 + ((s * 100 + k * 13) % 2);
+              ctxA.beginPath();
+              ctxA.arc(px, py, r, 0, 6.283);
+              ctxA.fill();
+            }
+          }
+        }
+      }
+      const total = e.cols * e.linhas;
+      let cobertas = 0;
+      for (let i = 0; i < total; i++) if (e.cels[i] > 0.02) cobertas++;
+      const pct = Math.round((cobertas / total) * 100);
+      setRestante(pct);
+      if (pct === 0 && !e.limpou && e.fase === "areia") {
+        e.limpou = true;
+        refLimpou.current();
+      }
+    };
+
+    /* Tornados de entrada: varrem a tela e despejam a areia */
+    const criarTornados = () => {
+      const A = anim.height;
+      const L = anim.width;
+      e.tornados = [
+        { x: -140, y: A * 0.62, vx: (L + 320) / 150, esc: 1, fase: 0 },
+        { x: L + 140, y: A * 0.44, vx: -(L + 320) / 165, esc: 0.8, fase: 2 },
+      ];
+      e.inicio = performance.now();
+    };
+
+    const despejar = (tx, alcance, forca) => {
+      const t = e.tam;
+      const cx = Math.floor(tx / t);
+      const raio = Math.ceil(alcance / t);
+      for (let y = 0; y < e.linhas; y++) {
+        for (let dx = -raio; dx <= raio; dx++) {
+          const x = cx + dx;
+          if (x < 0 || x >= e.cols) continue;
+          const i = y * e.cols + x;
+          const perto = 1 - Math.abs(dx) / (raio + 1);
+          e.cels[i] = Math.min(3, e.cels[i] + forca * perto * (0.6 + e.semente[i] * 0.8));
+        }
+      }
+    };
+
+    const desenharTornado = (ctx, t, tempo) => {
+      const alt = anim.height * 0.95 * t.esc;
+      const baseY = t.y + alt * 0.42;
+      ctx.save();
+      ctx.translate(t.x, baseY);
+      for (let i = 0; i < 28; i++) {
+        const p = i / 27;
+        const largura = 16 + p * 130 * t.esc;
+        const yy = -p * alt;
+        const balanco = Math.sin(tempo / 170 + p * 5 + t.fase) * 26 * p;
+        ctx.beginPath();
+        ctx.ellipse(balanco, yy, largura * 0.5, 11 + p * 9, 0, 0, 6.283);
+        ctx.fillStyle = `rgba(214, ${168 - Math.floor(p * 24)}, 96, ${0.1 + (1 - p) * 0.3})`;
+        ctx.fill();
+        for (let k = 0; k < 3; k++) {
+          const ang = tempo / 90 + i + k * 2.1;
+          ctx.beginPath();
+          ctx.arc(
+            balanco + Math.cos(ang) * largura * 0.5,
+            yy + Math.sin(ang) * 6,
+            1.6,
+            0,
+            6.283
+          );
+          ctx.fillStyle = "rgba(160, 112, 52, 0.65)";
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    };
+
+    /* Arraste: empurra os grãos na direção do movimento, com resistência */
+    const arrastar = () => {
+      const m = e.mouse;
+      const dx = m.x - m.px;
+      const dy = m.y - m.py;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 1) return;
+      const t = e.tam;
+      const raio = 3; /* células */
+      const cx = Math.floor(m.x / t);
+      const cy = Math.floor(m.y / t);
+      const forca = Math.min(0.5, 0.055 + dist * 0.0025); /* de propósito: pouco */
+      for (let y = cy - raio; y <= cy + raio; y++) {
+        for (let x = cx - raio; x <= cx + raio; x++) {
+          if (x < 0 || y < 0 || x >= e.cols || y >= e.linhas) continue;
+          const d = Math.hypot(x - cx, y - cy);
+          if (d > raio) continue;
+          const i = y * e.cols + x;
+          if (e.cels[i] <= 0) continue;
+          /* teimosia individual: alguns grãos resistem mais */
+          const teimosia = 0.35 + e.semente[i] * 0.75;
+          const tira = Math.min(e.cels[i], (forca / teimosia) * (1 - d / (raio + 1)));
+          if (tira <= 0) continue;
+          e.cels[i] = Math.max(0, e.cels[i] - tira);
+          /* restos: às vezes um fiapo volta a grudar por perto */
+          if (Math.random() < 0.22) {
+            const vx = x + (dx > 0 ? 1 : -1);
+            if (vx >= 0 && vx < e.cols) {
+              const j = y * e.cols + vx;
+              e.cels[j] = Math.min(3, e.cels[j] + tira * 0.45);
+            }
+          }
+          if (Math.random() < 0.5) {
+            e.graos.push({
+              x: x * t + Math.random() * t,
+              y: y * t + Math.random() * t,
+              vx: (dx / dist) * (2.6 + Math.random() * 4.5),
+              vy: (dy / dist) * (2.6 + Math.random() * 4.5) - 0.6,
+              r: 1 + Math.random() * 2,
+              vida: 1,
+            });
+          }
+        }
+      }
+      desenharAreia();
+    };
+
+    const quadro = (tempo) => {
+      if (!rodando) return;
+      ctxN.clearRect(0, 0, anim.width, anim.height);
+      if (e.fase === "chegando") {
+        let fora = 0;
+        e.tornados.forEach((t) => {
+          t.x += t.vx;
+          despejar(t.x, 190 * t.esc, 0.42);
+          desenharTornado(ctxN, t, tempo);
+          if (t.x < -220 || t.x > anim.width + 220) fora++;
+        });
+        desenharAreia();
+        if (fora >= e.tornados.length) {
+          /* garante cobertura total antes de entregar o controle */
+          for (let i = 0; i < e.cels.length; i++) {
+            e.cels[i] = Math.max(e.cels[i], 1.6 + e.semente[i] * 1.2);
+          }
+          e.fase = "areia";
+          desenharAreia();
+        }
+      }
+      if (e.mouse.ativo) arrastar();
+      e.mouse.px = e.mouse.x;
+      e.mouse.py = e.mouse.y;
+      /* grãos voando para fora da tela */
+      e.graos = e.graos.filter((g) => {
+        g.x += g.vx;
+        g.y += g.vy;
+        g.vy += 0.05;
+        g.vida -= 0.008;
+        if (g.vida <= 0) return false;
+        if (g.x < -30 || g.x > anim.width + 30 || g.y > anim.height + 30) return false;
+        ctxN.beginPath();
+        ctxN.arc(g.x, g.y, g.r, 0, 6.283);
+        ctxN.fillStyle = `rgba(168, 118, 56, ${Math.max(0, g.vida)})`;
+        ctxN.fill();
+        return true;
+      });
+      raf = requestAnimationFrame(quadro);
+    };
+
+    const ponto = (ev) => {
+      const toque = ev.touches && ev.touches[0];
+      return {
+        x: toque ? toque.clientX : ev.clientX,
+        y: toque ? toque.clientY : ev.clientY,
+      };
+    };
+    const aoPressionar = (ev) => {
+      const p = ponto(ev);
+      e.mouse = { ativo: true, x: p.x, y: p.y, px: p.x, py: p.y };
+      ev.preventDefault();
+    };
+    const aoMover = (ev) => {
+      if (!e.mouse.ativo) return;
+      const p = ponto(ev);
+      e.mouse.x = p.x;
+      e.mouse.y = p.y;
+      ev.preventDefault();
+    };
+    const aoSoltar = () => {
+      e.mouse.ativo = false;
+    };
+
+    dimensionar();
+    criarTornados();
+    window.addEventListener("resize", dimensionar);
+    anim.addEventListener("mousedown", aoPressionar);
+    window.addEventListener("mousemove", aoMover);
+    window.addEventListener("mouseup", aoSoltar);
+    anim.addEventListener("touchstart", aoPressionar, { passive: false });
+    window.addEventListener("touchmove", aoMover, { passive: false });
+    window.addEventListener("touchend", aoSoltar);
+    raf = requestAnimationFrame(quadro);
+
+    return () => {
+      rodando = false;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", dimensionar);
+      anim.removeEventListener("mousedown", aoPressionar);
+      window.removeEventListener("mousemove", aoMover);
+      window.removeEventListener("mouseup", aoSoltar);
+      anim.removeEventListener("touchstart", aoPressionar);
+      window.removeEventListener("touchmove", aoMover);
+      window.removeEventListener("touchend", aoSoltar);
+    };
+  }, []);
+
+  return (
+    <div className="tempestade">
+      <canvas ref={refAreia} className="tempestade-canvas" />
+      <canvas ref={refAnim} className="tempestade-canvas tempestade-topo" />
+      <div className="tempestade-aviso">
+        <p className="tempestade-titulo">🌪️ Tempestade de areia!</p>
+        <p>
+          <strong>{por}</strong> mandou dois tornados de areia para cima de
+          você. Agora se vire para descobrir como se desenterrar dessa.
+        </p>
+        <p className="tempestade-restante">Tela soterrada: {restante}%</p>
+      </div>
+    </div>
+  );
+}
+
+/* Tornadinho que passeia pelo cartão de quem está soterrado (visão dos
+   outros — a tela deles não é coberta) */
+function MiniTornado({ atraso = 0 }) {
+  return (
+    <svg
+      className="mini-tornado"
+      style={{ animationDelay: `${atraso}s` }}
+      width="34"
+      height="42"
+      viewBox="0 0 34 42"
+      aria-hidden="true"
+    >
+      <ellipse cx="17" cy="4" rx="15" ry="3.4" fill="#C79A55" opacity="0.75" />
+      <ellipse cx="16" cy="11" rx="12" ry="3" fill="#D9B87C" opacity="0.7" />
+      <ellipse cx="18" cy="18" rx="9" ry="2.6" fill="#C79A55" opacity="0.7" />
+      <ellipse cx="16" cy="25" rx="6.5" ry="2.2" fill="#B4884A" opacity="0.7" />
+      <ellipse cx="18" cy="31" rx="4" ry="1.8" fill="#A0772F" opacity="0.75" />
+      <ellipse cx="17" cy="37" rx="2.2" ry="1.4" fill="#8A6524" opacity="0.8" />
+    </svg>
+  );
+}
+
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
   const totalGarrafas = Math.max(1, Math.ceil(membro.goalMl / membro.bottleMl));
   const bateu = membro.goalMl > 0 && bebido >= membro.goalMl;
-  const cactificado = efeito && efeito.tipo === "cacto";
-  const desertico = efeito && efeito.tipo === "deserto";
+  const cactificado = !!efeitos.cacto;
+  const desertico = !!efeitos.deserto;
+  const soterrado = !!efeitos.tempestade;
 
   return (
     <div
-      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${cutucando ? "cutucado" : ""}`}
+      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${cutucando ? "cutucado" : ""} ${soterrado ? "soterrado" : ""}`}
     >
       <div className="cartao-topo">
         <div>
@@ -1290,10 +1670,15 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
         <div className="numeros">
           <p className="bebido">{fmtPiso(bebido)}</p>
           <p className="de-meta">de {fmt(membro.goalMl)}</p>
-          {efeito && (
+          {cactificado && (
+            <p className="efeito-badge">🌵 Cactificado por {efeitos.cacto.por}</p>
+          )}
+          {desertico && (
+            <p className="efeito-badge">🏜️ Desertificado por {efeitos.deserto.por}</p>
+          )}
+          {soterrado && (
             <p className="efeito-badge">
-              {cactificado ? "🌵 Cactificado por " : "🏜️ Desertificado por "}
-              {efeito.por}
+              🌪️ Soterrado de areia por {efeitos.tempestade.por}
             </p>
           )}
           {bateu && <p className="status ok">Meta batida! 🎉</p>}
@@ -1357,6 +1742,12 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
         <button className="link-extra" onClick={() => onExtra(membro)}>
           Adicionar outra medida
         </button>
+      )}
+      {soterrado && (
+        <div className="tornados-cartao" aria-hidden="true">
+          <MiniTornado atraso={0} />
+          <MiniTornado atraso={5.5} />
+        </div>
       )}
       {mostrarReivindicar && (
         <button className="link-extra" onClick={() => onReivindicar(membro)}>
@@ -1650,7 +2041,7 @@ function AguaTracker() {
     const horaDe = (ts) =>
       new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const anuncios = novos.filter(
-      (n) => n.tipo === "anuncio-cacto" || n.tipo === "anuncio-deserto"
+      (n) => typeof n.tipo === "string" && n.tipo.startsWith("anuncio-")
     ); /* visíveis para todos */
     const pessoais = novos.filter(
       (n) => !n.tipo || n.tipo === "bastao"
@@ -1967,42 +2358,94 @@ function AguaTracker() {
     return b === null ? null : Date.now() - b;
   };
 
-  /* Efeito ativo de um cartão, já considerando cura pendente e trava.
-     Efeitos não atravessam a meia-noite: o cacto/deserto de ontem
-     expira às 00:00 e a garrafa volta ao normal */
-  const efeitoDe = (m) => {
-    const ef = dados.efeitos && dados.efeitos[m.id];
-    if (!ef) return null;
-    if (chaveDe(new Date(ef.desde || 0)) !== dia) return null;
+  /* Efeitos ativos de um cartão (mapa por tipo), já considerando cura
+     pendente e trava. Nenhum efeito atravessa a meia-noite: o que foi
+     lançado ontem expira às 00:00 */
+  const efeitosDe = (m) => {
+    const todos = normalizarEfeitos(dados.efeitos && dados.efeitos[m.id]);
     const agora = Date.now();
     const c = registrosHoje[m.id] || 0;
     const e = extrasHoje[m.id] || 0;
     const pctMeta = m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
-    const curado = ef.tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
-    if (curado && (!ef.travaAte || agora >= ef.travaAte)) return null;
-    return ef;
+    const ativos = {};
+    Object.keys(todos).forEach((tipo) => {
+      const ef = todos[tipo];
+      if (!ef) return;
+      if (chaveDe(new Date(ef.desde || 0)) !== dia) return;
+      if (tipo === "tempestade") {
+        /* Só sai quando a vítima limpa a tela (ou na virada do dia) */
+        if (!ef.limpo) ativos[tipo] = ef;
+        return;
+      }
+      const curado = tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
+      if (curado && (!ef.travaAte || agora >= ef.travaAte)) return;
+      ativos[tipo] = ef;
+    });
+    return ativos;
   };
 
-  /* Elegibilidade do alvo, com o motivo específico quando não pode */
+  /* Horas de seca exigidas pelo poder — garrafas grandes (mais de 900 ml)
+     dão ao dono uma hora extra de tolerância contra a cactificação */
+  const horasExigidas = (poderId, alvo) => {
+    if (poderId === "cacto") return alvo.bottleMl > 900 ? 4 : 3;
+    if (poderId === "deserto" || poderId === "tempestade") return 4;
+    return 1;
+  };
+
+  const souTester = meusMembros.some(
+    (m) => nomeNormalizado(m.name) === "testerpower"
+  );
+
+  /* Tempestade ativa em um cartão MEU: só a vítima vê a tela soterrada */
+  const minhaTempestade = (() => {
+    for (const m of meusMembros) {
+      const ef = efeitosDe(m).tempestade;
+      if (ef) return { id: m.id, ef };
+    }
+    return null;
+  })();
+
+  /* Tela limpa: marca o efeito como resolvido para que os tornadinhos
+     sumam também na visão dos colegas */
+  const limparTempestade = (id) => {
+    const novo = structuredClone(dados);
+    const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
+    if (!efs.tempestade) return;
+    delete efs.tempestade;
+    if (Object.keys(efs).length === 0) delete novo.efeitos[id];
+    else novo.efeitos[id] = efs;
+    persistir(novo);
+    setToast("🌪️ Areia varrida! Você se desenterrou.");
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  /* Elegibilidade do alvo, com o motivo específico quando não pode.
+     Cacto e deserto podem coexistir no mesmo cartão — um cacto no
+     deserto combina —, então só o MESMO efeito já ativo bloqueia */
   const statusPoder = (poderId, alvo) => {
     const meuAlvo =
       alvo.ownerId === meuDispositivo || posseExtra.includes(alvo.id);
     if (meuAlvo) return { ok: false, motivo: "é o seu próprio cartão" };
+    /* MODO DE TESTE (temporário): TesterPower usa qualquer poder em
+       qualquer pessoa, sem critério — remover após os testes */
+    if (souTester) return { ok: true, motivo: "" };
+
     if (poderId === "cacto") {
       /* Cacto não cactifica ninguém */
-      const euCactificado = meusMembros.some((m) => {
-        const efMeu = efeitoDe(m);
-        return efMeu && efMeu.tipo === "cacto";
-      });
+      const euCactificado = meusMembros.some((m) => !!efeitosDe(m).cacto);
       if (euCactificado) {
         return {
           ok: false,
           motivo: "você está cactificado — cacto não cactifica ninguém",
         };
       }
-      /* Recarga: 1 uso do poder por hora */
-      const ultimoUso = Number(localStorage.getItem("agua-cacto-cooldown") || 0);
-      const resto = 60 * 60 * 1000 - (Date.now() - ultimoUso);
+    }
+    const RECARGAS = { cacto: 3600000, deserto: 3600000, tempestade: 2 * 3600000 };
+    if (RECARGAS[poderId]) {
+      const ultimoUso = Number(
+        localStorage.getItem(`agua-${poderId}-cooldown`) || 0
+      );
+      const resto = RECARGAS[poderId] - (Date.now() - ultimoUso);
       if (ultimoUso && resto > 0) {
         return {
           ok: false,
@@ -2010,23 +2453,14 @@ function AguaTracker() {
         };
       }
     }
-    if (poderId === "deserto") {
-      const ultimoUso = Number(localStorage.getItem("agua-deserto-cooldown") || 0);
-      const resto = 60 * 60 * 1000 - (Date.now() - ultimoUso);
-      if (ultimoUso && resto > 0) {
-        return {
-          ok: false,
-          motivo: `poder em recarga — libera em ${fmtTempo(resto)}`,
-        };
-      }
-    }
-    const efAtivo = efeitoDe(alvo);
-    if ((poderId === "cacto" || poderId === "deserto") && efAtivo) {
-      return {
-        ok: false,
-        motivo:
-          efAtivo.tipo === "cacto" ? "já está cactificado" : "já está desertificado",
+    const ativos = efeitosDe(alvo);
+    if (ativos[poderId]) {
+      const jaTem = {
+        cacto: "já está cactificado",
+        deserto: "já está desertificado",
+        tempestade: "já está soterrado de areia",
       };
+      return { ok: false, motivo: jaTem[poderId] || "já está sob esse efeito" };
     }
     if (poderId === "cacto" || poderId === "deserto") {
       const cAlvo = registrosHoje[alvo.id] || 0;
@@ -2047,11 +2481,15 @@ function AguaTracker() {
         motivo: "o relógio da seca só corre das 8h em diante, de segunda a sexta",
       };
     }
-    const exigidoH = poderId === "cacto" ? 3 : poderId === "deserto" ? 4 : 1;
+    const exigidoH = horasExigidas(poderId, alvo);
     if (seco < exigidoH * 3600000) {
+      const extra =
+        poderId === "cacto" && alvo.bottleMl > 900
+          ? " (garrafa grande: 4h)"
+          : "";
       return {
         ok: false,
-        motivo: `só ${fmtTempo(seco)} de seca — precisa de ${exigidoH}h sem registrar`,
+        motivo: `só ${fmtTempo(seco)} de seca — precisa de ${exigidoH}h sem registrar${extra}`,
       };
     }
     if (poderId === "cacto") {
@@ -2085,7 +2523,7 @@ function AguaTracker() {
     } catch {}
     const agora = Date.now();
     let horasAnuncio = 1;
-    if (poderId === "cacto" || poderId === "deserto") {
+    if (!souTester && ["cacto", "deserto", "tempestade"].includes(poderId)) {
       const oito = new Date();
       oito.setHours(8, 0, 0, 0);
       const diaSem = new Date().getDay();
@@ -2095,18 +2533,20 @@ function AguaTracker() {
           ? null
           : Math.max(ultimoF, oito.getTime());
       const secoF = baseRelogio === null ? null : agora - baseRelogio;
-      const exigidoH = poderId === "cacto" ? 3 : 4;
+      const exigidoH = horasExigidas(poderId, alvo);
       const cF = (base.intake[dia] && base.intake[dia][alvo.id]) || 0;
       const eF =
         (base.extras && base.extras[dia] && base.extras[dia][alvo.id]) || 0;
       const pctF =
         alvo.goalMl > 0 ? (cF * alvo.bottleMl + eF) / alvo.goalMl : 0;
-      const imuneF = poderId === "cacto" ? pctF >= 0.6 : pctF >= 1;
-      const efF = base.efeitos && base.efeitos[alvo.id];
-      const efValido = efF && chaveDe(new Date(efF.desde || 0)) === dia;
+      const imuneF =
+        poderId === "cacto" ? pctF >= 0.6 : poderId === "deserto" ? pctF >= 1 : false;
+      const efsF = normalizarEfeitos(base.efeitos && base.efeitos[alvo.id]);
+      const mesmoAtivo =
+        efsF[poderId] && chaveDe(new Date(efsF[poderId].desde || 0)) === dia;
       let motivo = null;
-      if (efValido) {
-        motivo = efF.tipo === "cacto" ? "já está cactificado" : "já está desertificado";
+      if (mesmoAtivo) {
+        motivo = "esse efeito já está ativo nele";
       } else if (imuneF) {
         motivo =
           poderId === "cacto"
@@ -2123,7 +2563,7 @@ function AguaTracker() {
         setTimeout(() => setToast(null), 4000);
         return;
       }
-      horasAnuncio = Math.max(1, Math.floor(secoF / 3600000));
+      horasAnuncio = Math.max(1, Math.floor((secoF || 3600000) / 3600000));
     }
     const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
     const novo = structuredClone(base);
@@ -2142,35 +2582,36 @@ function AguaTracker() {
       setToast(`🥇 Bastão dourado aplicado em ${alvo.name}`);
     } else {
       if (!novo.efeitos) novo.efeitos = {};
-      novo.efeitos[alvo.id] = {
+      const atuais = normalizarEfeitos(novo.efeitos[alvo.id]);
+      atuais[poderId] = {
         tipo: poderId,
         desde: agora,
         por: meuNome,
         curas: [],
         travaAte: 0,
       };
+      novo.efeitos[alvo.id] = atuais;
       registrarHistorico(novo, alvo.id, { t: agora, tipo: poderId, por: meuNome });
-      if (poderId === "cacto") {
-        localStorage.setItem("agua-cacto-cooldown", String(agora));
-      } else if (poderId === "deserto") {
-        localStorage.setItem("agua-deserto-cooldown", String(agora));
-      }
+      localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
+      const frases = {
+        cacto: `🌵 ${meuNome} cactificou ${alvo.name} após ${horasAnuncio}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`,
+        deserto: `🏜️ ${meuNome} desertificou ${alvo.name} após ${horasAnuncio}h de seca. O cartão rachou — só a meta batida faz chover.`,
+        tempestade: `🌪️ ${meuNome} mandou dois tornados de areia para ${alvo.name} após ${horasAnuncio}h de seca. A tela dele virou duna — boa sorte para se desenterrar.`,
+      };
       novo.nudges.push({
         id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
         to: alvo.id,
         at: agora,
         fromName: meuNome,
-        tipo: poderId === "cacto" ? "anuncio-cacto" : "anuncio-deserto",
-        frase:
-          poderId === "cacto"
-            ? `🌵 ${meuNome} cactificou ${alvo.name} após ${horasAnuncio}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`
-            : `🏜️ ${meuNome} desertificou ${alvo.name} após ${horasAnuncio}h de seca. O cartão rachou — só a meta batida faz chover.`,
+        tipo: `anuncio-${poderId}`,
+        frase: frases[poderId],
       });
-      setToast(
-        poderId === "cacto"
-          ? `🌵 ${alvo.name} foi cactificado!`
-          : `🏜️ ${alvo.name} foi desertificado!`
-      );
+      const avisos = {
+        cacto: `🌵 ${alvo.name} foi cactificado!`,
+        deserto: `🏜️ ${alvo.name} foi desertificado!`,
+        tempestade: `🌪️ ${alvo.name} foi soterrado de areia!`,
+      };
+      setToast(avisos[poderId]);
     }
     persistir(novo);
     setTimeout(() => setToast(null), 4000);
@@ -2242,30 +2683,34 @@ function AguaTracker() {
   const aoRegistrarAgua = (novo, id, agora) => {
     if (!novo.ultimo) novo.ultimo = {};
     novo.ultimo[id] = agora;
-    const ef = novo.efeitos && novo.efeitos[id];
-    if (!ef) return;
-    /* Efeito de ontem: venceu à meia-noite — limpa e segue o dia */
-    if (chaveDe(new Date(ef.desde || 0)) !== dia) {
-      delete novo.efeitos[id];
-      return;
-    }
-    ef.curas = [...(ef.curas || []), agora];
-    const rapidas = ef.curas.filter((t) => t - ef.desde < 10 * 60 * 1000).length;
-    if (rapidas >= 2 && !ef.travaAte) {
-      ef.travaAte =
-        ef.tipo === "cacto"
-          ? agora + 90 * 60 * 1000
-          : agora + 3 * 60 * 60 * 1000;
-    }
+    const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
+    if (Object.keys(efs).length === 0) return;
     const m = novo.members.find((x) => x.id === id);
     const c = (novo.intake[dia] && novo.intake[dia][id]) || 0;
     const e = (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
-    const pctMeta =
-      m && m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
-    const curado = ef.tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
-    if (curado && (!ef.travaAte || agora >= ef.travaAte)) {
-      delete novo.efeitos[id];
-    }
+    const pctMeta = m && m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+    const restantes = {};
+    Object.keys(efs).forEach((tipo) => {
+      const ef = efs[tipo];
+      /* Efeito de ontem: venceu à meia-noite */
+      if (chaveDe(new Date(ef.desde || 0)) !== dia) return;
+      /* A tempestade não sai com água — só arrastando a areia */
+      if (tipo === "tempestade") {
+        if (!ef.limpo) restantes[tipo] = ef;
+        return;
+      }
+      ef.curas = [...(ef.curas || []), agora];
+      const rapidas = ef.curas.filter((t) => t - ef.desde < 10 * 60 * 1000).length;
+      if (rapidas >= 2 && !ef.travaAte) {
+        ef.travaAte =
+          tipo === "cacto" ? agora + 90 * 60 * 1000 : agora + 3 * 60 * 60 * 1000;
+      }
+      const curado = tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
+      if (curado && (!ef.travaAte || agora >= ef.travaAte)) return;
+      restantes[tipo] = ef;
+    });
+    if (Object.keys(restantes).length === 0) delete novo.efeitos[id];
+    else novo.efeitos[id] = restantes;
   };
 
   /* Histórico individual: cada registro de água (com horário e volume)
@@ -2720,7 +3165,7 @@ function AguaTracker() {
               className={`banner-alerta ${a.tipo && a.tipo !== "sino" ? a.tipo : ""}`}
             >
               <span className="banner-texto">
-                {a.tipo === "anuncio-cacto" || a.tipo === "anuncio-deserto" ? (
+                {a.tipo && a.tipo.startsWith("anuncio-") ? (
                   a.frase
                 ) : a.tipo === "bastao" ? (
                   <>
@@ -2822,7 +3267,7 @@ function AguaTracker() {
                 !bateuMeta
               }
               alertando={alertas.some((a) => a.memberId === m.id)}
-              efeito={efeitoDe(m)}
+              efeitos={efeitosDe(m)}
               cutucando={cutucadaId === m.id}
               selos={CONQUISTAS.filter(
                 (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
@@ -3110,6 +3555,13 @@ function AguaTracker() {
             </div>
           </div>
         </div>
+      )}
+
+      {minhaTempestade && (
+        <TempestadeDeAreia
+          por={minhaTempestade.ef.por}
+          onLimpou={() => limparTempestade(minhaTempestade.id)}
+        />
       )}
 
       {meusPoderes.length > 0 && (
