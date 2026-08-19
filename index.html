@@ -381,16 +381,12 @@ body { margin: 0; }
 .tempestade-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 .tempestade-topo { z-index: 91; cursor: grab; touch-action: none; }
 .tempestade-topo:active { cursor: grabbing; }
-.tempestade-aviso {
-  position: fixed; z-index: 92; left: 50%; top: 22%; transform: translateX(-50%);
-  width: min(440px, calc(100vw - 40px)); box-sizing: border-box;
-  background: rgba(11, 52, 70, 0.92); color: #EAF6FA; border-radius: 14px;
-  padding: 16px 18px; font-size: 13.5px; line-height: 1.6; pointer-events: none;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); text-align: center;
+.tempestade-medidor {
+  position: fixed; z-index: 92; left: 50%; bottom: 22px; transform: translateX(-50%);
+  color: #4A2F10; font-size: 20px; font-weight: 800; letter-spacing: 0.2px;
+  pointer-events: none; white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 245, 220, 0.85), 0 0 14px rgba(255, 245, 220, 0.9);
 }
-.tempestade-aviso p { margin: 0 0 6px; }
-.tempestade-titulo { font-size: 17px; font-weight: 800; }
-.tempestade-restante { margin: 8px 0 0; font-size: 12px; color: #9FBFCC; }
 .cartao.soterrado { border-color: #C79A55; }
 .tornados-cartao { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 16px; }
 .mini-tornado {
@@ -615,7 +611,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-19.1";
+const APP_VERSION = "2026-08-19.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1219,7 +1215,7 @@ function Garrafa({ pct, tamanho = 92 }) {
    (ou o dedo) empurrando os grãos para fora — punhado por punhado,
    com resistência proposital e sempre sobrando restos pelo caminho.
    --------------------------------------------------------------- */
-function TempestadeDeAreia({ por, onLimpou }) {
+function TempestadeDeAreia({ onLimpou }) {
   /* A função de "limpou" vive numa ref: se entrasse nas dependências do
      efeito, cada render recriaria a tela de areia e a vítima jamais
      conseguiria terminar a limpeza */
@@ -1507,14 +1503,7 @@ function TempestadeDeAreia({ por, onLimpou }) {
     <div className="tempestade">
       <canvas ref={refAreia} className="tempestade-canvas" />
       <canvas ref={refAnim} className="tempestade-canvas tempestade-topo" />
-      <div className="tempestade-aviso">
-        <p className="tempestade-titulo">🌪️ Tempestade de areia!</p>
-        <p>
-          <strong>{por}</strong> mandou dois tornados de areia para cima de
-          você. Agora se vire para descobrir como se desenterrar dessa.
-        </p>
-        <p className="tempestade-restante">Tela soterrada: {restante}%</p>
-      </div>
+      <div className="tempestade-medidor">Tela soterrada: {restante}%</div>
     </div>
   );
 }
@@ -3559,7 +3548,6 @@ function AguaTracker() {
 
       {minhaTempestade && (
         <TempestadeDeAreia
-          por={minhaTempestade.ef.por}
           onLimpou={() => limparTempestade(minhaTempestade.id)}
         />
       )}
