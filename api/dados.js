@@ -10,7 +10,7 @@ const CHAVE = "agua:dados";
 const CHAVE_BACKUP = "agua:backup";
 const VAZIO = { members: [], intake: {} };
 /* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-08-14.4-historico-servidor";
+const API_VERSION = "2026-08-19.1-metas-congeladas";
 
 /* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
    o servidor une as entradas já salvas com as recebidas (chave = momento
@@ -46,6 +46,17 @@ const mesclarUltimo = (antigo, novo) => {
       Number(resultado[id] || 0),
       Number(novo[id] || 0)
     );
+  });
+  return resultado;
+};
+
+/* Metas congeladas por dia: uma vez gravada, a meta daquele dia nunca é
+   sobrescrita por uma aba desatualizada — é o que impede alterar a meta
+   hoje e "reescrever" se os dias antigos foram batidos ou não */
+const mesclarMetas = (antigo, novo) => {
+  const resultado = { ...(antigo || {}) };
+  Object.keys(novo || {}).forEach((dia) => {
+    resultado[dia] = { ...(novo[dia] || {}), ...(resultado[dia] || {}) };
   });
   return resultado;
 };
@@ -136,6 +147,7 @@ export default async function handler(req, res) {
         completarHistorico(atual, corpo);
         corpo.historico = mesclarHistorico(atual.historico, corpo.historico);
         corpo.ultimo = mesclarUltimo(atual.ultimo, corpo.ultimo);
+        corpo.metas = mesclarMetas(atual.metas, corpo.metas);
       }
 
       await redis.set(CHAVE, corpo);
