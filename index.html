@@ -606,7 +606,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-20.2";
+const APP_VERSION = "2026-08-20.3";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1304,6 +1304,7 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
   const refs = [React.useRef(null), React.useRef(null), React.useRef(null)];
   const refAnim = React.useRef(null);
   const [restante, setRestante] = React.useState(100);
+  const [encerrado, setEncerrado] = React.useState(false);
 
   React.useEffect(() => {
     const camadas = refs.map((r) => r.current);
@@ -1365,14 +1366,20 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
     };
 
     const atualizarMedidor = () => {
-      /* proporcional ao volume de areia restante (3 camadas por célula),
-         e não à quantidade de células ainda sujas */
+      /* proporcional ao volume de areia restante (3 camadas por célula).
+         Enquanto sobrar um grão o medidor nunca marca 0%: 0% significa
+         tela limpa, e limpa encerra o efeito */
       let soma = 0;
       for (let i = 0; i < niveis.length; i++) soma += niveis[i];
-      const pct = Math.round((soma / (niveis.length * NIVEL_MAX)) * 100);
-      setRestante(pct);
+      const bruto = (soma / (niveis.length * NIVEL_MAX)) * 100;
+      setRestante(soma === 0 ? 0 : Math.max(1, Math.round(bruto)));
       if (soma === 0 && !limpou) {
         limpou = true;
+        /* varre qualquer resíduo de pixel e devolve a tela ao usuário */
+        [...ctxs, ctxN].forEach((c) =>
+          c.clearRect(0, 0, anim.width, anim.height)
+        );
+        setEncerrado(true);
         refLimpou.current();
       }
     };
@@ -1414,16 +1421,22 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
           if (x < 0 || y < 0 || x >= cols || y >= linhas) continue;
           const i = y * cols + x;
           if (niveis[i] <= 0) continue;
-          if (agora - toque[i] < 280) continue; /* uma camada por passada */
+          const naBorda = x === 0 || y === 0 || x === cols - 1 || y === linhas - 1;
+          if (!naBorda && agora - toque[i] < 280) continue; /* 1 camada por passada */
           toque[i] = agora;
-          abrirBuraco(
-            ctxs[NIVEL_MAX - niveis[i]],
-            x * cw + cw / 2,
-            y * ch + ch / 2,
-            cw,
-            ch
-          );
-          niveis[i] -= 1;
+          /* nas bordas o cursor não tem para onde correr, então a areia
+             de lá sai de uma vez — nada de resto encalhado no canto */
+          const camadas = naBorda ? niveis[i] : 1;
+          for (let c = 0; c < camadas; c++) {
+            abrirBuraco(
+              ctxs[NIVEL_MAX - (niveis[i] - c)],
+              x * cw + cw / 2,
+              y * ch + ch / 2,
+              cw * (naBorda ? 1.6 : 1),
+              ch * (naBorda ? 1.6 : 1)
+            );
+          }
+          niveis[i] -= camadas;
           mudou = true;
           if (graos.length < 110) {
             for (let k = 0; k < 4; k++) {
@@ -1517,6 +1530,8 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
       window.removeEventListener("touchend", aoSoltar);
     };
   }, []);
+
+  if (encerrado) return null;
 
   return (
     <div className="tempestade">
