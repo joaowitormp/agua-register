@@ -388,18 +388,11 @@ body { margin: 0; }
   text-shadow: 0 1px 0 rgba(255, 245, 220, 0.85), 0 0 14px rgba(255, 245, 220, 0.9);
 }
 .cartao.soterrado { border-color: #C79A55; }
-.tornados-cartao { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 16px; }
-.mini-tornado {
-  position: absolute; bottom: 12px; left: -40px; opacity: 0;
-  animation: passeio-tornado 11s ease-in-out infinite;
+.areia-camada {
+  position: absolute; inset: 0; pointer-events: none;
+  overflow: hidden; border-radius: 16px;
 }
-@keyframes passeio-tornado {
-  0% { transform: translateX(0) scale(0.75); opacity: 0; }
-  8% { opacity: 0.95; }
-  50% { transform: translateX(150px) scale(1.05) rotate(4deg); opacity: 0.95; }
-  78% { transform: translateX(300px) scale(0.8) rotate(-3deg); opacity: 0.9; }
-  86%, 100% { transform: translateX(340px) scale(0.7); opacity: 0; }
-}
+.areia-cartao { width: 100%; height: 100%; display: block; }
 
 /* Histórico individual */
 .lista-historico {
@@ -595,13 +588,13 @@ const PODERES = [
   {
     id: "tempestade",
     conquista: "agua-mole",
-    icone: "🌪️",
-    nome: "Tempestade de Areia",
+    icone: "⏳",
+    nome: "Soterramento",
     regras: [
       "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
-      "Dois tornados invadem a tela da vítima e enterram tudo em areia — só ela vê o estrago por inteiro.",
-      "Para se desenterrar, ela precisa arrastar a areia para fora da tela, punhado por punhado.",
-      "Some sozinha na virada do dia. O poder tem recarga de 2 horas entre usos.",
+      "A tela da vítima é enterrada em areia — só ela vê o estrago por inteiro; o time vê o cartão dela coberto.",
+      "Para se desenterrar, ela precisa arrastar a areia para fora, camada por camada.",
+      "Some sozinho na virada do dia. O poder tem recarga de 2 horas entre usos.",
     ],
   },
 ];
@@ -611,7 +604,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-19.2";
+const APP_VERSION = "2026-08-19.3";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -752,7 +745,7 @@ const CONQUISTAS = [
   { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
   { id: "mare-alta", nome: "Maré Alta", desc: "Meta batida 10 dias úteis seguidos.", recompensa: "Poder: Desertificação 🏜️", paths: ["M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"] },
   { id: "tsunami-de-foco", nome: "Tsunami de Foco", desc: "Meta batida 30 dias úteis seguidos.", paths: ["M2 19h20", "M4 19c0-8 5-13 11-13 4 0 7 2.8 7 6 0 2.6-2 4.6-4.6 4.6-2 0-3.6-1.4-3.6-3.2 0-1.4 1-2.4 2.4-2.4"] },
-  { id: "agua-mole", nome: "Água Mole em Pedra Dura", desc: "Meta batida em 50 dias úteis seguidos.", recompensa: "Poder: Tempestade de Areia 🌪️", paths: ["m8 3 4 8 5-5 5 15H2L8 3z"] },
+  { id: "agua-mole", nome: "Água Mole em Pedra Dura", desc: "Meta batida em 50 dias úteis seguidos.", recompensa: "Poder: Soterramento ⏳", paths: ["m8 3 4 8 5-5 5 15H2L8 3z"] },
   { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", recompensa: "2 frases exclusivas de provocação", paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
   { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", recompensa: "2 frases exclusivas de provocação", paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
   { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensa: "2 frases exclusivas de provocação", paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
@@ -860,12 +853,20 @@ const normalizarEfeitos = (bruto) => {
   return bruto;
 };
 
-function calcularConquistas(members, intake, extras, historico) {
+function calcularConquistas(members, intake, extras, historico, metasPorDia) {
   const resultado = {};
   const chaveHoje = chaveDe(new Date());
   const mlDoDia = (m, k) =>
     ((intake[k] && intake[k][m.id]) || 0) * m.bottleMl +
     ((extras[k] && extras[k][m.id]) || 0);
+  /* Meta VIGENTE naquele dia: mudar a meta hoje não pode reescrever se a
+     pessoa bateu ou não a meta de ontem. Dias sem registro de meta usam
+     a meta atual (nada foi congelado antes de o app passar a gravar) */
+  const metaDoDia = (m, k) => {
+    const congelada =
+      metasPorDia && metasPorDia[k] && metasPorDia[k][m.id];
+    return Number(congelada) > 0 ? Number(congelada) : m.goalMl;
+  };
 
   const todasChaves = [
     ...Object.keys(intake || {}),
@@ -884,7 +885,8 @@ function calcularConquistas(members, intake, extras, historico) {
     for (let d = new Date(inicio); chaveDe(d) <= chaveHoje; d.setDate(d.getDate() + 1)) {
       const ml = mlDoDia(m, chaveDe(d));
       totalMl += ml;
-      const bateu = m.goalMl > 0 && ml >= m.goalMl;
+      const metaDia = metaDoDia(m, chaveDe(d));
+      const bateu = metaDia > 0 && ml >= metaDia;
       if (bateu) diasMeta++;
       /* Sequências contam apenas dias úteis: sábado e domingo
          não somam nem quebram a corrente */
@@ -919,9 +921,10 @@ function calcularConquistas(members, intake, extras, historico) {
         fim.setHours(23, 59, 59, 999);
         if (criadoEm > fim.getTime()) continue;
         const ml = mlDoDia(m, chaveDe(d));
-        soma += m.goalMl > 0 ? ml / m.goalMl : 0;
+        const metaDia = metaDoDia(m, chaveDe(d));
+        soma += metaDia > 0 ? ml / metaDia : 0;
         validos++;
-        if (m.goalMl > 0 && ml >= m.goalMl) metas++;
+        if (metaDia > 0 && ml >= metaDia) metas++;
       }
       if (validos > 0) {
         linhas.push({ id: m.id, media: soma / validos });
@@ -1209,26 +1212,72 @@ function Garrafa({ pct, tamanho = 92 }) {
 
 /* ---------- Cartão de membro ---------- */
 /* ---------------------------------------------------------------
-   Tempestade de Areia 🌪️
-   Só a vítima vê a tela soterrada. Dois tornados atravessam a tela
-   despejando areia; para se livrar, ela precisa arrastar o mouse
-   (ou o dedo) empurrando os grãos para fora — punhado por punhado,
-   com resistência proposital e sempre sobrando restos pelo caminho.
+   Soterramento ⏳
+   Só a vítima vê a tela coberta. A areia tem 3 camadas: cobertura
+   total, cobertura parcial e restos — cada arraste tira uma camada,
+   então é preciso passar 3x pelo mesmo lugar para limpar de vez.
+   O progresso é espelhado (em baixa resolução) no cartão que os
+   colegas enxergam.
    --------------------------------------------------------------- */
-function TempestadeDeAreia({ onLimpou }) {
-  /* A função de "limpou" vive numa ref: se entrasse nas dependências do
-     efeito, cada render recriaria a tela de areia e a vítima jamais
-     conseguiria terminar a limpeza */
+const AREIA_COLS = 16; /* resolução do mapa compartilhado */
+const AREIA_LINHAS = 11;
+const NIVEL_MAX = 3;
+
+/* Tons monocromáticos da areia, do restinho ao soterrado */
+const CORES_AREIA = ["", "#E7CFA4", "#DFC08C", "#D4AE74"];
+
+/* Desenha a areia (com ondas sutis, sombreado leve e grão fino) numa
+   malha qualquer — usada tanto na tela cheia quanto dentro do cartão */
+const pintarAreia = (ctx, niveis, cols, linhas, larg, alt, semente, escala) => {
+  const cw = larg / cols;
+  const ch = alt / linhas;
+  ctx.clearRect(0, 0, larg, alt);
+  for (let y = 0; y < linhas; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = y * cols + x;
+      const n = niveis[i];
+      if (n <= 0) continue;
+      const s = semente[i];
+      /* onda suave: leve variação de tom ao longo da malha */
+      const onda =
+        Math.sin(x / 3.1 + y / 5.3) * 5 + Math.sin(x / 7.7 - y / 2.9) * 4;
+      const px = x * cw;
+      const py = y * ch;
+      if (n >= 2) {
+        const base = n >= 3 ? 216 : 224;
+        const tom = Math.round(base + onda + s * 6);
+        ctx.fillStyle = `rgb(${tom}, ${tom - 26}, ${tom - 72})`;
+        ctx.globalAlpha = n >= 3 ? 1 : 0.72;
+        ctx.fillRect(px - 0.5, py - 0.5, cw + 1, ch + 1);
+        /* sombreado: bordas um tico mais escuras dão relevo */
+        ctx.globalAlpha = n >= 3 ? 0.16 : 0.1;
+        ctx.fillStyle = "#8A6A3A";
+        ctx.fillRect(px, py + ch * 0.72, cw, ch * 0.28);
+        ctx.globalAlpha = 1;
+      }
+      /* grãos: poucos e finos no nível 1, densos nos demais */
+      const graos = n >= 3 ? 16 : n >= 2 ? 10 : 5;
+      for (let k = 0; k < graos; k++) {
+        const gx = px + ((s * 9973 + k * 613) % 1000) / 1000 * cw;
+        const gy = py + ((s * 7919 + k * 271) % 1000) / 1000 * ch;
+        const r = (0.5 + (((s * 100 + k * 7) % 10) / 10) * 0.9) * escala;
+        ctx.beginPath();
+        ctx.arc(gx, gy, r, 0, 6.283);
+        ctx.fillStyle =
+          k % 3 === 0 ? "rgba(150, 112, 60, 0.55)" : "rgba(196, 160, 104, 0.75)";
+        ctx.fill();
+      }
+    }
+  }
+};
+
+function Soterramento({ onLimpou, onProgresso }) {
   const refLimpou = React.useRef(onLimpou);
   refLimpou.current = onLimpou;
+  const refProgresso = React.useRef(onProgresso);
+  refProgresso.current = onProgresso;
   const refAreia = React.useRef(null);
   const refAnim = React.useRef(null);
-  const estado = React.useRef({
-    cels: null, cols: 0, linhas: 0, tam: 26,
-    graos: [], tornados: [], fase: "chegando", inicio: 0,
-    mouse: { ativo: false, x: 0, y: 0, px: 0, py: 0 },
-    limpou: false,
-  });
   const [restante, setRestante] = React.useState(100);
 
   React.useEffect(() => {
@@ -1237,246 +1286,151 @@ function TempestadeDeAreia({ onLimpou }) {
     if (!areia || !anim) return;
     const ctxA = areia.getContext("2d");
     const ctxN = anim.getContext("2d");
-    const e = estado.current;
     let rodando = true;
     let raf = 0;
+    let ultimoEnvio = 0;
+    let precisaEnviar = false;
+
+    /* malha fina da tela (múltipla da malha compartilhada) */
+    const FATOR = 4;
+    const cols = AREIA_COLS * FATOR;
+    const linhas = AREIA_LINHAS * FATOR;
+    const niveis = new Uint8Array(cols * linhas).fill(NIVEL_MAX);
+    const toque = new Float64Array(cols * linhas);
+    const semente = new Float32Array(cols * linhas).map(() => Math.random());
+    let graos = [];
+    let limpou = false;
+    const mouse = { ativo: false, x: 0, y: 0, px: 0, py: 0 };
 
     const dimensionar = () => {
-      const L = window.innerWidth;
-      const A = window.innerHeight;
       [areia, anim].forEach((c) => {
-        c.width = L;
-        c.height = A;
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
       });
-      const cols = Math.ceil(L / e.tam);
-      const linhas = Math.ceil(A / e.tam);
-      if (!e.cels) {
-        e.cols = cols;
-        e.linhas = linhas;
-        /* nivel 0..3 (3 = enterrado). Começa vazio: os tornados enchem */
-        e.cels = new Float32Array(cols * linhas);
-        e.semente = new Float32Array(cols * linhas).map(() => Math.random());
-      }
-      desenharAreia();
+      pintar();
     };
 
-    const corGrao = (n, i) => {
-      const s = e.semente[i];
-      const claro = 205 + Math.floor(s * 35);
-      const alfa = Math.min(1, 0.28 + n * 0.26);
-      return `rgba(${claro}, ${claro - 38 - Math.floor(s * 18)}, ${claro - 96}, ${alfa})`;
-    };
-
-    /* Camada de areia: redesenhada só quando algo muda */
-    const desenharAreia = () => {
-      const L = areia.width;
-      const A = areia.height;
-      ctxA.clearRect(0, 0, L, A);
-      const t = e.tam;
-      for (let y = 0; y < e.linhas; y++) {
-        for (let x = 0; x < e.cols; x++) {
-          const i = y * e.cols + x;
-          const n = e.cels[i];
-          if (n <= 0.02) continue;
-          const s = e.semente[i];
-          ctxA.fillStyle = corGrao(n, i);
-          /* bloco base (só quando bem coberto) + grãos soltos */
-          if (n > 1.15) {
-            ctxA.fillRect(x * t, y * t, t + 1, t + 1);
-          } else {
-            const pontos = Math.max(1, Math.round(n * 7));
-            for (let k = 0; k < pontos; k++) {
-              const px = x * t + ((s * 977 + k * 137) % t);
-              const py = y * t + ((s * 613 + k * 271) % t);
-              const r = 1 + ((s * 100 + k * 13) % 2);
-              ctxA.beginPath();
-              ctxA.arc(px, py, r, 0, 6.283);
-              ctxA.fill();
-            }
-          }
-        }
-      }
-      const total = e.cols * e.linhas;
+    const pintar = () => {
+      pintarAreia(
+        ctxA, niveis, cols, linhas, areia.width, areia.height, semente, 1
+      );
       let cobertas = 0;
-      for (let i = 0; i < total; i++) if (e.cels[i] > 0.02) cobertas++;
-      const pct = Math.round((cobertas / total) * 100);
+      for (let i = 0; i < niveis.length; i++) if (niveis[i] > 0) cobertas++;
+      const pct = Math.round((cobertas / niveis.length) * 100);
       setRestante(pct);
-      if (pct === 0 && !e.limpou && e.fase === "areia") {
-        e.limpou = true;
+      precisaEnviar = true;
+      if (pct === 0 && !limpou) {
+        limpou = true;
         refLimpou.current();
       }
     };
 
-    /* Tornados de entrada: varrem a tela e despejam a areia */
-    const criarTornados = () => {
-      const A = anim.height;
-      const L = anim.width;
-      e.tornados = [
-        { x: -140, y: A * 0.62, vx: (L + 320) / 150, esc: 1, fase: 0 },
-        { x: L + 140, y: A * 0.44, vx: -(L + 320) / 165, esc: 0.8, fase: 2 },
-      ];
-      e.inicio = performance.now();
-    };
-
-    const despejar = (tx, alcance, forca) => {
-      const t = e.tam;
-      const cx = Math.floor(tx / t);
-      const raio = Math.ceil(alcance / t);
-      for (let y = 0; y < e.linhas; y++) {
-        for (let dx = -raio; dx <= raio; dx++) {
-          const x = cx + dx;
-          if (x < 0 || x >= e.cols) continue;
-          const i = y * e.cols + x;
-          const perto = 1 - Math.abs(dx) / (raio + 1);
-          e.cels[i] = Math.min(3, e.cels[i] + forca * perto * (0.6 + e.semente[i] * 0.8));
-        }
-      }
-    };
-
-    const desenharTornado = (ctx, t, tempo) => {
-      const alt = anim.height * 0.95 * t.esc;
-      const baseY = t.y + alt * 0.42;
-      ctx.save();
-      ctx.translate(t.x, baseY);
-      for (let i = 0; i < 28; i++) {
-        const p = i / 27;
-        const largura = 16 + p * 130 * t.esc;
-        const yy = -p * alt;
-        const balanco = Math.sin(tempo / 170 + p * 5 + t.fase) * 26 * p;
-        ctx.beginPath();
-        ctx.ellipse(balanco, yy, largura * 0.5, 11 + p * 9, 0, 0, 6.283);
-        ctx.fillStyle = `rgba(214, ${168 - Math.floor(p * 24)}, 96, ${0.1 + (1 - p) * 0.3})`;
-        ctx.fill();
-        for (let k = 0; k < 3; k++) {
-          const ang = tempo / 90 + i + k * 2.1;
-          ctx.beginPath();
-          ctx.arc(
-            balanco + Math.cos(ang) * largura * 0.5,
-            yy + Math.sin(ang) * 6,
-            1.6,
-            0,
-            6.283
-          );
-          ctx.fillStyle = "rgba(160, 112, 52, 0.65)";
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-    };
-
-    /* Arraste: empurra os grãos na direção do movimento, com resistência */
-    const arrastar = () => {
-      const m = e.mouse;
-      const dx = m.x - m.px;
-      const dy = m.y - m.py;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 1) return;
-      const t = e.tam;
-      const raio = 3; /* células */
-      const cx = Math.floor(m.x / t);
-      const cy = Math.floor(m.y / t);
-      const forca = Math.min(0.5, 0.055 + dist * 0.0025); /* de propósito: pouco */
-      for (let y = cy - raio; y <= cy + raio; y++) {
-        for (let x = cx - raio; x <= cx + raio; x++) {
-          if (x < 0 || y < 0 || x >= e.cols || y >= e.linhas) continue;
-          const d = Math.hypot(x - cx, y - cy);
-          if (d > raio) continue;
-          const i = y * e.cols + x;
-          if (e.cels[i] <= 0) continue;
-          /* teimosia individual: alguns grãos resistem mais */
-          const teimosia = 0.35 + e.semente[i] * 0.75;
-          const tira = Math.min(e.cels[i], (forca / teimosia) * (1 - d / (raio + 1)));
-          if (tira <= 0) continue;
-          e.cels[i] = Math.max(0, e.cels[i] - tira);
-          /* restos: às vezes um fiapo volta a grudar por perto */
-          if (Math.random() < 0.22) {
-            const vx = x + (dx > 0 ? 1 : -1);
-            if (vx >= 0 && vx < e.cols) {
-              const j = y * e.cols + vx;
-              e.cels[j] = Math.min(3, e.cels[j] + tira * 0.45);
+    /* Envia o mapa em baixa resolução para os colegas (no máx. 1x a cada 4s) */
+    const enviarMapa = (agora) => {
+      if (!precisaEnviar || limpou) return;
+      if (agora - ultimoEnvio < 4000) return;
+      ultimoEnvio = agora;
+      precisaEnviar = false;
+      let mapa = "";
+      for (let y = 0; y < AREIA_LINHAS; y++) {
+        for (let x = 0; x < AREIA_COLS; x++) {
+          let soma = 0;
+          for (let dy = 0; dy < FATOR; dy++) {
+            for (let dx = 0; dx < FATOR; dx++) {
+              soma += niveis[(y * FATOR + dy) * cols + (x * FATOR + dx)];
             }
           }
-          if (Math.random() < 0.5) {
-            e.graos.push({
-              x: x * t + Math.random() * t,
-              y: y * t + Math.random() * t,
-              vx: (dx / dist) * (2.6 + Math.random() * 4.5),
-              vy: (dy / dist) * (2.6 + Math.random() * 4.5) - 0.6,
-              r: 1 + Math.random() * 2,
+          mapa += Math.round(soma / (FATOR * FATOR));
+        }
+      }
+      refProgresso.current(mapa);
+    };
+
+    const arrastar = (agora) => {
+      const dx = mouse.x - mouse.px;
+      const dy = mouse.y - mouse.py;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 1.5) return;
+      const cw = areia.width / cols;
+      const ch = areia.height / linhas;
+      const cx = Math.floor(mouse.x / cw);
+      const cy = Math.floor(mouse.y / ch);
+      const raio = 2;
+      let mudou = false;
+      for (let y = cy - raio; y <= cy + raio; y++) {
+        for (let x = cx - raio; x <= cx + raio; x++) {
+          if (x < 0 || y < 0 || x >= cols || y >= linhas) continue;
+          if (Math.hypot(x - cx, y - cy) > raio) continue;
+          const i = y * cols + x;
+          if (niveis[i] <= 0) continue;
+          /* uma camada por passada: o mesmo ponto só cede de novo
+             depois de um intervalo, exigindo 3 arrastes no total */
+          if (agora - toque[i] < 260) continue;
+          toque[i] = agora;
+          niveis[i] -= 1;
+          mudou = true;
+          /* a areia deslocada dispara rápido e freia logo em seguida */
+          const qtd = 3 + Math.floor(Math.random() * 3);
+          for (let k = 0; k < qtd; k++) {
+            graos.push({
+              x: x * cw + Math.random() * cw,
+              y: y * ch + Math.random() * ch,
+              vx: (dx / dist) * (9 + Math.random() * 11) + (Math.random() - 0.5) * 3,
+              vy: (dy / dist) * (9 + Math.random() * 11) + (Math.random() - 0.5) * 3,
+              r: 0.6 + Math.random() * 1.1,
               vida: 1,
             });
           }
         }
       }
-      desenharAreia();
+      if (mudou) pintar();
     };
 
     const quadro = (tempo) => {
       if (!rodando) return;
+      if (mouse.ativo) arrastar(tempo);
+      mouse.px = mouse.x;
+      mouse.py = mouse.y;
       ctxN.clearRect(0, 0, anim.width, anim.height);
-      if (e.fase === "chegando") {
-        let fora = 0;
-        e.tornados.forEach((t) => {
-          t.x += t.vx;
-          despejar(t.x, 190 * t.esc, 0.42);
-          desenharTornado(ctxN, t, tempo);
-          if (t.x < -220 || t.x > anim.width + 220) fora++;
-        });
-        desenharAreia();
-        if (fora >= e.tornados.length) {
-          /* garante cobertura total antes de entregar o controle */
-          for (let i = 0; i < e.cels.length; i++) {
-            e.cels[i] = Math.max(e.cels[i], 1.6 + e.semente[i] * 1.2);
-          }
-          e.fase = "areia";
-          desenharAreia();
-        }
-      }
-      if (e.mouse.ativo) arrastar();
-      e.mouse.px = e.mouse.x;
-      e.mouse.py = e.mouse.y;
-      /* grãos voando para fora da tela */
-      e.graos = e.graos.filter((g) => {
+      graos = graos.filter((g) => {
         g.x += g.vx;
         g.y += g.vy;
-        g.vy += 0.05;
-        g.vida -= 0.008;
+        g.vx *= 0.82; /* desaceleração forte: a areia é pesada */
+        g.vy *= 0.82;
+        g.vy += 0.55; /* e cai */
+        g.vida -= 0.02;
         if (g.vida <= 0) return false;
-        if (g.x < -30 || g.x > anim.width + 30 || g.y > anim.height + 30) return false;
+        if (g.y > anim.height + 20 || g.x < -20 || g.x > anim.width + 20) return false;
         ctxN.beginPath();
         ctxN.arc(g.x, g.y, g.r, 0, 6.283);
-        ctxN.fillStyle = `rgba(168, 118, 56, ${Math.max(0, g.vida)})`;
+        ctxN.fillStyle = `rgba(158, 120, 66, ${Math.max(0, g.vida)})`;
         ctxN.fill();
         return true;
       });
+      enviarMapa(tempo);
       raf = requestAnimationFrame(quadro);
     };
 
     const ponto = (ev) => {
-      const toque = ev.touches && ev.touches[0];
-      return {
-        x: toque ? toque.clientX : ev.clientX,
-        y: toque ? toque.clientY : ev.clientY,
-      };
+      const t = ev.touches && ev.touches[0];
+      return { x: t ? t.clientX : ev.clientX, y: t ? t.clientY : ev.clientY };
     };
     const aoPressionar = (ev) => {
       const p = ponto(ev);
-      e.mouse = { ativo: true, x: p.x, y: p.y, px: p.x, py: p.y };
+      mouse.ativo = true;
+      mouse.x = p.x; mouse.y = p.y; mouse.px = p.x; mouse.py = p.y;
       ev.preventDefault();
     };
     const aoMover = (ev) => {
-      if (!e.mouse.ativo) return;
+      if (!mouse.ativo) return;
       const p = ponto(ev);
-      e.mouse.x = p.x;
-      e.mouse.y = p.y;
+      mouse.x = p.x;
+      mouse.y = p.y;
       ev.preventDefault();
     };
-    const aoSoltar = () => {
-      e.mouse.ativo = false;
-    };
+    const aoSoltar = () => { mouse.ativo = false; };
 
     dimensionar();
-    criarTornados();
     window.addEventListener("resize", dimensionar);
     anim.addEventListener("mousedown", aoPressionar);
     window.addEventListener("mousemove", aoMover);
@@ -1508,26 +1462,34 @@ function TempestadeDeAreia({ onLimpou }) {
   );
 }
 
-/* Tornadinho que passeia pelo cartão de quem está soterrado (visão dos
-   outros — a tela deles não é coberta) */
-function MiniTornado({ atraso = 0 }) {
-  return (
-    <svg
-      className="mini-tornado"
-      style={{ animationDelay: `${atraso}s` }}
-      width="34"
-      height="42"
-      viewBox="0 0 34 42"
-      aria-hidden="true"
-    >
-      <ellipse cx="17" cy="4" rx="15" ry="3.4" fill="#C79A55" opacity="0.75" />
-      <ellipse cx="16" cy="11" rx="12" ry="3" fill="#D9B87C" opacity="0.7" />
-      <ellipse cx="18" cy="18" rx="9" ry="2.6" fill="#C79A55" opacity="0.7" />
-      <ellipse cx="16" cy="25" rx="6.5" ry="2.2" fill="#B4884A" opacity="0.7" />
-      <ellipse cx="18" cy="31" rx="4" ry="1.8" fill="#A0772F" opacity="0.75" />
-      <ellipse cx="17" cy="37" rx="2.2" ry="1.4" fill="#8A6524" opacity="0.8" />
-    </svg>
+/* Areia dentro do cartão — o que os colegas veem de quem está soterrado.
+   Espelha o mapa em baixa resolução enviado pela vítima */
+function AreiaCartao({ mapa }) {
+  const ref = React.useRef(null);
+  const semente = React.useRef(
+    new Float32Array(AREIA_COLS * AREIA_LINHAS).map(() => Math.random())
   );
+  React.useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const ctx = c.getContext("2d");
+    const niveis = new Uint8Array(AREIA_COLS * AREIA_LINHAS);
+    for (let i = 0; i < niveis.length; i++) {
+      const ch = mapa && mapa[i];
+      niveis[i] = ch === undefined ? NIVEL_MAX : Math.max(0, Math.min(3, Number(ch) || 0));
+    }
+    const desenhar = () => {
+      const l = c.clientWidth || 280;
+      const a = c.clientHeight || 320;
+      c.width = l;
+      c.height = a;
+      pintarAreia(ctx, niveis, AREIA_COLS, AREIA_LINHAS, l, a, semente.current, 0.7);
+    };
+    desenhar();
+    window.addEventListener("resize", desenhar);
+    return () => window.removeEventListener("resize", desenhar);
+  }, [mapa]);
+  return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
 }
 
 function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
@@ -1667,7 +1629,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           )}
           {soterrado && (
             <p className="efeito-badge">
-              🌪️ Soterrado de areia por {efeitos.tempestade.por}
+              ⏳ Soterrado por {efeitos.tempestade.por}
             </p>
           )}
           {bateu && <p className="status ok">Meta batida! 🎉</p>}
@@ -1733,9 +1695,8 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
         </button>
       )}
       {soterrado && (
-        <div className="tornados-cartao" aria-hidden="true">
-          <MiniTornado atraso={0} />
-          <MiniTornado atraso={5.5} />
+        <div className="areia-camada" aria-hidden="true">
+          <AreiaCartao mapa={efeitos.tempestade.mapa} />
         </div>
       )}
       {mostrarReivindicar && (
@@ -2090,7 +2051,7 @@ function AguaTracker() {
   /* Celebra conquistas novas dos meus cartões (comparadas com as já vistas) */
   useEffect(() => {
     if (!dados) return;
-    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {});
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {});
     const novas = [];
     dados.members
       .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
@@ -2189,7 +2150,7 @@ function AguaTracker() {
      conquista antes dos poderes existirem) — uma única vez por poder */
   useEffect(() => {
     if (!dados) return;
-    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {});
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {});
     const conj = new Set();
     dados.members
       .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
@@ -2313,7 +2274,7 @@ function AguaTracker() {
     0
   );
   const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
-  const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {});
+  const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {});
 
   /* Conquistas do usuário atual (união dos cartões dele) → poderes e frases */
   const minhasConquistas = new Set();
@@ -2396,6 +2357,17 @@ function AguaTracker() {
 
   /* Tela limpa: marca o efeito como resolvido para que os tornadinhos
      sumam também na visão dos colegas */
+  /* Espelha o progresso da limpeza para os colegas (mapa de baixa
+     resolução gravado no próprio efeito) */
+  const salvarMapaAreia = (id, mapa) => {
+    const novo = structuredClone(dados);
+    const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
+    if (!efs.tempestade) return;
+    efs.tempestade = { ...efs.tempestade, mapa };
+    novo.efeitos[id] = efs;
+    persistir(novo);
+  };
+
   const limparTempestade = (id) => {
     const novo = structuredClone(dados);
     const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
@@ -2404,7 +2376,7 @@ function AguaTracker() {
     if (Object.keys(efs).length === 0) delete novo.efeitos[id];
     else novo.efeitos[id] = efs;
     persistir(novo);
-    setToast("🌪️ Areia varrida! Você se desenterrou.");
+    setToast("⏳ Areia varrida! Você se desenterrou.");
     setTimeout(() => setToast(null), 5000);
   };
 
@@ -2585,7 +2557,7 @@ function AguaTracker() {
       const frases = {
         cacto: `🌵 ${meuNome} cactificou ${alvo.name} após ${horasAnuncio}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`,
         deserto: `🏜️ ${meuNome} desertificou ${alvo.name} após ${horasAnuncio}h de seca. O cartão rachou — só a meta batida faz chover.`,
-        tempestade: `🌪️ ${meuNome} mandou dois tornados de areia para ${alvo.name} após ${horasAnuncio}h de seca. A tela dele virou duna — boa sorte para se desenterrar.`,
+        tempestade: `⏳ ${meuNome} soterrou ${alvo.name} em areia após ${horasAnuncio}h de seca. A tela dele virou duna — boa sorte para se desenterrar.`,
       };
       novo.nudges.push({
         id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
@@ -2598,7 +2570,7 @@ function AguaTracker() {
       const avisos = {
         cacto: `🌵 ${alvo.name} foi cactificado!`,
         deserto: `🏜️ ${alvo.name} foi desertificado!`,
-        tempestade: `🌪️ ${alvo.name} foi soterrado de areia!`,
+        tempestade: `⏳ ${alvo.name} foi soterrado em areia!`,
       };
       setToast(avisos[poderId]);
     }
@@ -2672,6 +2644,14 @@ function AguaTracker() {
   const aoRegistrarAgua = (novo, id, agora) => {
     if (!novo.ultimo) novo.ultimo = {};
     novo.ultimo[id] = agora;
+    /* Congela a meta vigente hoje: uma alteração futura não muda o
+       veredito dos dias já registrados */
+    const membroAtual = novo.members.find((x) => x.id === id);
+    if (membroAtual && membroAtual.goalMl > 0) {
+      if (!novo.metas) novo.metas = {};
+      if (!novo.metas[dia]) novo.metas[dia] = {};
+      novo.metas[dia][id] = membroAtual.goalMl;
+    }
     const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
     if (Object.keys(efs).length === 0) return;
     const m = novo.members.find((x) => x.id === id);
@@ -2922,6 +2902,25 @@ function AguaTracker() {
           e.t === "g" ? { t: "e", ml: medidaAntiga } : e
         );
       }
+    }
+    /* Blindagem retroativa: antes de trocar a meta, grava a meta ANTIGA
+       nos dias já registrados que ainda não têm meta congelada. Assim
+       reduzir a meta hoje não "aprova" dias antigos que não bateram */
+    if (Number(alvo.goalMl) > 0 && Number(alvo.goalMl) !== meta) {
+      if (!novo.metas) novo.metas = {};
+      const diasComRegistro = new Set([
+        ...Object.keys(novo.intake || {}),
+        ...Object.keys((novo.extras) || {}),
+      ]);
+      diasComRegistro.forEach((k) => {
+        if (k > dia) return;
+        const temRegistro =
+          ((novo.intake[k] || {})[alvo.id] || 0) > 0 ||
+          (((novo.extras || {})[k] || {})[alvo.id] || 0) > 0;
+        if (!temRegistro) return;
+        if (!novo.metas[k]) novo.metas[k] = {};
+        if (!novo.metas[k][alvo.id]) novo.metas[k][alvo.id] = Number(alvo.goalMl);
+      });
     }
     alvo.name = nome;
     alvo.bottleMl = garrafa;
@@ -3547,8 +3546,9 @@ function AguaTracker() {
       )}
 
       {minhaTempestade && (
-        <TempestadeDeAreia
+        <Soterramento
           onLimpou={() => limparTempestade(minhaTempestade.id)}
+          onProgresso={(mapa) => salvarMapaAreia(minhaTempestade.id, mapa)}
         />
       )}
 
