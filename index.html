@@ -606,7 +606,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-20.6";
+const APP_VERSION = "2026-08-20.7";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1221,101 +1221,115 @@ function Garrafa({ pct, tamanho = 92 }) {
    O progresso é espelhado (em baixa resolução) no cartão que os
    colegas enxergam.
    --------------------------------------------------------------- */
-const AREIA_COLS = 16; /* resolução do mapa compartilhado */
-const AREIA_LINHAS = 11;
-const NIVEL_MAX = 4; /* cobertura total, densa, esparsa e a de restos */
+/* Mapa compartilhado do soterramento: altura da areia em 24 colunas,
+   cada uma de 0 a 9 (9 = enterrado até o topo) */
+const AREIA_COLS = 24;
 
-/* Tons monocromáticos da areia, do restinho ao soterrado */
-const CORES_AREIA = ["", "#E7CFA4", "#DFC08C", "#D4AE74"];
+/* Textura de areia: base com variação de tom, manchas suaves e grãos de
+   tamanhos e cores diversos. Pintada uma única vez e depois só recortada
+   pelo contorno do monte */
+const criarTextura = (L, A) => {
+  const tela = document.createElement("canvas");
+  tela.width = Math.max(1, Math.floor(L));
+  tela.height = Math.max(1, Math.floor(A));
+  const ctx = tela.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, L * 0.35, A);
+  grad.addColorStop(0, "#E9CE9F");
+  grad.addColorStop(0.45, "#DCBB8A");
+  grad.addColorStop(1, "#CBA470");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, L, A);
 
-/* Opacidade da areia por nível: cada passada do arraste tira 30% da
-   cobertura daquele ponto (100% → 70% → 40% → 10% → limpo) */
-const OPACIDADE = [0, 0.1, 0.4, 0.7, 1];
-
-/* Textura de areia: pintada UMA vez, com montinhos irregulares
-   sobrepostos e bastante grão solto por cima */
-const pintarAreia = (ctx, larg, alt) => {
-  ctx.clearRect(0, 0, larg, alt);
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#DCBB8A";
-  ctx.fillRect(0, 0, larg, alt);
-  const area = larg * alt;
-  const montes = Math.round(area / 2600);
-  for (let i = 0; i < montes; i++) {
-    const x = Math.random() * larg;
-    const y = Math.random() * alt;
-    const rx = 7 + Math.random() * 17;
-    const ry = rx * (0.45 + Math.random() * 0.7);
-    const giro = Math.random() * 3.14;
-    const tom = 206 + Math.round(Math.random() * 28);
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = `rgb(${tom}, ${tom - 30}, ${tom - 78})`;
+  /* manchas largas: variação de umidade/densidade da areia */
+  const manchas = Math.round((L * A) / 9000);
+  for (let i = 0; i < manchas; i++) {
+    const x = Math.random() * L;
+    const y = Math.random() * A;
+    const r = 18 + Math.random() * 60;
+    const tom = 198 + Math.round(Math.random() * 40);
+    ctx.globalAlpha = 0.05 + Math.random() * 0.09;
+    ctx.fillStyle = `rgb(${tom}, ${tom - 28}, ${tom - 74})`;
     ctx.beginPath();
-    ctx.ellipse(x, y, rx, ry, giro, 0, 6.283);
-    ctx.fill();
-    ctx.globalAlpha = 0.15;
-    ctx.fillStyle = "rgb(150, 116, 62)";
-    ctx.beginPath();
-    ctx.ellipse(x, y + ry * 0.6, rx * 0.8, ry * 0.38, giro, 0, 6.283);
+    ctx.ellipse(x, y, r, r * (0.4 + Math.random() * 0.6), Math.random() * 3.14, 0, 6.283);
     ctx.fill();
   }
+
+  /* grãos: tamanhos e cores diversos, alguns escuros (minerais) */
   ctx.globalAlpha = 1;
-  const graos = Math.round(area / 380);
+  const graos = Math.round((L * A) / 26);
   for (let i = 0; i < graos; i++) {
-    const x = Math.random() * larg;
-    const y = Math.random() * alt;
-    const r = 0.45 + Math.random() * 1.2;
+    const x = Math.random() * L;
+    const y = Math.random() * A;
+    const sorte = Math.random();
+    const r = sorte > 0.97 ? 1.4 + Math.random() * 1.1 : 0.35 + Math.random() * 0.85;
+    let cor;
+    if (sorte > 0.965) cor = "rgba(110, 80, 40, 0.75)";
+    else if (sorte > 0.86) cor = "rgba(146, 108, 56, 0.55)";
+    else if (sorte > 0.55) cor = "rgba(214, 180, 126, 0.65)";
+    else cor = "rgba(240, 219, 178, 0.55)";
+    ctx.fillStyle = cor;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 6.283);
-    ctx.fillStyle =
-      Math.random() < 0.35 ? "rgba(140, 102, 50, 0.6)" : "rgba(198, 164, 110, 0.8)";
     ctx.fill();
   }
-  ctx.globalAlpha = 1;
+  return tela;
 };
 
-/* Clareia (não apaga) um pedaço da areia: a cobertura vai ficando mais
-   transparente a cada passada, em manchas irregulares */
-const clarearCelula = (ctx, cx, cy, cw, ch, alfa) => {
+/* Desenha o monte de areia a partir das alturas por coluna: contorno em
+   curvas suaves (nada de degraus retos), crista clara e sombra na base */
+const desenharMonte = (ctx, alturas, L, A, textura) => {
+  const n = alturas.length;
+  const passo = L / (n - 1);
+  const topo = (i) => A - Math.max(0, Math.min(1, alturas[i])) * A;
+
+  ctx.clearRect(0, 0, L, A);
   ctx.save();
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.fillStyle = "#000";
-  ctx.globalAlpha = alfa;
-  for (let k = 0; k < 3; k++) {
-    const ox = (Math.random() - 0.5) * cw * 0.7;
-    const oy = (Math.random() - 0.5) * ch * 0.7;
-    const rx = cw * (0.45 + Math.random() * 0.4);
-    const ry = ch * (0.45 + Math.random() * 0.4);
-    ctx.beginPath();
-    ctx.ellipse(cx + ox, cy + oy, rx, ry, Math.random() * 3.14, 0, 6.283);
-    ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-2, A + 2);
+  ctx.lineTo(-2, topo(0));
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = i * passo;
+    const x2 = (i + 1) * passo;
+    const mx = (x1 + x2) / 2;
+    const my = (topo(i) + topo(i + 1)) / 2;
+    ctx.quadraticCurveTo(x1, topo(i), mx, my);
   }
+  ctx.lineTo(L + 2, topo(n - 1));
+  ctx.lineTo(L + 2, A + 2);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(textura, 0, 0, L, A);
   ctx.restore();
-};
 
-/* Apaga por completo o retângulo da célula: usado quando ela chega a 0,
-   garantindo que "limpo" seja limpo mesmo, sem resíduo de pixel */
-const varrerRetangulo = (ctx, x, y, cw, ch) => {
+  /* crista: fio claro no alto do monte + sombra logo abaixo, o que dá
+     volume e evita a impressão de recorte chapado */
   ctx.save();
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#000";
-  ctx.fillRect(x * cw - 1.5, y * ch - 1.5, cw + 3, ch + 3);
+  ctx.beginPath();
+  ctx.moveTo(0, topo(0));
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = i * passo;
+    const x2 = (i + 1) * passo;
+    const mx = (x1 + x2) / 2;
+    const my = (topo(i) + topo(i + 1)) / 2;
+    ctx.quadraticCurveTo(x1, topo(i), mx, my);
+  }
+  ctx.lineTo(L, topo(n - 1));
+  ctx.strokeStyle = "rgba(255, 243, 214, 0.75)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(150, 112, 58, 0.25)";
+  ctx.lineWidth = 5;
+  ctx.setLineDash([]);
+  ctx.translate(0, 4);
+  ctx.stroke();
   ctx.restore();
-};
-
-/* Quanto apagar agora para sair da opacidade atual e chegar na próxima */
-const alfaDaPassada = (nivel) => {
-  const atual = OPACIDADE[nivel];
-  const proxima = OPACIDADE[nivel - 1];
-  if (atual <= 0) return 1;
-  return Math.min(1, 1 - proxima / atual);
 };
 
 /* ---------------------------------------------------------------
-   Soterramento ⏳ — a areia não é arrancada de uma vez: cada passada
-   do arraste deixa aquele pedaço 30% mais transparente, até sumir.
-   A textura é pintada uma única vez; arrastar só clareia regiões.
+   Soterramento ⏳ — a tela é um monte de areia de verdade: cada coluna
+   guarda quanta areia tem em cima. Arrastar empurra a areia para os
+   lados; a gravidade e o ângulo de repouso fazem o que está por cima
+   escorregar devagar, como areia pesada, formando dunas curvas.
    --------------------------------------------------------------- */
 function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
   const refLimpou = React.useRef(onLimpou);
@@ -1339,27 +1353,28 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
     let ultimoEnvio = 0;
     let precisaEnviar = false;
     let limpou = false;
+    let textura = null;
 
-    const FATOR = 2;
-    const cols = AREIA_COLS * FATOR;
-    const linhas = AREIA_LINHAS * FATOR;
-    const niveis = new Uint8Array(cols * linhas).fill(NIVEL_MAX);
-    const salvo = refMapaInicial.current;
-    if (typeof salvo === "string" && salvo.length === AREIA_COLS * AREIA_LINHAS) {
-      for (let y = 0; y < linhas; y++) {
-        for (let x = 0; x < cols; x++) {
-          const n = Number(
-            salvo[Math.floor(y / FATOR) * AREIA_COLS + Math.floor(x / FATOR)]
-          );
-          niveis[y * cols + x] = Number.isFinite(n)
-            ? Math.max(0, Math.min(NIVEL_MAX, n))
-            : NIVEL_MAX;
-        }
-      }
-    }
-    const toque = new Float64Array(cols * linhas);
+    /* Simulação: altura da areia (0 a 1) em cada coluna */
+    const COLUNAS = 150;
+    const alturas = new Float32Array(COLUNAS).fill(1);
+    const volumeInicial = COLUNAS; /* tudo cheio */
     let graos = [];
     const mouse = { ativo: false, x: 0, y: 0, px: 0, py: 0 };
+    let precisaDesenhar = true;
+
+    /* Retoma o estado salvo (a página pode ter sido recarregada) */
+    const salvo = refMapaInicial.current;
+    if (typeof salvo === "string" && salvo.length === AREIA_COLS) {
+      for (let i = 0; i < COLUNAS; i++) {
+        const fonte = Math.min(
+          AREIA_COLS - 1,
+          Math.floor((i / (COLUNAS - 1)) * (AREIA_COLS - 1))
+        );
+        const v = Number(salvo[fonte]);
+        alturas[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v / 9)) : 1;
+      }
+    }
 
     const dimensionar = () => {
       const L = window.innerWidth;
@@ -1368,34 +1383,16 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
         c.width = L;
         c.height = A;
       });
-      const cw = L / cols;
-      const ch = A / linhas;
-      pintarAreia(ctxA, L, A);
-      /* devolve à tela o estado já conquistado pela vítima */
-      for (let y = 0; y < linhas; y++) {
-        for (let x = 0; x < cols; x++) {
-          const n = niveis[y * cols + x];
-          if (n >= NIVEL_MAX) continue;
-          if (n <= 0) {
-            varrerRetangulo(ctxA, x, y, cw, ch);
-          } else {
-            clarearCelula(
-              ctxA, x * cw + cw / 2, y * ch + ch / 2, cw, ch,
-              1 - OPACIDADE[n]
-            );
-          }
-        }
-      }
-      atualizarMedidor();
+      textura = criarTextura(L, A);
+      precisaDesenhar = true;
     };
 
-    const atualizarMedidor = () => {
-      /* o número acompanha a opacidade real que ainda cobre a tela */
+    const medir = () => {
       let soma = 0;
-      for (let i = 0; i < niveis.length; i++) soma += OPACIDADE[niveis[i]];
-      const pct = (soma / niveis.length) * 100;
-      setRestante(soma === 0 ? 0 : Math.max(1, Math.round(pct)));
-      if (soma === 0 && !limpou) {
+      for (let i = 0; i < COLUNAS; i++) soma += alturas[i];
+      const pct = (soma / volumeInicial) * 100;
+      setRestante(soma <= 0.0005 ? 0 : Math.max(1, Math.round(pct)));
+      if (soma <= 0.0005 && !limpou) {
         limpou = true;
         ctxA.clearRect(0, 0, anim.width, anim.height);
         ctxN.clearRect(0, 0, anim.width, anim.height);
@@ -1404,102 +1401,127 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
       }
     };
 
+    /* Gravidade / ângulo de repouso: a areia mais alta escorre para as
+       vizinhas mais baixas, aos poucos — o escoamento é pesado */
+    const escoar = () => {
+      const REPOUSO = 0.02; /* desnível tolerado entre colunas vizinhas */
+      const FLUXO = 0.12; /* fração transferida por quadro: devagar */
+      let mexeu = false;
+      for (let passe = 0; passe < 2; passe++) {
+        const inicio = passe === 0 ? 0 : COLUNAS - 2;
+        const fim = passe === 0 ? COLUNAS - 1 : -1;
+        const inc = passe === 0 ? 1 : -1;
+        for (let i = inicio; i !== fim; i += inc) {
+          const j = i + 1;
+          if (j < 0 || j >= COLUNAS) continue;
+          const dif = alturas[i] - alturas[j];
+          if (Math.abs(dif) <= REPOUSO) continue;
+          const excesso = (Math.abs(dif) - REPOUSO) * FLUXO;
+          if (dif > 0) {
+            alturas[i] -= excesso;
+            alturas[j] += excesso;
+          } else {
+            alturas[i] += excesso;
+            alturas[j] -= excesso;
+          }
+          mexeu = true;
+        }
+      }
+      if (mexeu) precisaDesenhar = true;
+      return mexeu;
+    };
+
+    const cavar = () => {
+      const L = anim.width;
+      const A = anim.height;
+      const dx = mouse.x - mouse.px;
+      const dy = mouse.y - mouse.py;
+      const passo = L / (COLUNAS - 1);
+      const centro = Math.round(mouse.x / passo);
+      const RAIO = 6; /* colunas afetadas de cada lado */
+      const superficie = A - Math.max(0, Math.min(1, alturas[Math.max(0, Math.min(COLUNAS - 1, centro))])) * A;
+      /* só mexe na areia se a mão estiver no monte (ou abaixo dele) */
+      if (mouse.y < superficie - 30) return;
+      const forca = Math.min(1, 0.35 + Math.hypot(dx, dy) / 60);
+      let retirado = 0;
+      for (let k = -RAIO; k <= RAIO; k++) {
+        const i = centro + k;
+        if (i < 0 || i >= COLUNAS) continue;
+        if (alturas[i] <= 0) continue;
+        const perto = 1 - Math.abs(k) / (RAIO + 1);
+        const tira = Math.min(alturas[i], 0.02 * forca * perto);
+        alturas[i] -= tira;
+        retirado += tira;
+      }
+      if (retirado <= 0) return;
+      /* parte da areia é empurrada para os lados; o resto voa para fora */
+      const lado = dx >= 0 ? 1 : -1;
+      const paraOsLados = retirado * 0.55;
+      const alvoInicio = centro + lado * (RAIO + 1);
+      for (let k = 0; k < RAIO; k++) {
+        const i = alvoInicio + lado * k;
+        if (i < 0 || i >= COLUNAS) continue;
+        alturas[i] = Math.min(1.4, alturas[i] + paraOsLados / RAIO);
+      }
+      if (graos.length < 140) {
+        const qtd = 3 + Math.floor(retirado * 260);
+        for (let k = 0; k < qtd; k++) {
+          graos.push({
+            x: mouse.x + (Math.random() - 0.5) * passo * RAIO * 2,
+            y: superficie + Math.random() * 26,
+            vx: (dx || lado) * (0.35 + Math.random() * 0.5),
+            vy: -1.6 - Math.random() * 2.4,
+            r: 0.5 + Math.random() * 1.4,
+            vida: 1,
+          });
+        }
+      }
+      precisaDesenhar = true;
+      precisaEnviar = true;
+    };
+
     const enviarMapa = (agora) => {
       if (!precisaEnviar || limpou) return;
       if (agora - ultimoEnvio < 4000) return;
       ultimoEnvio = agora;
       precisaEnviar = false;
       let mapa = "";
-      for (let y = 0; y < AREIA_LINHAS; y++) {
-        for (let x = 0; x < AREIA_COLS; x++) {
-          let soma = 0;
-          for (let dy = 0; dy < FATOR; dy++)
-            for (let dx = 0; dx < FATOR; dx++)
-              soma += niveis[(y * FATOR + dy) * cols + (x * FATOR + dx)];
-          mapa += Math.round(soma / (FATOR * FATOR));
+      const porColuna = COLUNAS / AREIA_COLS;
+      for (let c = 0; c < AREIA_COLS; c++) {
+        let soma = 0;
+        for (let k = 0; k < porColuna; k++) {
+          soma += alturas[Math.floor(c * porColuna + k)] || 0;
         }
+        const media = soma / porColuna;
+        mapa += Math.max(0, Math.min(9, Math.round(media * 9)));
       }
       refProgresso.current(mapa);
     };
 
-    const arrastar = (agora) => {
-      const dx = mouse.x - mouse.px;
-      const dy = mouse.y - mouse.py;
-      const bruto = Math.hypot(dx, dy);
-      const ux = bruto < 0.5 ? 0 : dx / bruto;
-      const uy = bruto < 0.5 ? -1 : dy / bruto;
-      const cw = anim.width / cols;
-      const ch = anim.height / linhas;
-      const cx = Math.floor(mouse.x / cw);
-      const cy = Math.floor(mouse.y / ch);
-      let mudou = false;
-      for (let y = cy - 1; y <= cy + 1; y++) {
-        for (let x = cx - 1; x <= cx + 1; x++) {
-          if (x < 0 || y < 0 || x >= cols || y >= linhas) continue;
-          const i = y * cols + x;
-          const naBorda = x === 0 || y === 0 || x === cols - 1 || y === linhas - 1;
-          if (niveis[i] <= 0) {
-            /* já limpa: só raspa resquício de pixel de vez em quando */
-            if (agora - toque[i] > 500) {
-              toque[i] = agora;
-              varrerRetangulo(ctxA, x, y, cw, ch);
-            }
-            continue;
-          }
-          if (!naBorda && agora - toque[i] < 340) continue;
-          toque[i] = agora;
-          /* nas bordas o cursor trava, então a areia de lá sai de vez */
-          if (naBorda) {
-            niveis[i] = 0;
-            varrerRetangulo(ctxA, x, y, cw, ch);
-          } else {
-            clarearCelula(
-              ctxA, x * cw + cw / 2, y * ch + ch / 2, cw, ch,
-              alfaDaPassada(niveis[i])
-            );
-            niveis[i] -= 1;
-            if (niveis[i] === 0) varrerRetangulo(ctxA, x, y, cw, ch);
-          }
-          mudou = true;
-          if (graos.length < 110) {
-            for (let k = 0; k < 3; k++) {
-              graos.push({
-                x: x * cw + Math.random() * cw,
-                y: y * ch + Math.random() * ch,
-                vx: ux * (10 + Math.random() * 12),
-                vy: uy * (10 + Math.random() * 12),
-                r: 0.6 + Math.random() * 1.1,
-                vida: 1,
-              });
-            }
-          }
-        }
-      }
-      if (mudou) {
-        precisaEnviar = true;
-        atualizarMedidor();
-      }
-    };
-
     const quadro = (tempo) => {
       if (!rodando) return;
-      if (mouse.ativo) arrastar(tempo);
+      if (mouse.ativo) cavar();
       mouse.px = mouse.x;
       mouse.py = mouse.y;
+      escoar();
+      if (precisaDesenhar && textura) {
+        desenharMonte(ctxA, alturas, anim.width, anim.height, textura);
+        precisaDesenhar = false;
+        medir();
+      }
       if (graos.length > 0) {
         ctxN.clearRect(0, 0, anim.width, anim.height);
         graos = graos.filter((g) => {
           g.x += g.vx;
           g.y += g.vy;
-          g.vx *= 0.8;
-          g.vy *= 0.8;
-          g.vy += 0.6;
-          g.vida -= 0.025;
+          g.vx *= 0.94;
+          g.vy += 0.22; /* cai pesado */
+          g.vida -= 0.014;
           if (g.vida <= 0) return false;
-          if (g.y > anim.height + 20 || g.x < -20 || g.x > anim.width + 20) return false;
+          if (g.y > anim.height + 20 || g.x < -30 || g.x > anim.width + 30) return false;
           ctxN.beginPath();
           ctxN.arc(g.x, g.y, g.r, 0, 6.283);
-          ctxN.fillStyle = `rgba(158, 120, 66, ${Math.max(0, g.vida)})`;
+          ctxN.fillStyle = `rgba(${150 + Math.round(g.r * 30)}, 118, 64, ${Math.max(0, g.vida)})`;
           ctxN.fill();
           return true;
         });
@@ -1565,8 +1587,8 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
   );
 }
 
-/* Areia dentro do cartão — o que os colegas veem. Redesenhada só quando
-   o mapa muda (a cada 4s, no máximo), nunca a cada quadro */
+/* Areia dentro do cartão — o que os colegas veem: o mesmo monte, na
+   proporção do cartão. Redesenhado só quando o mapa muda */
 function AreiaCartao({ mapa }) {
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -1578,24 +1600,12 @@ function AreiaCartao({ mapa }) {
     c.width = L;
     c.height = A;
     const ctx = c.getContext("2d");
-    pintarAreia(ctx, L, A);
-    const cw = L / AREIA_COLS;
-    const ch = A / AREIA_LINHAS;
-    for (let y = 0; y < AREIA_LINHAS; y++) {
-      for (let x = 0; x < AREIA_COLS; x++) {
-        const bruto = mapa && mapa[y * AREIA_COLS + x];
-        const n =
-          bruto === undefined
-            ? NIVEL_MAX
-            : Math.max(0, Math.min(NIVEL_MAX, Number(bruto) || 0));
-        if (n >= NIVEL_MAX) continue;
-        if (n <= 0) varrerRetangulo(ctx, x, y, cw, ch);
-        else
-          clarearCelula(
-            ctx, x * cw + cw / 2, y * ch + ch / 2, cw, ch, 1 - OPACIDADE[n]
-          );
-      }
+    const alturas = new Float32Array(AREIA_COLS);
+    for (let i = 0; i < AREIA_COLS; i++) {
+      const v = mapa && mapa[i] !== undefined ? Number(mapa[i]) : 9;
+      alturas[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v / 9)) : 1;
     }
+    desenharMonte(ctx, alturas, L, A, criarTextura(L, A));
   }, [mapa]);
   return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
 }
