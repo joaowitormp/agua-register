@@ -606,7 +606,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-20.4";
+const APP_VERSION = "2026-08-20.6";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1223,22 +1223,24 @@ function Garrafa({ pct, tamanho = 92 }) {
    --------------------------------------------------------------- */
 const AREIA_COLS = 16; /* resolução do mapa compartilhado */
 const AREIA_LINHAS = 11;
-const NIVEL_MAX = 3;
+const NIVEL_MAX = 4; /* cobertura total, densa, esparsa e a de restos */
 
 /* Tons monocromáticos da areia, do restinho ao soterrado */
 const CORES_AREIA = ["", "#E7CFA4", "#DFC08C", "#D4AE74"];
 
-/* Textura de areia desenhada UMA vez por camada: montinhos irregulares
-   espalhados livremente (sem grade), com grãos por cima */
-const pintarCamada = (ctx, larg, alt, nivel) => {
+/* Opacidade da areia por nível: cada passada do arraste tira 30% da
+   cobertura daquele ponto (100% → 70% → 40% → 10% → limpo) */
+const OPACIDADE = [0, 0.1, 0.4, 0.7, 1];
+
+/* Textura de areia: pintada UMA vez, com montinhos irregulares
+   sobrepostos e bastante grão solto por cima */
+const pintarAreia = (ctx, larg, alt) => {
   ctx.clearRect(0, 0, larg, alt);
-  if (nivel === 3) {
-    ctx.fillStyle = "#DCBB8A";
-    ctx.fillRect(0, 0, larg, alt);
-  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#DCBB8A";
+  ctx.fillRect(0, 0, larg, alt);
   const area = larg * alt;
-  const montes =
-    nivel === 3 ? Math.round(area / 3200) : nivel === 2 ? Math.round(area / 4200) : 0;
+  const montes = Math.round(area / 2600);
   for (let i = 0; i < montes; i++) {
     const x = Math.random() * larg;
     const y = Math.random() * alt;
@@ -1246,42 +1248,44 @@ const pintarCamada = (ctx, larg, alt, nivel) => {
     const ry = rx * (0.45 + Math.random() * 0.7);
     const giro = Math.random() * 3.14;
     const tom = 206 + Math.round(Math.random() * 28);
-    ctx.globalAlpha = nivel === 3 ? 0.9 : 0.62;
+    ctx.globalAlpha = 0.85;
     ctx.fillStyle = `rgb(${tom}, ${tom - 30}, ${tom - 78})`;
     ctx.beginPath();
     ctx.ellipse(x, y, rx, ry, giro, 0, 6.283);
     ctx.fill();
-    ctx.globalAlpha = nivel === 3 ? 0.16 : 0.1;
+    ctx.globalAlpha = 0.15;
     ctx.fillStyle = "rgb(150, 116, 62)";
     ctx.beginPath();
     ctx.ellipse(x, y + ry * 0.6, rx * 0.8, ry * 0.38, giro, 0, 6.283);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
-  const graos = Math.round(area / (nivel === 1 ? 1400 : 900));
+  const graos = Math.round(area / 380);
   for (let i = 0; i < graos; i++) {
     const x = Math.random() * larg;
     const y = Math.random() * alt;
-    const r = 0.45 + Math.random() * 1.1;
+    const r = 0.45 + Math.random() * 1.2;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 6.283);
     ctx.fillStyle =
-      Math.random() < 0.35 ? "rgba(146, 108, 56, 0.5)" : "rgba(198, 164, 110, 0.75)";
+      Math.random() < 0.35 ? "rgba(140, 102, 50, 0.6)" : "rgba(198, 164, 110, 0.8)";
     ctx.fill();
   }
+  ctx.globalAlpha = 1;
 };
 
-/* Abre um buraco irregular na camada (a areia sai em lambidas, não em
-   quadrados) — é assim que a limpeza acontece: apagando pedaços */
-const abrirBuraco = (ctx, cx, cy, cw, ch) => {
+/* Clareia (não apaga) um pedaço da areia: a cobertura vai ficando mais
+   transparente a cada passada, em manchas irregulares */
+const clarearCelula = (ctx, cx, cy, cw, ch, alfa) => {
   ctx.save();
   ctx.globalCompositeOperation = "destination-out";
   ctx.fillStyle = "#000";
+  ctx.globalAlpha = alfa;
   for (let k = 0; k < 3; k++) {
-    const ox = (Math.random() - 0.5) * cw * 0.8;
-    const oy = (Math.random() - 0.5) * ch * 0.8;
-    const rx = cw * (0.5 + Math.random() * 0.45);
-    const ry = ch * (0.5 + Math.random() * 0.45);
+    const ox = (Math.random() - 0.5) * cw * 0.7;
+    const oy = (Math.random() - 0.5) * ch * 0.7;
+    const rx = cw * (0.45 + Math.random() * 0.4);
+    const ry = ch * (0.45 + Math.random() * 0.4);
     ctx.beginPath();
     ctx.ellipse(cx + ox, cy + oy, rx, ry, Math.random() * 3.14, 0, 6.283);
     ctx.fill();
@@ -1289,28 +1293,46 @@ const abrirBuraco = (ctx, cx, cy, cw, ch) => {
   ctx.restore();
 };
 
+/* Apaga por completo o retângulo da célula: usado quando ela chega a 0,
+   garantindo que "limpo" seja limpo mesmo, sem resíduo de pixel */
+const varrerRetangulo = (ctx, x, y, cw, ch) => {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x * cw - 1.5, y * ch - 1.5, cw + 3, ch + 3);
+  ctx.restore();
+};
+
+/* Quanto apagar agora para sair da opacidade atual e chegar na próxima */
+const alfaDaPassada = (nivel) => {
+  const atual = OPACIDADE[nivel];
+  const proxima = OPACIDADE[nivel - 1];
+  if (atual <= 0) return 1;
+  return Math.min(1, 1 - proxima / atual);
+};
+
 /* ---------------------------------------------------------------
-   Soterramento ⏳ — três camadas empilhadas de areia. Cada arraste
-   apaga um pedaço de UMA camada, então é preciso passar 3x pelo mesmo
-   lugar para limpar de vez. As camadas são pintadas uma única vez e o
-   navegador as compõe sozinho: nada é redesenhado a cada quadro.
+   Soterramento ⏳ — a areia não é arrancada de uma vez: cada passada
+   do arraste deixa aquele pedaço 30% mais transparente, até sumir.
+   A textura é pintada uma única vez; arrastar só clareia regiões.
    --------------------------------------------------------------- */
 function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
-  const refMapaInicial = React.useRef(mapaInicial);
   const refLimpou = React.useRef(onLimpou);
   refLimpou.current = onLimpou;
   const refProgresso = React.useRef(onProgresso);
   refProgresso.current = onProgresso;
-  const refs = [React.useRef(null), React.useRef(null), React.useRef(null)];
+  const refMapaInicial = React.useRef(mapaInicial);
+  const refAreia = React.useRef(null);
   const refAnim = React.useRef(null);
   const [restante, setRestante] = React.useState(100);
   const [encerrado, setEncerrado] = React.useState(false);
 
   React.useEffect(() => {
-    const camadas = refs.map((r) => r.current);
+    const areia = refAreia.current;
     const anim = refAnim.current;
-    if (camadas.some((c) => !c) || !anim) return;
-    const ctxs = camadas.map((c) => c.getContext("2d"));
+    if (!areia || !anim) return;
+    const ctxA = areia.getContext("2d");
     const ctxN = anim.getContext("2d");
     let rodando = true;
     let raf = 0;
@@ -1318,18 +1340,20 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
     let precisaEnviar = false;
     let limpou = false;
 
-    /* malha só para controlar o que já foi raspado (2x a do cartão) */
     const FATOR = 2;
     const cols = AREIA_COLS * FATOR;
     const linhas = AREIA_LINHAS * FATOR;
     const niveis = new Uint8Array(cols * linhas).fill(NIVEL_MAX);
-    /* Retoma o que já foi limpo: recarregar a página não re-soterra */
     const salvo = refMapaInicial.current;
     if (typeof salvo === "string" && salvo.length === AREIA_COLS * AREIA_LINHAS) {
       for (let y = 0; y < linhas; y++) {
         for (let x = 0; x < cols; x++) {
-          const n = Number(salvo[Math.floor(y / FATOR) * AREIA_COLS + Math.floor(x / FATOR)]);
-          niveis[y * cols + x] = Number.isFinite(n) ? Math.max(0, Math.min(NIVEL_MAX, n)) : NIVEL_MAX;
+          const n = Number(
+            salvo[Math.floor(y / FATOR) * AREIA_COLS + Math.floor(x / FATOR)]
+          );
+          niveis[y * cols + x] = Number.isFinite(n)
+            ? Math.max(0, Math.min(NIVEL_MAX, n))
+            : NIVEL_MAX;
         }
       }
     }
@@ -1340,24 +1364,24 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
     const dimensionar = () => {
       const L = window.innerWidth;
       const A = window.innerHeight;
-      [...camadas, anim].forEach((c) => {
+      [areia, anim].forEach((c) => {
         c.width = L;
         c.height = A;
       });
       const cw = L / cols;
       const ch = A / linhas;
-      ctxs.forEach((ctx, idx) => pintarCamada(ctx, L, A, 3 - idx));
-      /* reabre os buracos já conquistados */
+      pintarAreia(ctxA, L, A);
+      /* devolve à tela o estado já conquistado pela vítima */
       for (let y = 0; y < linhas; y++) {
         for (let x = 0; x < cols; x++) {
           const n = niveis[y * cols + x];
-          for (let camada = NIVEL_MAX; camada > n; camada--) {
-            abrirBuraco(
-              ctxs[NIVEL_MAX - camada],
-              x * cw + cw / 2,
-              y * ch + ch / 2,
-              cw,
-              ch
+          if (n >= NIVEL_MAX) continue;
+          if (n <= 0) {
+            varrerRetangulo(ctxA, x, y, cw, ch);
+          } else {
+            clarearCelula(
+              ctxA, x * cw + cw / 2, y * ch + ch / 2, cw, ch,
+              1 - OPACIDADE[n]
             );
           }
         }
@@ -1366,19 +1390,15 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
     };
 
     const atualizarMedidor = () => {
-      /* proporcional ao volume de areia restante (3 camadas por célula).
-         Enquanto sobrar um grão o medidor nunca marca 0%: 0% significa
-         tela limpa, e limpa encerra o efeito */
+      /* o número acompanha a opacidade real que ainda cobre a tela */
       let soma = 0;
-      for (let i = 0; i < niveis.length; i++) soma += niveis[i];
-      const bruto = (soma / (niveis.length * NIVEL_MAX)) * 100;
-      setRestante(soma === 0 ? 0 : Math.max(1, Math.round(bruto)));
+      for (let i = 0; i < niveis.length; i++) soma += OPACIDADE[niveis[i]];
+      const pct = (soma / niveis.length) * 100;
+      setRestante(soma === 0 ? 0 : Math.max(1, Math.round(pct)));
       if (soma === 0 && !limpou) {
         limpou = true;
-        /* varre qualquer resíduo de pixel e devolve a tela ao usuário */
-        [...ctxs, ctxN].forEach((c) =>
-          c.clearRect(0, 0, anim.width, anim.height)
-        );
+        ctxA.clearRect(0, 0, anim.width, anim.height);
+        ctxN.clearRect(0, 0, anim.width, anim.height);
         setEncerrado(true);
         refLimpou.current();
       }
@@ -1402,25 +1422,10 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
       refProgresso.current(mapa);
     };
 
-    /* Apaga o retângulo completo da célula em TODAS as camadas — é o que
-       garante que "0" na malha signifique zero areia na tela */
-    const varrerCelula = (x, y, cw, ch) => {
-      ctxs.forEach((ctx) => {
-        ctx.save();
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.fillStyle = "#000";
-        ctx.fillRect(x * cw - 1.5, y * ch - 1.5, cw + 3, ch + 3);
-        ctx.restore();
-      });
-    };
-
     const arrastar = (agora) => {
       const dx = mouse.x - mouse.px;
       const dy = mouse.y - mouse.py;
       const bruto = Math.hypot(dx, dy);
-      /* sem exigir deslocamento: nas bordas o cursor trava e a areia
-         de lá precisa sair do mesmo jeito */
-      const dist = bruto < 0.5 ? 1 : bruto;
       const ux = bruto < 0.5 ? 0 : dx / bruto;
       const uy = bruto < 0.5 ? -1 : dy / bruto;
       const cw = anim.width / cols;
@@ -1428,40 +1433,36 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
       const cx = Math.floor(mouse.x / cw);
       const cy = Math.floor(mouse.y / ch);
       let mudou = false;
-      for (let y = cy - 2; y <= cy + 2; y++) {
-        for (let x = cx - 2; x <= cx + 2; x++) {
+      for (let y = cy - 1; y <= cy + 1; y++) {
+        for (let x = cx - 1; x <= cx + 1; x++) {
           if (x < 0 || y < 0 || x >= cols || y >= linhas) continue;
           const i = y * cols + x;
+          const naBorda = x === 0 || y === 0 || x === cols - 1 || y === linhas - 1;
           if (niveis[i] <= 0) {
-            /* célula já zerada: raspa qualquer resquício de pixel que
-               tenha sobrado nas beiradas do buraco (senão fica areia
-               visível que o app considera limpa e ninguém consegue tirar) */
+            /* já limpa: só raspa resquício de pixel de vez em quando */
             if (agora - toque[i] > 500) {
               toque[i] = agora;
-              varrerCelula(x, y, cw, ch);
+              varrerRetangulo(ctxA, x, y, cw, ch);
             }
             continue;
           }
-          const naBorda = x === 0 || y === 0 || x === cols - 1 || y === linhas - 1;
-          if (!naBorda && agora - toque[i] < 280) continue; /* 1 camada por passada */
+          if (!naBorda && agora - toque[i] < 340) continue;
           toque[i] = agora;
-          /* nas bordas o cursor não tem para onde correr, então a areia
-             de lá sai de uma vez — nada de resto encalhado no canto */
-          const camadas = naBorda ? niveis[i] : 1;
-          for (let c = 0; c < camadas; c++) {
-            abrirBuraco(
-              ctxs[NIVEL_MAX - (niveis[i] - c)],
-              x * cw + cw / 2,
-              y * ch + ch / 2,
-              cw * (naBorda ? 1.6 : 1),
-              ch * (naBorda ? 1.6 : 1)
+          /* nas bordas o cursor trava, então a areia de lá sai de vez */
+          if (naBorda) {
+            niveis[i] = 0;
+            varrerRetangulo(ctxA, x, y, cw, ch);
+          } else {
+            clarearCelula(
+              ctxA, x * cw + cw / 2, y * ch + ch / 2, cw, ch,
+              alfaDaPassada(niveis[i])
             );
+            niveis[i] -= 1;
+            if (niveis[i] === 0) varrerRetangulo(ctxA, x, y, cw, ch);
           }
-          niveis[i] -= camadas;
-          if (niveis[i] === 0) varrerCelula(x, y, cw, ch); /* limpeza garantida */
           mudou = true;
           if (graos.length < 110) {
-            for (let k = 0; k < 4; k++) {
+            for (let k = 0; k < 3; k++) {
               graos.push({
                 x: x * cw + Math.random() * cw,
                 y: y * ch + Math.random() * ch,
@@ -1490,7 +1491,7 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
         graos = graos.filter((g) => {
           g.x += g.vx;
           g.y += g.vy;
-          g.vx *= 0.8; /* dispara e freia logo: areia é pesada */
+          g.vx *= 0.8;
           g.vy *= 0.8;
           g.vy += 0.6;
           g.vida -= 0.025;
@@ -1557,9 +1558,7 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
 
   return (
     <div className="tempestade">
-      <canvas ref={refs[0]} className="tempestade-canvas" />
-      <canvas ref={refs[1]} className="tempestade-canvas" />
-      <canvas ref={refs[2]} className="tempestade-canvas" />
+      <canvas ref={refAreia} className="tempestade-canvas" />
       <canvas ref={refAnim} className="tempestade-canvas tempestade-topo" />
       <div className="tempestade-medidor">Tela soterrada: {restante}%</div>
     </div>
@@ -1579,27 +1578,23 @@ function AreiaCartao({ mapa }) {
     c.width = L;
     c.height = A;
     const ctx = c.getContext("2d");
-    ctx.clearRect(0, 0, L, A);
+    pintarAreia(ctx, L, A);
     const cw = L / AREIA_COLS;
     const ch = A / AREIA_LINHAS;
-    /* pinta as três camadas e abre os buracos que a vítima já limpou */
-    for (let camada = NIVEL_MAX; camada >= 1; camada--) {
-      const tmp = document.createElement("canvas");
-      tmp.width = L;
-      tmp.height = A;
-      const tctx = tmp.getContext("2d");
-      pintarCamada(tctx, L, A, camada);
-      for (let y = 0; y < AREIA_LINHAS; y++) {
-        for (let x = 0; x < AREIA_COLS; x++) {
-          const i = y * AREIA_COLS + x;
-          const ch2 = mapa && mapa[i];
-          const n = ch2 === undefined ? NIVEL_MAX : Math.max(0, Math.min(3, Number(ch2) || 0));
-          if (n < camada) {
-            abrirBuraco(tctx, x * cw + cw / 2, y * ch + ch / 2, cw, ch);
-          }
-        }
+    for (let y = 0; y < AREIA_LINHAS; y++) {
+      for (let x = 0; x < AREIA_COLS; x++) {
+        const bruto = mapa && mapa[y * AREIA_COLS + x];
+        const n =
+          bruto === undefined
+            ? NIVEL_MAX
+            : Math.max(0, Math.min(NIVEL_MAX, Number(bruto) || 0));
+        if (n >= NIVEL_MAX) continue;
+        if (n <= 0) varrerRetangulo(ctx, x, y, cw, ch);
+        else
+          clarearCelula(
+            ctx, x * cw + cw / 2, y * ch + ch / 2, cw, ch, 1 - OPACIDADE[n]
+          );
       }
-      ctx.drawImage(tmp, 0, 0);
     }
   }, [mapa]);
   return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
