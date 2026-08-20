@@ -606,7 +606,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-20.1";
+const APP_VERSION = "2026-08-20.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1295,7 +1295,8 @@ const abrirBuraco = (ctx, cx, cy, cw, ch) => {
    lugar para limpar de vez. As camadas são pintadas uma única vez e o
    navegador as compõe sozinho: nada é redesenhado a cada quadro.
    --------------------------------------------------------------- */
-function Soterramento({ onLimpou, onProgresso }) {
+function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
+  const refMapaInicial = React.useRef(mapaInicial);
   const refLimpou = React.useRef(onLimpou);
   refLimpou.current = onLimpou;
   const refProgresso = React.useRef(onProgresso);
@@ -1321,6 +1322,16 @@ function Soterramento({ onLimpou, onProgresso }) {
     const cols = AREIA_COLS * FATOR;
     const linhas = AREIA_LINHAS * FATOR;
     const niveis = new Uint8Array(cols * linhas).fill(NIVEL_MAX);
+    /* Retoma o que já foi limpo: recarregar a página não re-soterra */
+    const salvo = refMapaInicial.current;
+    if (typeof salvo === "string" && salvo.length === AREIA_COLS * AREIA_LINHAS) {
+      for (let y = 0; y < linhas; y++) {
+        for (let x = 0; x < cols; x++) {
+          const n = Number(salvo[Math.floor(y / FATOR) * AREIA_COLS + Math.floor(x / FATOR)]);
+          niveis[y * cols + x] = Number.isFinite(n) ? Math.max(0, Math.min(NIVEL_MAX, n)) : NIVEL_MAX;
+        }
+      }
+    }
     const toque = new Float64Array(cols * linhas);
     let graos = [];
     const mouse = { ativo: false, x: 0, y: 0, px: 0, py: 0 };
@@ -1354,11 +1365,13 @@ function Soterramento({ onLimpou, onProgresso }) {
     };
 
     const atualizarMedidor = () => {
-      let cobertas = 0;
-      for (let i = 0; i < niveis.length; i++) if (niveis[i] > 0) cobertas++;
-      const pct = Math.round((cobertas / niveis.length) * 100);
+      /* proporcional ao volume de areia restante (3 camadas por célula),
+         e não à quantidade de células ainda sujas */
+      let soma = 0;
+      for (let i = 0; i < niveis.length; i++) soma += niveis[i];
+      const pct = Math.round((soma / (niveis.length * NIVEL_MAX)) * 100);
       setRestante(pct);
-      if (pct === 0 && !limpou) {
+      if (soma === 0 && !limpou) {
         limpou = true;
         refLimpou.current();
       }
@@ -1385,15 +1398,19 @@ function Soterramento({ onLimpou, onProgresso }) {
     const arrastar = (agora) => {
       const dx = mouse.x - mouse.px;
       const dy = mouse.y - mouse.py;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 2) return;
+      const bruto = Math.hypot(dx, dy);
+      /* sem exigir deslocamento: nas bordas o cursor trava e a areia
+         de lá precisa sair do mesmo jeito */
+      const dist = bruto < 0.5 ? 1 : bruto;
+      const ux = bruto < 0.5 ? 0 : dx / bruto;
+      const uy = bruto < 0.5 ? -1 : dy / bruto;
       const cw = anim.width / cols;
       const ch = anim.height / linhas;
       const cx = Math.floor(mouse.x / cw);
       const cy = Math.floor(mouse.y / ch);
       let mudou = false;
-      for (let y = cy - 1; y <= cy + 1; y++) {
-        for (let x = cx - 1; x <= cx + 1; x++) {
+      for (let y = cy - 2; y <= cy + 2; y++) {
+        for (let x = cx - 2; x <= cx + 2; x++) {
           if (x < 0 || y < 0 || x >= cols || y >= linhas) continue;
           const i = y * cols + x;
           if (niveis[i] <= 0) continue;
@@ -1413,8 +1430,8 @@ function Soterramento({ onLimpou, onProgresso }) {
               graos.push({
                 x: x * cw + Math.random() * cw,
                 y: y * ch + Math.random() * ch,
-                vx: (dx / dist) * (10 + Math.random() * 12),
-                vy: (dy / dist) * (10 + Math.random() * 12),
+                vx: ux * (10 + Math.random() * 12),
+                vy: uy * (10 + Math.random() * 12),
                 r: 0.6 + Math.random() * 1.1,
                 vida: 1,
               });
@@ -1473,7 +1490,10 @@ function Soterramento({ onLimpou, onProgresso }) {
       mouse.y = p.y;
       ev.preventDefault();
     };
-    const aoSoltar = () => { mouse.ativo = false; };
+    const aoSoltar = () => {
+      mouse.ativo = false;
+      ultimoEnvio = 0; /* grava o progresso assim que a mão sai */
+    };
 
     dimensionar();
     window.addEventListener("resize", dimensionar);
@@ -3603,6 +3623,7 @@ function AguaTracker() {
 
       {minhaTempestade && (
         <Soterramento
+          mapaInicial={minhaTempestade.ef.mapa}
           onLimpou={() => limparTempestade(minhaTempestade.id)}
           onProgresso={(mapa) => salvarMapaAreia(minhaTempestade.id, mapa)}
         />
