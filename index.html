@@ -606,7 +606,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-20.3";
+const APP_VERSION = "2026-08-20.4";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1402,6 +1402,18 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
       refProgresso.current(mapa);
     };
 
+    /* Apaga o retângulo completo da célula em TODAS as camadas — é o que
+       garante que "0" na malha signifique zero areia na tela */
+    const varrerCelula = (x, y, cw, ch) => {
+      ctxs.forEach((ctx) => {
+        ctx.save();
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.fillStyle = "#000";
+        ctx.fillRect(x * cw - 1.5, y * ch - 1.5, cw + 3, ch + 3);
+        ctx.restore();
+      });
+    };
+
     const arrastar = (agora) => {
       const dx = mouse.x - mouse.px;
       const dy = mouse.y - mouse.py;
@@ -1420,7 +1432,16 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
         for (let x = cx - 2; x <= cx + 2; x++) {
           if (x < 0 || y < 0 || x >= cols || y >= linhas) continue;
           const i = y * cols + x;
-          if (niveis[i] <= 0) continue;
+          if (niveis[i] <= 0) {
+            /* célula já zerada: raspa qualquer resquício de pixel que
+               tenha sobrado nas beiradas do buraco (senão fica areia
+               visível que o app considera limpa e ninguém consegue tirar) */
+            if (agora - toque[i] > 500) {
+              toque[i] = agora;
+              varrerCelula(x, y, cw, ch);
+            }
+            continue;
+          }
           const naBorda = x === 0 || y === 0 || x === cols - 1 || y === linhas - 1;
           if (!naBorda && agora - toque[i] < 280) continue; /* 1 camada por passada */
           toque[i] = agora;
@@ -1437,6 +1458,7 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
             );
           }
           niveis[i] -= camadas;
+          if (niveis[i] === 0) varrerCelula(x, y, cw, ch); /* limpeza garantida */
           mudou = true;
           if (graos.length < 110) {
             for (let k = 0; k < 4; k++) {
@@ -3346,7 +3368,16 @@ function AguaTracker() {
                 !bateuMeta
               }
               alertando={alertas.some((a) => a.memberId === m.id)}
-              efeitos={efeitosDe(m)}
+              efeitos={(() => {
+                const ativos = efeitosDe(m);
+                /* a areia do cartão é para os OUTROS verem: no cartão do
+                   próprio soterrado ela seria redundante com a tela */
+                if (donoDoCartao && ativos.tempestade) {
+                  const { tempestade, ...resto } = ativos;
+                  return resto;
+                }
+                return ativos;
+              })()}
               cutucando={cutucadaId === m.id}
               selos={CONQUISTAS.filter(
                 (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
