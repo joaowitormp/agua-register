@@ -77,6 +77,7 @@ body { margin: 0; }
   background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 16px;
   padding: 18px; box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07);
   display: flex; flex-direction: column;
+  position: relative; /* âncora da camada de areia do soterramento */
 }
 .cartao-topo { display: flex; justify-content: space-between; align-items: flex-start; }
 .nome { margin: 0; font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
@@ -389,8 +390,9 @@ body { margin: 0; }
 }
 .cartao.soterrado { border-color: #C79A55; }
 .areia-camada {
-  position: absolute; inset: 0; pointer-events: none;
-  overflow: hidden; border-radius: 16px;
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; overflow: hidden; border-radius: 16px;
+  contain: strict; /* garante que a areia jamais escape do cartão */
 }
 .areia-cartao { width: 100%; height: 100%; display: block; }
 
@@ -604,7 +606,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-19.3";
+const APP_VERSION = "2026-08-20.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1226,106 +1228,142 @@ const NIVEL_MAX = 3;
 /* Tons monocromáticos da areia, do restinho ao soterrado */
 const CORES_AREIA = ["", "#E7CFA4", "#DFC08C", "#D4AE74"];
 
-/* Desenha a areia (com ondas sutis, sombreado leve e grão fino) numa
-   malha qualquer — usada tanto na tela cheia quanto dentro do cartão */
-const pintarAreia = (ctx, niveis, cols, linhas, larg, alt, semente, escala) => {
-  const cw = larg / cols;
-  const ch = alt / linhas;
+/* Textura de areia desenhada UMA vez por camada: montinhos irregulares
+   espalhados livremente (sem grade), com grãos por cima */
+const pintarCamada = (ctx, larg, alt, nivel) => {
   ctx.clearRect(0, 0, larg, alt);
-  for (let y = 0; y < linhas; y++) {
-    for (let x = 0; x < cols; x++) {
-      const i = y * cols + x;
-      const n = niveis[i];
-      if (n <= 0) continue;
-      const s = semente[i];
-      /* onda suave: leve variação de tom ao longo da malha */
-      const onda =
-        Math.sin(x / 3.1 + y / 5.3) * 5 + Math.sin(x / 7.7 - y / 2.9) * 4;
-      const px = x * cw;
-      const py = y * ch;
-      if (n >= 2) {
-        const base = n >= 3 ? 216 : 224;
-        const tom = Math.round(base + onda + s * 6);
-        ctx.fillStyle = `rgb(${tom}, ${tom - 26}, ${tom - 72})`;
-        ctx.globalAlpha = n >= 3 ? 1 : 0.72;
-        ctx.fillRect(px - 0.5, py - 0.5, cw + 1, ch + 1);
-        /* sombreado: bordas um tico mais escuras dão relevo */
-        ctx.globalAlpha = n >= 3 ? 0.16 : 0.1;
-        ctx.fillStyle = "#8A6A3A";
-        ctx.fillRect(px, py + ch * 0.72, cw, ch * 0.28);
-        ctx.globalAlpha = 1;
-      }
-      /* grãos: poucos e finos no nível 1, densos nos demais */
-      const graos = n >= 3 ? 16 : n >= 2 ? 10 : 5;
-      for (let k = 0; k < graos; k++) {
-        const gx = px + ((s * 9973 + k * 613) % 1000) / 1000 * cw;
-        const gy = py + ((s * 7919 + k * 271) % 1000) / 1000 * ch;
-        const r = (0.5 + (((s * 100 + k * 7) % 10) / 10) * 0.9) * escala;
-        ctx.beginPath();
-        ctx.arc(gx, gy, r, 0, 6.283);
-        ctx.fillStyle =
-          k % 3 === 0 ? "rgba(150, 112, 60, 0.55)" : "rgba(196, 160, 104, 0.75)";
-        ctx.fill();
-      }
-    }
+  if (nivel === 3) {
+    ctx.fillStyle = "#DCBB8A";
+    ctx.fillRect(0, 0, larg, alt);
+  }
+  const area = larg * alt;
+  const montes =
+    nivel === 3 ? Math.round(area / 3200) : nivel === 2 ? Math.round(area / 4200) : 0;
+  for (let i = 0; i < montes; i++) {
+    const x = Math.random() * larg;
+    const y = Math.random() * alt;
+    const rx = 7 + Math.random() * 17;
+    const ry = rx * (0.45 + Math.random() * 0.7);
+    const giro = Math.random() * 3.14;
+    const tom = 206 + Math.round(Math.random() * 28);
+    ctx.globalAlpha = nivel === 3 ? 0.9 : 0.62;
+    ctx.fillStyle = `rgb(${tom}, ${tom - 30}, ${tom - 78})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, giro, 0, 6.283);
+    ctx.fill();
+    ctx.globalAlpha = nivel === 3 ? 0.16 : 0.1;
+    ctx.fillStyle = "rgb(150, 116, 62)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + ry * 0.6, rx * 0.8, ry * 0.38, giro, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const graos = Math.round(area / (nivel === 1 ? 1400 : 900));
+  for (let i = 0; i < graos; i++) {
+    const x = Math.random() * larg;
+    const y = Math.random() * alt;
+    const r = 0.45 + Math.random() * 1.1;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 6.283);
+    ctx.fillStyle =
+      Math.random() < 0.35 ? "rgba(146, 108, 56, 0.5)" : "rgba(198, 164, 110, 0.75)";
+    ctx.fill();
   }
 };
 
+/* Abre um buraco irregular na camada (a areia sai em lambidas, não em
+   quadrados) — é assim que a limpeza acontece: apagando pedaços */
+const abrirBuraco = (ctx, cx, cy, cw, ch) => {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = "#000";
+  for (let k = 0; k < 3; k++) {
+    const ox = (Math.random() - 0.5) * cw * 0.8;
+    const oy = (Math.random() - 0.5) * ch * 0.8;
+    const rx = cw * (0.5 + Math.random() * 0.45);
+    const ry = ch * (0.5 + Math.random() * 0.45);
+    ctx.beginPath();
+    ctx.ellipse(cx + ox, cy + oy, rx, ry, Math.random() * 3.14, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.restore();
+};
+
+/* ---------------------------------------------------------------
+   Soterramento ⏳ — três camadas empilhadas de areia. Cada arraste
+   apaga um pedaço de UMA camada, então é preciso passar 3x pelo mesmo
+   lugar para limpar de vez. As camadas são pintadas uma única vez e o
+   navegador as compõe sozinho: nada é redesenhado a cada quadro.
+   --------------------------------------------------------------- */
 function Soterramento({ onLimpou, onProgresso }) {
   const refLimpou = React.useRef(onLimpou);
   refLimpou.current = onLimpou;
   const refProgresso = React.useRef(onProgresso);
   refProgresso.current = onProgresso;
-  const refAreia = React.useRef(null);
+  const refs = [React.useRef(null), React.useRef(null), React.useRef(null)];
   const refAnim = React.useRef(null);
   const [restante, setRestante] = React.useState(100);
 
   React.useEffect(() => {
-    const areia = refAreia.current;
+    const camadas = refs.map((r) => r.current);
     const anim = refAnim.current;
-    if (!areia || !anim) return;
-    const ctxA = areia.getContext("2d");
+    if (camadas.some((c) => !c) || !anim) return;
+    const ctxs = camadas.map((c) => c.getContext("2d"));
     const ctxN = anim.getContext("2d");
     let rodando = true;
     let raf = 0;
     let ultimoEnvio = 0;
     let precisaEnviar = false;
+    let limpou = false;
 
-    /* malha fina da tela (múltipla da malha compartilhada) */
-    const FATOR = 4;
+    /* malha só para controlar o que já foi raspado (2x a do cartão) */
+    const FATOR = 2;
     const cols = AREIA_COLS * FATOR;
     const linhas = AREIA_LINHAS * FATOR;
     const niveis = new Uint8Array(cols * linhas).fill(NIVEL_MAX);
     const toque = new Float64Array(cols * linhas);
-    const semente = new Float32Array(cols * linhas).map(() => Math.random());
     let graos = [];
-    let limpou = false;
     const mouse = { ativo: false, x: 0, y: 0, px: 0, py: 0 };
 
     const dimensionar = () => {
-      [areia, anim].forEach((c) => {
-        c.width = window.innerWidth;
-        c.height = window.innerHeight;
+      const L = window.innerWidth;
+      const A = window.innerHeight;
+      [...camadas, anim].forEach((c) => {
+        c.width = L;
+        c.height = A;
       });
-      pintar();
+      const cw = L / cols;
+      const ch = A / linhas;
+      ctxs.forEach((ctx, idx) => pintarCamada(ctx, L, A, 3 - idx));
+      /* reabre os buracos já conquistados */
+      for (let y = 0; y < linhas; y++) {
+        for (let x = 0; x < cols; x++) {
+          const n = niveis[y * cols + x];
+          for (let camada = NIVEL_MAX; camada > n; camada--) {
+            abrirBuraco(
+              ctxs[NIVEL_MAX - camada],
+              x * cw + cw / 2,
+              y * ch + ch / 2,
+              cw,
+              ch
+            );
+          }
+        }
+      }
+      atualizarMedidor();
     };
 
-    const pintar = () => {
-      pintarAreia(
-        ctxA, niveis, cols, linhas, areia.width, areia.height, semente, 1
-      );
+    const atualizarMedidor = () => {
       let cobertas = 0;
       for (let i = 0; i < niveis.length; i++) if (niveis[i] > 0) cobertas++;
       const pct = Math.round((cobertas / niveis.length) * 100);
       setRestante(pct);
-      precisaEnviar = true;
       if (pct === 0 && !limpou) {
         limpou = true;
         refLimpou.current();
       }
     };
 
-    /* Envia o mapa em baixa resolução para os colegas (no máx. 1x a cada 4s) */
     const enviarMapa = (agora) => {
       if (!precisaEnviar || limpou) return;
       if (agora - ultimoEnvio < 4000) return;
@@ -1335,11 +1373,9 @@ function Soterramento({ onLimpou, onProgresso }) {
       for (let y = 0; y < AREIA_LINHAS; y++) {
         for (let x = 0; x < AREIA_COLS; x++) {
           let soma = 0;
-          for (let dy = 0; dy < FATOR; dy++) {
-            for (let dx = 0; dx < FATOR; dx++) {
+          for (let dy = 0; dy < FATOR; dy++)
+            for (let dx = 0; dx < FATOR; dx++)
               soma += niveis[(y * FATOR + dy) * cols + (x * FATOR + dx)];
-            }
-          }
           mapa += Math.round(soma / (FATOR * FATOR));
         }
       }
@@ -1350,40 +1386,46 @@ function Soterramento({ onLimpou, onProgresso }) {
       const dx = mouse.x - mouse.px;
       const dy = mouse.y - mouse.py;
       const dist = Math.hypot(dx, dy);
-      if (dist < 1.5) return;
-      const cw = areia.width / cols;
-      const ch = areia.height / linhas;
+      if (dist < 2) return;
+      const cw = anim.width / cols;
+      const ch = anim.height / linhas;
       const cx = Math.floor(mouse.x / cw);
       const cy = Math.floor(mouse.y / ch);
-      const raio = 2;
       let mudou = false;
-      for (let y = cy - raio; y <= cy + raio; y++) {
-        for (let x = cx - raio; x <= cx + raio; x++) {
+      for (let y = cy - 1; y <= cy + 1; y++) {
+        for (let x = cx - 1; x <= cx + 1; x++) {
           if (x < 0 || y < 0 || x >= cols || y >= linhas) continue;
-          if (Math.hypot(x - cx, y - cy) > raio) continue;
           const i = y * cols + x;
           if (niveis[i] <= 0) continue;
-          /* uma camada por passada: o mesmo ponto só cede de novo
-             depois de um intervalo, exigindo 3 arrastes no total */
-          if (agora - toque[i] < 260) continue;
+          if (agora - toque[i] < 280) continue; /* uma camada por passada */
           toque[i] = agora;
+          abrirBuraco(
+            ctxs[NIVEL_MAX - niveis[i]],
+            x * cw + cw / 2,
+            y * ch + ch / 2,
+            cw,
+            ch
+          );
           niveis[i] -= 1;
           mudou = true;
-          /* a areia deslocada dispara rápido e freia logo em seguida */
-          const qtd = 3 + Math.floor(Math.random() * 3);
-          for (let k = 0; k < qtd; k++) {
-            graos.push({
-              x: x * cw + Math.random() * cw,
-              y: y * ch + Math.random() * ch,
-              vx: (dx / dist) * (9 + Math.random() * 11) + (Math.random() - 0.5) * 3,
-              vy: (dy / dist) * (9 + Math.random() * 11) + (Math.random() - 0.5) * 3,
-              r: 0.6 + Math.random() * 1.1,
-              vida: 1,
-            });
+          if (graos.length < 110) {
+            for (let k = 0; k < 4; k++) {
+              graos.push({
+                x: x * cw + Math.random() * cw,
+                y: y * ch + Math.random() * ch,
+                vx: (dx / dist) * (10 + Math.random() * 12),
+                vy: (dy / dist) * (10 + Math.random() * 12),
+                r: 0.6 + Math.random() * 1.1,
+                vida: 1,
+              });
+            }
           }
         }
       }
-      if (mudou) pintar();
+      if (mudou) {
+        precisaEnviar = true;
+        atualizarMedidor();
+      }
     };
 
     const quadro = (tempo) => {
@@ -1391,22 +1433,25 @@ function Soterramento({ onLimpou, onProgresso }) {
       if (mouse.ativo) arrastar(tempo);
       mouse.px = mouse.x;
       mouse.py = mouse.y;
-      ctxN.clearRect(0, 0, anim.width, anim.height);
-      graos = graos.filter((g) => {
-        g.x += g.vx;
-        g.y += g.vy;
-        g.vx *= 0.82; /* desaceleração forte: a areia é pesada */
-        g.vy *= 0.82;
-        g.vy += 0.55; /* e cai */
-        g.vida -= 0.02;
-        if (g.vida <= 0) return false;
-        if (g.y > anim.height + 20 || g.x < -20 || g.x > anim.width + 20) return false;
-        ctxN.beginPath();
-        ctxN.arc(g.x, g.y, g.r, 0, 6.283);
-        ctxN.fillStyle = `rgba(158, 120, 66, ${Math.max(0, g.vida)})`;
-        ctxN.fill();
-        return true;
-      });
+      if (graos.length > 0) {
+        ctxN.clearRect(0, 0, anim.width, anim.height);
+        graos = graos.filter((g) => {
+          g.x += g.vx;
+          g.y += g.vy;
+          g.vx *= 0.8; /* dispara e freia logo: areia é pesada */
+          g.vy *= 0.8;
+          g.vy += 0.6;
+          g.vida -= 0.025;
+          if (g.vida <= 0) return false;
+          if (g.y > anim.height + 20 || g.x < -20 || g.x > anim.width + 20) return false;
+          ctxN.beginPath();
+          ctxN.arc(g.x, g.y, g.r, 0, 6.283);
+          ctxN.fillStyle = `rgba(158, 120, 66, ${Math.max(0, g.vida)})`;
+          ctxN.fill();
+          return true;
+        });
+        if (graos.length === 0) ctxN.clearRect(0, 0, anim.width, anim.height);
+      }
       enviarMapa(tempo);
       raf = requestAnimationFrame(quadro);
     };
@@ -1455,39 +1500,50 @@ function Soterramento({ onLimpou, onProgresso }) {
 
   return (
     <div className="tempestade">
-      <canvas ref={refAreia} className="tempestade-canvas" />
+      <canvas ref={refs[0]} className="tempestade-canvas" />
+      <canvas ref={refs[1]} className="tempestade-canvas" />
+      <canvas ref={refs[2]} className="tempestade-canvas" />
       <canvas ref={refAnim} className="tempestade-canvas tempestade-topo" />
       <div className="tempestade-medidor">Tela soterrada: {restante}%</div>
     </div>
   );
 }
 
-/* Areia dentro do cartão — o que os colegas veem de quem está soterrado.
-   Espelha o mapa em baixa resolução enviado pela vítima */
+/* Areia dentro do cartão — o que os colegas veem. Redesenhada só quando
+   o mapa muda (a cada 4s, no máximo), nunca a cada quadro */
 function AreiaCartao({ mapa }) {
   const ref = React.useRef(null);
-  const semente = React.useRef(
-    new Float32Array(AREIA_COLS * AREIA_LINHAS).map(() => Math.random())
-  );
   React.useEffect(() => {
     const c = ref.current;
     if (!c) return;
+    const pai = c.parentElement;
+    const L = Math.max(40, (pai && pai.clientWidth) || 0);
+    const A = Math.max(40, (pai && pai.clientHeight) || 0);
+    c.width = L;
+    c.height = A;
     const ctx = c.getContext("2d");
-    const niveis = new Uint8Array(AREIA_COLS * AREIA_LINHAS);
-    for (let i = 0; i < niveis.length; i++) {
-      const ch = mapa && mapa[i];
-      niveis[i] = ch === undefined ? NIVEL_MAX : Math.max(0, Math.min(3, Number(ch) || 0));
+    ctx.clearRect(0, 0, L, A);
+    const cw = L / AREIA_COLS;
+    const ch = A / AREIA_LINHAS;
+    /* pinta as três camadas e abre os buracos que a vítima já limpou */
+    for (let camada = NIVEL_MAX; camada >= 1; camada--) {
+      const tmp = document.createElement("canvas");
+      tmp.width = L;
+      tmp.height = A;
+      const tctx = tmp.getContext("2d");
+      pintarCamada(tctx, L, A, camada);
+      for (let y = 0; y < AREIA_LINHAS; y++) {
+        for (let x = 0; x < AREIA_COLS; x++) {
+          const i = y * AREIA_COLS + x;
+          const ch2 = mapa && mapa[i];
+          const n = ch2 === undefined ? NIVEL_MAX : Math.max(0, Math.min(3, Number(ch2) || 0));
+          if (n < camada) {
+            abrirBuraco(tctx, x * cw + cw / 2, y * ch + ch / 2, cw, ch);
+          }
+        }
+      }
+      ctx.drawImage(tmp, 0, 0);
     }
-    const desenhar = () => {
-      const l = c.clientWidth || 280;
-      const a = c.clientHeight || 320;
-      c.width = l;
-      c.height = a;
-      pintarAreia(ctx, niveis, AREIA_COLS, AREIA_LINHAS, l, a, semente.current, 0.7);
-    };
-    desenhar();
-    window.addEventListener("resize", desenhar);
-    return () => window.removeEventListener("resize", desenhar);
   }, [mapa]);
   return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
 }
