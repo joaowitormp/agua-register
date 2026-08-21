@@ -319,6 +319,8 @@ body { margin: 0; }
   font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .poder:hover { background: #F7EAC8; }
+.poder.massa { border-color: #9FD3E4; background: #EAF6FA; color: #0B5A73; }
+.poder.massa:hover { background: #D8EEF6; }
 .app.com-poderes { padding-bottom: 130px; }
 .lista-alvos { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .alvo {
@@ -555,6 +557,10 @@ const FRASES_CONQUISTA = {
     "Falo do pódio: a vista daqui é ótima. E daí de baixo?",
     "Medalhado te chamando para o gole. É quase uma honra, aproveita.",
   ],
+  "semana-molhada": [
+    "Tá parecendo uma bolacha água e sal — sem a água.",
+    "Sua desidratação já tem CNPJ e tempo de casa.",
+  ],
   "dinastia-da-gota": [
     "Três semanas no trono. Isso já não é ranking, é reinado.",
     "Dinastias caem, dizem. A minha só se hidrata.",
@@ -606,7 +612,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-20.7";
+const APP_VERSION = "2026-08-21.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -740,11 +746,11 @@ const BENEFICIOS = [
 /* --- Conquistas: definição (ícones em SVG) e cálculo retroativo --- */
 const CONQUISTAS = [
   { id: "primeiro-gole", nome: "Primeiro Gole", desc: "Registrou a primeira garrafa no app.", recompensa: "Acesso ao sino de provocação 🔔", paths: ["M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"] },
-  { id: "hidratacao-profunda", nome: "Hidratação Profunda", desc: "25 L acumulados.", paths: ["M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8", "M19 21a7 7 0 0 0-14 0"] },
+  { id: "hidratacao-profunda", nome: "Hidratação Profunda", desc: "25 L acumulados.", recompensa: "Envio em massa 📢 — provoca o time inteiro de uma vez", paths: ["M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8", "M19 21a7 7 0 0 0-14 0"] },
   { id: "cachoeira-alarmante", nome: "Cachoeira Alarmante", desc: "50 L acumulados.", recompensa: "2 frases exclusivas de provocação", paths: ["M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2", "M9.6 4.6A2 2 0 1 1 11 8H2", "M12.6 19.4A2 2 0 1 0 14 16H2"] },
   { id: "represa-billings", nome: "Represa Billings", desc: "200 L acumulados.", recompensa: "2 frases exclusivas de provocação", paths: ["M8 13a4 4 0 0 1 8 0", "M3 13h18", "M6 17h12", "M9 20h6"] },
   { id: "pingo-de-disciplina", nome: "Pingo de Disciplina", desc: "Meta batida 3 dias úteis seguidos.", recompensa: "Poder: Cactificação 🌵", paths: ["M7 20h10", "M10 20c5.5-2.5.8-6.4 3-10", "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8", "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2"] },
-  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
+  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", recompensa: "2 frases exclusivas de provocação", paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
   { id: "mare-alta", nome: "Maré Alta", desc: "Meta batida 10 dias úteis seguidos.", recompensa: "Poder: Desertificação 🏜️", paths: ["M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"] },
   { id: "tsunami-de-foco", nome: "Tsunami de Foco", desc: "Meta batida 30 dias úteis seguidos.", paths: ["M2 19h20", "M4 19c0-8 5-13 11-13 4 0 7 2.8 7 6 0 2.6-2 4.6-4.6 4.6-2 0-3.6-1.4-3.6-3.2 0-1.4 1-2.4 2.4-2.4"] },
   { id: "agua-mole", nome: "Água Mole em Pedra Dura", desc: "Meta batida em 50 dias úteis seguidos.", recompensa: "Poder: Soterramento ⏳", paths: ["m8 3 4 8 5-5 5 15H2L8 3z"] },
@@ -911,7 +917,11 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
   for (let seg = new Date(primeiraSegunda); ; seg.setDate(seg.getDate() + 7)) {
     const sex = new Date(seg);
     sex.setDate(seg.getDate() + 4);
-    if (chaveDe(sex) >= chaveHoje) break; /* semana ainda não fechou */
+    if (chaveDe(seg) > chaveHoje) break; /* semana ainda nem começou */
+    /* A semana corrente entra no laço para a Semana Molhada poder cair
+       já na sexta (quando os 5 dias foram batidos). O ranking, esse sim,
+       só conta com a semana fechada */
+    const semanaFechada = chaveDe(sex) < chaveHoje;
     const linhas = [];
     members.forEach((m) => {
       const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
@@ -934,10 +944,12 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
           resultado[m.id].conjunto.add("semana-molhada");
       }
     });
-    linhas.sort((a, b) => b.media - a.media);
-    linhas.forEach((l, i) =>
-      posicoesPorMembro[l.id].push({ semana: seg.getTime(), pos: i + 1 })
-    );
+    if (semanaFechada) {
+      linhas.sort((a, b) => b.media - a.media);
+      linhas.forEach((l, i) =>
+        posicoesPorMembro[l.id].push({ semana: seg.getTime(), pos: i + 1 })
+      );
+    }
   }
 
   members.forEach((m) => {
@@ -2004,7 +2016,8 @@ function AguaTracker() {
   const [poderesNovos, setPoderesNovos] = useState([]); // popup de anúncio de poder novo
   const [cutucadaId, setCutucadaId] = useState(null); // cartão sendo cutucado pelo bastão
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
-  const [sinoPara, setSinoPara] = useState(null); // membro-alvo enquanto o remetente escolhe a frase
+  const [sinoPara, setSinoPara] = useState(null);
+  const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
@@ -3155,6 +3168,51 @@ function AguaTracker() {
 
   /* Envia o sino para o dono de outro cartão.
      Anti-spam: no máximo 2 sinos para o MESMO membro a cada 10 minutos */
+  /* Envio em massa (recompensa da Hidratação Profunda): manda a mesma
+     provocação para todo mundo, PULANDO quem já bateu o limite de 2
+     sinos em 10 min e quem não pode receber (você mesmo e quem já
+     bateu a meta) */
+  const enviarEmMassa = (frase) => {
+    setMassaAberto(false);
+    const agora = Date.now();
+    const meuCartao = meusMembros[0];
+    const alvos = dados.members.filter((m) => {
+      const meu = m.ownerId === meuDispositivo || posseExtra.includes(m.id);
+      if (meu) return false;
+      const c = registrosHoje[m.id] || 0;
+      const e = extrasHoje[m.id] || 0;
+      if (m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl) return false;
+      return toquesRecentes(m.id).length < 2;
+    });
+    if (alvos.length === 0) {
+      setToast("Ninguém disponível agora — todos no limite ou com a meta batida");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    alvos.forEach((m, i) => {
+      const toques = toquesRecentes(m.id);
+      toques.push(agora);
+      localStorage.setItem(SINOS_POR_MEMBRO + m.id, JSON.stringify(toques));
+      novo.nudges.push({
+        id: `n-${agora}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+        to: m.id,
+        at: agora,
+        fromName: meuCartao ? meuCartao.name : null,
+        frase,
+      });
+    });
+    persistir(novo);
+    const pulados = dados.members.length - 1 - alvos.length;
+    setToast(
+      `📢 Provocação enviada para ${alvos.length} pessoa${alvos.length > 1 ? "s" : ""}` +
+        (pulados > 0 ? ` — ${pulados} fora do alcance agora` : "")
+    );
+    setTimeout(() => setToast(null), 5000);
+  };
+
   const tocarSino = (membro, frase) => {
     setSinoPara(null);
     const agora = Date.now();
@@ -3680,8 +3738,17 @@ function AguaTracker() {
         />
       )}
 
-      {meusPoderes.length > 0 && (
+      {(meusPoderes.length > 0 || minhasConquistas.has("hidratacao-profunda")) && (
         <div className="barra-poderes">
+          {minhasConquistas.has("hidratacao-profunda") && (
+            <button
+              className="poder massa"
+              title="Envio em massa"
+              onClick={() => setMassaAberto(true)}
+            >
+              📢 Envio em massa
+            </button>
+          )}
           {meusPoderes.map((p) => (
             <button
               key={p.id}
@@ -3695,6 +3762,50 @@ function AguaTracker() {
               {p.icone} {p.nome}
             </button>
           ))}
+        </div>
+      )}
+
+      {massaAberto && (
+        <div className="modal-fundo" onClick={() => setMassaAberto(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">📢 Envio em massa</h2>
+            <p className="sub">
+              A mesma provocação para o time todo. Quem já recebeu 2 sinos seus
+              nos últimos 10 minutos (ou já bateu a meta de hoje) fica de fora.
+            </p>
+            <div className="lista-frases">
+              {FRASES.map((f) => (
+                <button key={f} className="frase" onClick={() => enviarEmMassa(f)}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            {frasesExclusivas.length > 0 && (
+              <div>
+                <p className="sub exclusivas-titulo">
+                  ✨ Exclusivas das suas conquistas
+                </p>
+                <div className="lista-frases">
+                  {frasesExclusivas.map((f) => (
+                    <button
+                      key={f.texto}
+                      className="frase exclusiva"
+                      title={`Conquista: ${f.conquista}`}
+                      onClick={() => enviarEmMassa(f.texto)}
+                    >
+                      {f.texto}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              className="desfazer fechar-modal"
+              onClick={() => setMassaAberto(false)}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
