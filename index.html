@@ -632,7 +632,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-24.1";
+const APP_VERSION = "2026-08-24.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2386,12 +2386,17 @@ function AguaTracker() {
   useEffect(() => {
     if (!dados || !Array.isArray(dados.members) || dados.members.length < 3) return;
     const agora = Date.now();
+    /* o dia é calculado aqui dentro: este efeito é declarado antes das
+       telas de carregamento/erro, então não pode depender de variáveis
+       criadas mais abaixo no componente */
+    const diaHoje = hoje();
     const ofertaViva =
       dados.cartaOferta &&
-      dados.cartaOferta.dia === dia &&
+      dados.cartaOferta.dia === diaHoje &&
       agora - Number(dados.cartaOferta.at || 0) < 60 * 60 * 1000;
     const cartaEmJogo =
-      ofertaViva || (dados.carta && dados.carta.dia === dia && !dados.carta.usada);
+      ofertaViva ||
+      (dados.carta && dados.carta.dia === diaHoje && !dados.carta.usada);
     if (cartaEmJogo) return;
     const proxima = Number(dados.proximaCarta || 0);
     if (proxima && agora < proxima) return;
@@ -2405,7 +2410,7 @@ function AguaTracker() {
       testers[jaFeitas] ||
       novo.members[Math.floor(Math.random() * novo.members.length)];
     if (testers[jaFeitas]) novo.cartaTesteFeita = jaFeitas + 1;
-    novo.cartaOferta = { paraId: sorteado.id, at: agora, dia };
+    novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
     novo.proximaCarta = agora + (40 + Math.random() * 140) * 60 * 1000;
     persistir(novo);
   }, [dados]);
