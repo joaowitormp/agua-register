@@ -632,7 +632,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-24.2";
+const APP_VERSION = "2026-08-24.3";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2471,6 +2471,22 @@ function AguaTracker() {
   meusMembros.forEach((m) => {
     if (conquistas[m.id]) conquistas[m.id].conjunto.forEach((x) => minhasConquistas.add(x));
   });
+  /* Poderes tomados de outro jogador pelo efeito rebote (valem só hoje) */
+  const roubos = (dados.roubos && typeof dados.roubos === "object") ? dados.roubos : {};
+  const meusRoubos = [];
+  meusMembros.forEach((m) => {
+    const r = roubos[m.id];
+    if (r && r.dia === dia) meusRoubos.push({ ...r, ladraoId: m.id });
+  });
+  /* Poder meu que está nas mãos de outro: fica indisponível até ele usar */
+  const poderesBloqueados = new Set();
+  Object.keys(roubos).forEach((ladraoId) => {
+    const r = roubos[ladraoId];
+    if (r && r.dia === dia && meusMembros.some((m) => m.id === r.deId)) {
+      poderesBloqueados.add(r.poder);
+    }
+  });
+
   const meusPoderes = PODERES.filter(
     (p) =>
       minhasConquistas.has(p.conquista) ||
@@ -2550,22 +2566,6 @@ function AguaTracker() {
     dados.carta && dados.carta.dia === dia && !dados.carta.usada
       ? dados.carta
       : null;
-
-  /* Poderes tomados de outro jogador pelo efeito rebote (valem só hoje) */
-  const roubos = (dados.roubos && typeof dados.roubos === "object") ? dados.roubos : {};
-  const meusRoubos = [];
-  meusMembros.forEach((m) => {
-    const r = roubos[m.id];
-    if (r && r.dia === dia) meusRoubos.push({ ...r, ladraoId: m.id });
-  });
-  /* Poder meu que está nas mãos de outro: fica indisponível até ele usar */
-  const poderesBloqueados = new Set();
-  Object.keys(roubos).forEach((ladraoId) => {
-    const r = roubos[ladraoId];
-    if (r && r.dia === dia && meusMembros.some((m) => m.id === r.deId)) {
-      poderesBloqueados.add(r.poder);
-    }
-  });
 
   const souTester = meusMembros.some((m) =>
     ["testerpower", "testerpower2"].includes(nomeNormalizado(m.name))
