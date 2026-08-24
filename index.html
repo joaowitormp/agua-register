@@ -381,20 +381,23 @@ body { margin: 0; }
 
 /* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
 .carta-antiseca {
-  position: fixed; left: 16px; bottom: 16px; z-index: 60;
-  max-width: 210px; text-align: left; cursor: pointer;
-  background: rgba(255, 255, 255, 0.55); color: #7C93A0;
-  border: 1px dashed #CFE0E8; border-radius: 12px;
-  padding: 9px 11px; font-family: inherit; font-size: 11.5px; line-height: 1.45;
-  box-shadow: none; opacity: 0.65; transition: opacity 0.2s;
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  width: 170px; height: 238px; /* proporção de carta de baralho */
+  display: flex; align-items: center; text-align: left; cursor: pointer;
+  background: rgba(255, 255, 255, 0.6); color: #7C93A0;
+  border: 1px dashed #CFE0E8; border-radius: 14px;
+  padding: 14px; font-family: inherit; font-size: 13px; line-height: 1.5;
+  box-shadow: none; opacity: 0.7; transition: opacity 0.2s, transform 0.2s;
+  box-sizing: border-box;
 }
-.carta-antiseca:hover { opacity: 1; }
+.carta-antiseca:hover { opacity: 1; transform: translateY(-2px); }
 .carta-antiseca.virada {
-  background: rgba(255, 252, 240, 0.96); border-style: solid;
+  background: rgba(255, 252, 240, 0.97); border-style: solid;
   border-color: #E4D3A8; color: #6B5A38; opacity: 1;
 }
-.carta-conteudo { display: flex; flex-direction: column; gap: 3px; }
-.carta-cta { color: #0F8BB0; font-weight: 600; }
+.carta-conteudo { display: flex; flex-direction: column; gap: 7px; width: 100%; }
+.carta-conteudo strong { font-size: 15px; }
+.carta-cta { color: #0F8BB0; font-weight: 600; margin-top: 2px; }
 
 /* Tempestade de areia */
 .tempestade { position: fixed; inset: 0; z-index: 90; }
@@ -629,7 +632,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-21.3";
+const APP_VERSION = "2026-08-24.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -995,7 +998,7 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
     });
     /* MODO DE TESTE (temporário): o cartão "TesterPower" recebe todas as
        conquistas — remover esta condição após os testes */
-    if (nomeNormalizado(m.name) === "testerpower") {
+    if (["testerpower", "testerpower2"].includes(nomeNormalizado(m.name))) {
       CONQUISTAS.forEach((cq) => c.add(cq.id));
     }
   });
@@ -2383,22 +2386,25 @@ function AguaTracker() {
   useEffect(() => {
     if (!dados || !Array.isArray(dados.members) || dados.members.length < 3) return;
     const agora = Date.now();
+    const ofertaViva =
+      dados.cartaOferta &&
+      dados.cartaOferta.dia === dia &&
+      agora - Number(dados.cartaOferta.at || 0) < 60 * 60 * 1000;
     const cartaEmJogo =
-      (dados.cartaOferta && dados.cartaOferta.dia === dia) ||
-      (dados.carta && dados.carta.dia === dia && !dados.carta.usada);
+      ofertaViva || (dados.carta && dados.carta.dia === dia && !dados.carta.usada);
     if (cartaEmJogo) return;
     const proxima = Number(dados.proximaCarta || 0);
     if (proxima && agora < proxima) return;
     const novo = structuredClone(dados);
     /* MODO DE TESTE (temporário): a primeira carta vai para o TesterPower */
-    const tester = novo.members.find(
-      (m) => nomeNormalizado(m.name) === "testerpower"
+    const testers = novo.members.filter((m) =>
+      ["testerpower", "testerpower2"].includes(nomeNormalizado(m.name))
     );
+    const jaFeitas = Number(novo.cartaTesteFeita || 0);
     const sorteado =
-      tester && !novo.cartaTesteFeita
-        ? tester
-        : novo.members[Math.floor(Math.random() * novo.members.length)];
-    if (tester && !novo.cartaTesteFeita) novo.cartaTesteFeita = true;
+      testers[jaFeitas] ||
+      novo.members[Math.floor(Math.random() * novo.members.length)];
+    if (testers[jaFeitas]) novo.cartaTesteFeita = jaFeitas + 1;
     novo.cartaOferta = { paraId: sorteado.id, at: agora, dia };
     novo.proximaCarta = agora + (40 + Math.random() * 140) * 60 * 1000;
     persistir(novo);
@@ -2528,8 +2534,11 @@ function AguaTracker() {
   /* Carta Anti-Seca em jogo hoje */
   const cartaOferta =
     dados.cartaOferta && dados.cartaOferta.dia === dia ? dados.cartaOferta : null;
+  /* A carta oferecida vale por 1 hora; passou disso, some sem ser usada */
+  const cartaNoPrazo =
+    cartaOferta && Date.now() - Number(cartaOferta.at || 0) < 60 * 60 * 1000;
   const minhaCarta =
-    cartaOferta && meusMembros.some((m) => m.id === cartaOferta.paraId)
+    cartaNoPrazo && meusMembros.some((m) => m.id === cartaOferta.paraId)
       ? cartaOferta
       : null;
   const cartaAtiva =
@@ -2553,8 +2562,8 @@ function AguaTracker() {
     }
   });
 
-  const souTester = meusMembros.some(
-    (m) => nomeNormalizado(m.name) === "testerpower"
+  const souTester = meusMembros.some((m) =>
+    ["testerpower", "testerpower2"].includes(nomeNormalizado(m.name))
   );
 
   /* Tempestade ativa em um cartão MEU: só a vítima vê a tela soterrada */
@@ -2602,17 +2611,8 @@ function AguaTracker() {
       aplicarEfeito(novo, alvo.id, poderId, meuNome, agora);
       if (protetor) aplicarEfeito(novo, protetor.id, poderId, meuNome, agora);
       localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
-      novo.nudges = (novo.nudges || []).filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
-      novo.nudges.push({
-        id: `n-${agora}-${Math.random().toString(36).slice(2, 6)}`,
-        to: alvo.id,
-        at: agora,
-        fromName: meuNome,
-        tipo: `anuncio-${poderId}`,
-        frase: `🃏 ${meuNome} quebrou uma ${nomeCarta}: ${alvo.name} e ${
-          protetor ? protetor.name : "quem a jogou"
-        } foram atingidos pelo efeito.`,
-      });
+      /* MODO DE TESTE (temporário): anúncio público do rebote silenciado —
+         reativar quando os testes acabarem */
       setToast(`🃏 Você acertou! ${alvo.name} e ${protetor ? protetor.name : "o protetor"} pagaram o preço.`);
     } else {
       /* errou: o feitiço vira contra o atacante e o poder muda de mãos */
@@ -2626,15 +2626,7 @@ function AguaTracker() {
         if (!novo.roubos) novo.roubos = {};
         novo.roubos[carta.porId] = { poder: poderId, deId: eu ? eu.id : null, dia };
       }
-      novo.nudges = (novo.nudges || []).filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
-      novo.nudges.push({
-        id: `n-${agora}-${Math.random().toString(36).slice(2, 6)}`,
-        to: eu ? eu.id : alvo.id,
-        at: agora,
-        fromName: meuNome,
-        tipo: `anuncio-${poderId}`,
-        frase: `🃏 ${meuNome} atacou ${alvo.name}, esbarrou numa ${nomeCarta} e levou o próprio feitiço de volta.`,
-      });
+      /* MODO DE TESTE (temporário): anúncio público do rebote silenciado */
       setToast(
         metaBatida
           ? "🃏 Errou o palpite! A meta batida te salvou do efeito — mas o poder mudou de mãos."
