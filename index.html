@@ -379,6 +379,23 @@ body { margin: 0; }
 .banner-alerta.anuncio-cacto, .banner-alerta.anuncio-deserto, .banner-alerta.anuncio-tempestade { background: #0FA36B; }
 .banner-alerta.bastao { background: linear-gradient(90deg, #B8860B, #DAA520); }
 
+/* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
+.carta-antiseca {
+  position: fixed; left: 16px; bottom: 16px; z-index: 60;
+  max-width: 210px; text-align: left; cursor: pointer;
+  background: rgba(255, 255, 255, 0.55); color: #7C93A0;
+  border: 1px dashed #CFE0E8; border-radius: 12px;
+  padding: 9px 11px; font-family: inherit; font-size: 11.5px; line-height: 1.45;
+  box-shadow: none; opacity: 0.65; transition: opacity 0.2s;
+}
+.carta-antiseca:hover { opacity: 1; }
+.carta-antiseca.virada {
+  background: rgba(255, 252, 240, 0.96); border-style: solid;
+  border-color: #E4D3A8; color: #6B5A38; opacity: 1;
+}
+.carta-conteudo { display: flex; flex-direction: column; gap: 3px; }
+.carta-cta { color: #0F8BB0; font-weight: 600; }
+
 /* Tempestade de areia */
 .tempestade { position: fixed; inset: 0; z-index: 90; }
 .tempestade-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
@@ -612,7 +629,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-21.2";
+const APP_VERSION = "2026-08-21.3";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2018,6 +2035,9 @@ function AguaTracker() {
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null);
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
+  const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
+  const [cartaAlvo, setCartaAlvo] = useState(false); // escolhendo quem proteger
+  const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
@@ -2356,6 +2376,34 @@ function AguaTracker() {
     };
   }, []);
 
+  /* Carta Anti-Seca: aparece de surpresa para um membro sorteado, a cada
+     40 min a 3 h. Quem estiver com o app aberto e perceber que passou da
+     hora faz o sorteio — o resultado é gravado para todos, mas só o
+     escolhido vê a carta */
+  useEffect(() => {
+    if (!dados || !Array.isArray(dados.members) || dados.members.length < 3) return;
+    const agora = Date.now();
+    const cartaEmJogo =
+      (dados.cartaOferta && dados.cartaOferta.dia === dia) ||
+      (dados.carta && dados.carta.dia === dia && !dados.carta.usada);
+    if (cartaEmJogo) return;
+    const proxima = Number(dados.proximaCarta || 0);
+    if (proxima && agora < proxima) return;
+    const novo = structuredClone(dados);
+    /* MODO DE TESTE (temporário): a primeira carta vai para o TesterPower */
+    const tester = novo.members.find(
+      (m) => nomeNormalizado(m.name) === "testerpower"
+    );
+    const sorteado =
+      tester && !novo.cartaTesteFeita
+        ? tester
+        : novo.members[Math.floor(Math.random() * novo.members.length)];
+    if (tester && !novo.cartaTesteFeita) novo.cartaTesteFeita = true;
+    novo.cartaOferta = { paraId: sorteado.id, at: agora, dia };
+    novo.proximaCarta = agora + (40 + Math.random() * 140) * 60 * 1000;
+    persistir(novo);
+  }, [dados]);
+
   const persistir = useCallback(async (novo) => {
     setDados(novo);
     try {
@@ -2412,7 +2460,11 @@ function AguaTracker() {
   meusMembros.forEach((m) => {
     if (conquistas[m.id]) conquistas[m.id].conjunto.forEach((x) => minhasConquistas.add(x));
   });
-  const meusPoderes = PODERES.filter((p) => minhasConquistas.has(p.conquista));
+  const meusPoderes = PODERES.filter(
+    (p) =>
+      minhasConquistas.has(p.conquista) ||
+      meusRoubos.some((r) => r.poder === p.id)
+  );
   const frasesExclusivas = [];
   Object.keys(FRASES_CONQUISTA).forEach((cid) => {
     if (minhasConquistas.has(cid)) {
@@ -2473,6 +2525,34 @@ function AguaTracker() {
     return 1;
   };
 
+  /* Carta Anti-Seca em jogo hoje */
+  const cartaOferta =
+    dados.cartaOferta && dados.cartaOferta.dia === dia ? dados.cartaOferta : null;
+  const minhaCarta =
+    cartaOferta && meusMembros.some((m) => m.id === cartaOferta.paraId)
+      ? cartaOferta
+      : null;
+  const cartaAtiva =
+    dados.carta && dados.carta.dia === dia && !dados.carta.usada
+      ? dados.carta
+      : null;
+
+  /* Poderes tomados de outro jogador pelo efeito rebote (valem só hoje) */
+  const roubos = (dados.roubos && typeof dados.roubos === "object") ? dados.roubos : {};
+  const meusRoubos = [];
+  meusMembros.forEach((m) => {
+    const r = roubos[m.id];
+    if (r && r.dia === dia) meusRoubos.push({ ...r, ladraoId: m.id });
+  });
+  /* Poder meu que está nas mãos de outro: fica indisponível até ele usar */
+  const poderesBloqueados = new Set();
+  Object.keys(roubos).forEach((ladraoId) => {
+    const r = roubos[ladraoId];
+    if (r && r.dia === dia && meusMembros.some((m) => m.id === r.deId)) {
+      poderesBloqueados.add(r.poder);
+    }
+  });
+
   const souTester = meusMembros.some(
     (m) => nomeNormalizado(m.name) === "testerpower"
   );
@@ -2488,6 +2568,104 @@ function AguaTracker() {
 
   /* Tela limpa: marca o efeito como resolvido para que os tornadinhos
      sumam também na visão dos colegas */
+  /* Aplica um efeito de poder a um cartão qualquer (usado pelo rebote) */
+  const aplicarEfeito = (novo, membroId, poderId, autorNome, agora) => {
+    if (!novo.efeitos) novo.efeitos = {};
+    const efs = normalizarEfeitos(novo.efeitos[membroId]);
+    efs[poderId] = {
+      tipo: poderId,
+      desde: agora,
+      por: autorNome,
+      curas: [],
+      travaAte: 0,
+    };
+    novo.efeitos[membroId] = efs;
+    registrarHistorico(novo, membroId, { t: agora, tipo: poderId, por: autorNome });
+  };
+
+  /* Resolve o palpite do atacante que esbarrou na Carta Anti-Seca */
+  const resolverAdivinhacao = (palpiteId) => {
+    const info = adivinhacao;
+    if (!info) return;
+    const { poderId, alvo, carta } = info;
+    const agora = Date.now();
+    const novo = structuredClone(dados);
+    novo.carta = { ...carta, usada: true };
+    const eu = meusMembros[0];
+    const meuNome = eu ? eu.name : "Alguém";
+    const protetor = novo.members.find((m) => m.id === carta.porId);
+    const nomeCarta = "Carta Anti-Seca";
+    const acertou = palpiteId === carta.porId;
+
+    if (acertou) {
+      /* desmascarou o protetor: a vítima e o protetor pagam o pato */
+      aplicarEfeito(novo, alvo.id, poderId, meuNome, agora);
+      if (protetor) aplicarEfeito(novo, protetor.id, poderId, meuNome, agora);
+      localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
+      novo.nudges = (novo.nudges || []).filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+      novo.nudges.push({
+        id: `n-${agora}-${Math.random().toString(36).slice(2, 6)}`,
+        to: alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: `anuncio-${poderId}`,
+        frase: `🃏 ${meuNome} quebrou uma ${nomeCarta}: ${alvo.name} e ${
+          protetor ? protetor.name : "quem a jogou"
+        } foram atingidos pelo efeito.`,
+      });
+      setToast(`🃏 Você acertou! ${alvo.name} e ${protetor ? protetor.name : "o protetor"} pagaram o preço.`);
+    } else {
+      /* errou: o feitiço vira contra o atacante e o poder muda de mãos */
+      const c = (novo.intake[dia] && novo.intake[dia][eu && eu.id]) || 0;
+      const e = (novo.extras && novo.extras[dia] && novo.extras[dia][eu && eu.id]) || 0;
+      const metaBatida = eu && eu.goalMl > 0 && c * eu.bottleMl + e >= eu.goalMl;
+      if (eu && !metaBatida) {
+        aplicarEfeito(novo, eu.id, poderId, `${nomeCarta}`, agora);
+      }
+      if (carta.porId) {
+        if (!novo.roubos) novo.roubos = {};
+        novo.roubos[carta.porId] = { poder: poderId, deId: eu ? eu.id : null, dia };
+      }
+      novo.nudges = (novo.nudges || []).filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+      novo.nudges.push({
+        id: `n-${agora}-${Math.random().toString(36).slice(2, 6)}`,
+        to: eu ? eu.id : alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: `anuncio-${poderId}`,
+        frase: `🃏 ${meuNome} atacou ${alvo.name}, esbarrou numa ${nomeCarta} e levou o próprio feitiço de volta.`,
+      });
+      setToast(
+        metaBatida
+          ? "🃏 Errou o palpite! A meta batida te salvou do efeito — mas o poder mudou de mãos."
+          : "🃏 Errou o palpite! O feitiço voltou contra você e o poder mudou de mãos."
+      );
+    }
+    persistir(novo);
+    setAdivinhacao(null);
+    setTimeout(() => setToast(null), 6000);
+  };
+
+  /* Jogada da carta: o sorteado escolhe quem fica protegido (em segredo) */
+  const jogarCarta = (protegidoId) => {
+    const novo = structuredClone(dados);
+    const eu = meusMembros[0];
+    novo.carta = {
+      paraId: protegidoId,
+      porId: eu ? eu.id : null,
+      dia,
+      at: Date.now(),
+      usada: false,
+    };
+    delete novo.cartaOferta;
+    persistir(novo);
+    setCartaAlvo(false);
+    setCartaVirada(false);
+    const nome = (dados.members.find((m) => m.id === protegidoId) || {}).name || "";
+    setToast(`🃏 Carta jogada em segredo para ${nome}. Ninguém precisa saber. 🤫`);
+    setTimeout(() => setToast(null), 5000);
+  };
+
   /* Espelha o progresso da limpeza para os colegas (mapa de baixa
      resolução gravado no próprio efeito) */
   const salvarMapaAreia = (id, mapa) => {
@@ -2522,6 +2700,12 @@ function AguaTracker() {
        qualquer pessoa, sem critério — remover após os testes */
     if (souTester) return { ok: true, motivo: "" };
 
+    if (poderesBloqueados.has(poderId)) {
+      return {
+        ok: false,
+        motivo: "esse poder foi tomado de você hoje — só volta quando for usado",
+      };
+    }
     if (poderId === "cacto") {
       /* Cacto não cactifica ninguém */
       const euCactificado = meusMembros.some((m) => !!efeitosDe(m).cacto);
@@ -2554,7 +2738,8 @@ function AguaTracker() {
       };
       return { ok: false, motivo: jaTem[poderId] || "já está sob esse efeito" };
     }
-    if (poderId === "cacto" || poderId === "deserto") {
+    const alvoProtegido = !!(cartaAtiva && cartaAtiva.paraId === alvo.id);
+    if (!alvoProtegido && (poderId === "cacto" || poderId === "deserto")) {
       const cAlvo = registrosHoje[alvo.id] || 0;
       const eAlvo = extrasHoje[alvo.id] || 0;
       const pctAlvo =
@@ -2631,8 +2816,16 @@ function AguaTracker() {
         (base.extras && base.extras[dia] && base.extras[dia][alvo.id]) || 0;
       const pctF =
         alvo.goalMl > 0 ? (cF * alvo.bottleMl + eF) / alvo.goalMl : 0;
-      const imuneF =
-        poderId === "cacto" ? pctF >= 0.6 : poderId === "deserto" ? pctF >= 1 : false;
+      const cartaF =
+        base.carta && base.carta.dia === dia && !base.carta.usada ? base.carta : null;
+      const protegidoF = !!(cartaF && cartaF.paraId === alvo.id);
+      const imuneF = protegidoF
+        ? false /* protegido pela carta: o golpe entra para o rebote rolar */
+        : poderId === "cacto"
+        ? pctF >= 0.6
+        : poderId === "deserto"
+        ? pctF >= 1
+        : false;
       const efsF = normalizarEfeitos(base.efeitos && base.efeitos[alvo.id]);
       const mesmoAtivo =
         efsF[poderId] && chaveDe(new Date(efsF[poderId].desde || 0)) === dia;
@@ -2658,6 +2851,21 @@ function AguaTracker() {
       horasAnuncio = Math.max(1, Math.floor((secoF || 3600000) / 3600000));
     }
     const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
+
+    /* Carta Anti-Seca: se o alvo estiver protegido, o golpe trava aqui e
+       o atacante precisa adivinhar quem o protegeu */
+    const cartaFresca =
+      base.carta && base.carta.dia === dia && !base.carta.usada ? base.carta : null;
+    if (cartaFresca && poderId !== "bastao") {
+      if (cartaFresca.paraId === alvo.id) {
+        setAdivinhacao({ poderId, alvo, carta: cartaFresca, base });
+        setPoderAberto(null);
+        return;
+      }
+      /* atacou alguém sem carta: a proteção some sem ninguém saber */
+      base.carta = { ...cartaFresca, usada: true };
+    }
+
     const novo = structuredClone(base);
     if (!Array.isArray(novo.nudges)) novo.nudges = [];
     novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
@@ -2685,6 +2893,11 @@ function AguaTracker() {
       novo.efeitos[alvo.id] = atuais;
       registrarHistorico(novo, alvo.id, { t: agora, tipo: poderId, por: meuNome });
       localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
+      /* usou um poder tomado pelo rebote? devolve ao dono original */
+      meusMembros.forEach((m) => {
+        const r = novo.roubos && novo.roubos[m.id];
+        if (r && r.dia === dia && r.poder === poderId) delete novo.roubos[m.id];
+      });
       const frases = {
         cacto: `🌵 ${meuNome} cactificou ${alvo.name} após ${horasAnuncio}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`,
         deserto: `🏜️ ${meuNome} desertificou ${alvo.name} após ${horasAnuncio}h de seca. O cartão rachou — só a meta batida faz chover.`,
@@ -3725,6 +3938,95 @@ function AguaTracker() {
               <button className="desfazer" onClick={() => setEditando(null)}>
                 Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {minhaCarta && !cartaAlvo && (
+        <button
+          className={`carta-antiseca ${cartaVirada ? "virada" : ""}`}
+          onClick={() => (cartaVirada ? setCartaAlvo(true) : setCartaVirada(true))}
+        >
+          {cartaVirada ? (
+            <span className="carta-conteudo">
+              <strong>🃏 Carta Anti-Seca</strong>
+              <span>
+                Escolha alguém (menos você) para ficar imune ao próximo cacto,
+                deserto ou soterramento. Se o atacante esbarrar nessa proteção,
+                o feitiço pode voltar contra ele — e você fica com o poder.
+              </span>
+              <span className="carta-cta">Escolher quem proteger →</span>
+            </span>
+          ) : (
+            <span className="carta-conteudo">
+              <strong>🤫 Silêncio…</strong>
+              <span>Algo chegou só para você. Vire a carta.</span>
+            </span>
+          )}
+        </button>
+      )}
+
+      {cartaAlvo && (
+        <div className="modal-fundo" onClick={() => setCartaAlvo(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🃏 Carta Anti-Seca</h2>
+            <p className="sub">
+              Quem você protege? Ninguém será avisado — nem quem recebe.
+            </p>
+            <div className="lista-alvos">
+              {dados.members
+                .filter((m) => !meusMembros.some((x) => x.id === m.id))
+                .map((m) => (
+                  <div key={m.id} className="alvo">
+                    <span className="alvo-nome">{m.name}</span>
+                    <button className="mini-aplicar" onClick={() => jogarCarta(m.id)}>
+                      Proteger
+                    </button>
+                  </div>
+                ))}
+            </div>
+            <button className="desfazer fechar-modal" onClick={() => setCartaAlvo(false)}>
+              Agora não
+            </button>
+          </div>
+        </div>
+      )}
+
+      {adivinhacao && (
+        <div className="modal-fundo">
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🃏 Feitiço interceptado!</h2>
+            <p className="aviso-agua-texto">
+              <strong>{adivinhacao.alvo.name}</strong> estava protegido por uma{" "}
+              <strong>Carta Anti-Seca</strong>. O seu{" "}
+              {(PODERES.find((p) => p.id === adivinhacao.poderId) || {}).nome} ficou
+              suspenso no ar e agora ameaça voltar contra você.
+            </p>
+            <p className="aviso-agua-texto secundario">
+              Só existe uma saída: descobrir <strong>quem</strong> jogou a carta.
+              Acertando, o feitiço cai sobre a vítima e sobre quem a protegeu.
+              Errando, ele cai sobre você — e o poder fica nas mãos do dono da
+              carta até ele usá-lo hoje.
+            </p>
+            <div className="lista-alvos">
+              {dados.members
+                .filter(
+                  (m) =>
+                    m.id !== adivinhacao.alvo.id &&
+                    !meusMembros.some((x) => x.id === m.id)
+                )
+                .map((m) => (
+                  <div key={m.id} className="alvo">
+                    <span className="alvo-nome">{m.name}</span>
+                    <button
+                      className="mini-aplicar"
+                      onClick={() => resolverAdivinhacao(m.id)}
+                    >
+                      Foi ele(a)
+                    </button>
+                  </div>
+                ))}
             </div>
           </div>
         </div>
