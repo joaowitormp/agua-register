@@ -270,7 +270,7 @@ body { margin: 0; }
 }
 .modal-sino {
   background: #FFFFFF; border-radius: 16px; padding: 20px;
-  width: 100%; max-width: 420px; max-height: 80vh; overflow-y: auto;
+  width: 100%; max-width: 470px; max-height: 92vh; overflow-y: auto;
   box-shadow: 0 16px 48px rgba(11, 52, 70, 0.3); box-sizing: border-box;
 }
 .lista-frases { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
@@ -381,11 +381,15 @@ body { margin: 0; }
 .banner-alerta.carta-aviso { background: #4B3F8F; } /* aviso privado da carta */
 
 .btn-regras-carta {
-  border: none; background: transparent; color: #9FBFCC; cursor: pointer;
-  padding: 4px; border-radius: 8px; line-height: 1; display: inline-flex;
-  margin-bottom: 2px;
+  border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0;
+  cursor: pointer; padding: 7px; border-radius: 10px; line-height: 1;
+  display: inline-flex; margin-bottom: 6px;
+  box-shadow: 0 2px 6px rgba(15, 139, 176, 0.12);
+  transition: background 0.15s, transform 0.15s;
 }
-.btn-regras-carta:hover { color: #0F8BB0; background: #EAF6FA; }
+.btn-regras-carta:hover {
+  background: #D8EEF6; transform: translateY(-1px);
+}
 
 /* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
 .carta-palco {
@@ -676,7 +680,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-25.4";
+const APP_VERSION = "2026-08-25.6";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2853,10 +2857,8 @@ function AguaTracker() {
       const eAlvo = extrasHoje[alvo.id] || 0;
       const pctAlvo =
         alvo.goalMl > 0 ? (cAlvo * alvo.bottleMl + eAlvo) / alvo.goalMl : 0;
-      if (poderId === "cacto" && pctAlvo >= 0.6) {
-        return { ok: false, motivo: "já bebeu 60%+ da meta — imune" };
-      }
-      if (poderId === "deserto" && pctAlvo >= 1) {
+      /* imunidade só com a meta inteira batida */
+      if (pctAlvo >= 1) {
         return { ok: false, motivo: "já bateu a meta de hoje — imune" };
       }
     }
@@ -2936,11 +2938,7 @@ function AguaTracker() {
       const protegidoF = !!(cartaF && cartaF.paraId === alvo.id);
       const imuneF = protegidoF
         ? false /* protegido pela carta: o golpe entra para o rebote rolar */
-        : poderId === "cacto"
-        ? pctF >= 0.6
-        : poderId === "deserto"
-        ? pctF >= 1
-        : false;
+        : (poderId === "cacto" || poderId === "deserto") && pctF >= 1;
       const efsF = normalizarEfeitos(base.efeitos && base.efeitos[alvo.id]);
       const mesmoAtivo =
         efsF[poderId] && chaveDe(new Date(efsF[poderId].desde || 0)) === dia;
@@ -2948,10 +2946,7 @@ function AguaTracker() {
       if (mesmoAtivo) {
         motivo = "esse efeito já está ativo nele";
       } else if (imuneF) {
-        motivo =
-          poderId === "cacto"
-            ? "acabou de passar dos 60% da meta — imune"
-            : "acabou de bater a meta — imune";
+        motivo = "acabou de bater a meta — imune";
       } else if (secoF === null || secoF < exigidoH * 3600000) {
         motivo = `registrou água agora há pouco — só ${
           secoF === null ? "0 min" : fmtTempo(secoF)
@@ -3659,7 +3654,7 @@ function AguaTracker() {
             aria-label="Regras da Carta Anti-Seca"
             onClick={() => setRegrasCarta(true)}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
               <path d="M12 8.2a2 2 0 0 1 2 2c0 1-1 1.4-1.6 2-.3.3-.4.6-.4 1" />
               <path d="M12 16.4h.01" />
@@ -4146,8 +4141,7 @@ function AguaTracker() {
               </p>
               <p className="regras-poder-linha">
                 • Quem bateu <strong>100% da meta</strong> não sofre o efeito de
-                volta, mas perde o poder do mesmo jeito. Os 60% que costumam dar
-                imunidade não valem nessa disputa.
+                volta, mas perde o poder do mesmo jeito.
               </p>
               <p className="regras-poder-linha">
                 • Se o atacante mirar em <strong>outra pessoa</strong>, nada
