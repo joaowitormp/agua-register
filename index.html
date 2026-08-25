@@ -378,6 +378,7 @@ body { margin: 0; }
 /* Banners especiais */
 .banner-alerta.anuncio-cacto, .banner-alerta.anuncio-deserto, .banner-alerta.anuncio-tempestade { background: #0FA36B; }
 .banner-alerta.bastao { background: linear-gradient(90deg, #B8860B, #DAA520); }
+.banner-alerta.carta-aviso { background: #4B3F8F; } /* aviso privado da carta */
 
 /* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
 .carta-antiseca {
@@ -656,7 +657,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-24.4";
+const APP_VERSION = "2026-08-24.5";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2679,11 +2680,27 @@ function AguaTracker() {
     const nomeCarta = "Carta Anti-Seca";
     const acertou = palpiteId === carta.porId;
 
+    const nomePoder = (PODERES.find((p) => p.id === poderId) || {}).nome || "o feitiço";
+    novo.nudges = (novo.nudges || []).filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    const avisarProtetor = (frase) => {
+      if (!carta.porId) return;
+      novo.nudges.push({
+        id: `n-${agora}-k-${Math.random().toString(36).slice(2, 6)}`,
+        to: carta.porId,
+        at: agora,
+        tipo: "carta-aviso",
+        frase,
+      });
+    };
+
     if (acertou) {
       /* desmascarou o protetor: a vítima e o protetor pagam o pato */
       aplicarEfeito(novo, alvo.id, poderId, meuNome, agora);
       if (protetor) aplicarEfeito(novo, protetor.id, poderId, meuNome, agora);
       localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
+      avisarProtetor(
+        `🃏 Sua carta protegeu ${alvo.name}, mas ${meuNome} adivinhou que foi você quem a jogou. ${nomePoder} caiu sobre vocês dois.`
+      );
       /* MODO DE TESTE (temporário): anúncio público do rebote silenciado —
          reativar quando os testes acabarem */
       setToast(`🃏 Você acertou! ${alvo.name} e ${protetor ? protetor.name : "o protetor"} pagaram o preço.`);
@@ -2699,6 +2716,10 @@ function AguaTracker() {
         if (!novo.roubos) novo.roubos = {};
         novo.roubos[carta.porId] = { poder: poderId, deId: eu ? eu.id : null, dia };
       }
+      avisarProtetor(
+        `🃏 Sua carta funcionou! ${meuNome} tentou ${nomePoder} em ${alvo.name}, errou o palpite sobre quem protegeu e levou o próprio feitiço de volta.` +
+          ` O poder agora é seu até você usá-lo hoje — depois volta para ${meuNome}.`
+      );
       /* MODO DE TESTE (temporário): anúncio público do rebote silenciado */
       setToast(
         metaBatida
