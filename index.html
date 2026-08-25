@@ -380,6 +380,13 @@ body { margin: 0; }
 .banner-alerta.bastao { background: linear-gradient(90deg, #B8860B, #DAA520); }
 .banner-alerta.carta-aviso { background: #4B3F8F; } /* aviso privado da carta */
 
+.btn-regras-carta {
+  border: none; background: transparent; color: #9FBFCC; cursor: pointer;
+  padding: 4px; border-radius: 8px; line-height: 1; display: inline-flex;
+  margin-bottom: 2px;
+}
+.btn-regras-carta:hover { color: #0F8BB0; background: #EAF6FA; }
+
 /* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
 .carta-palco {
   position: fixed; right: 20px; bottom: 20px; z-index: 60;
@@ -669,7 +676,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-25.3";
+const APP_VERSION = "2026-08-25.4";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2124,6 +2131,7 @@ function AguaTracker() {
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null);
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
+  const [regrasCarta, setRegrasCarta] = useState(false); // manual da carta anti-seca
   const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
   const [cartaAlvo, setCartaAlvo] = useState(false); // escolhendo quem proteger
   const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
@@ -2495,7 +2503,7 @@ function AguaTracker() {
     const sorteado =
       tester || novo.members[Math.floor(Math.random() * novo.members.length)];
     novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
-    novo.proximaCarta = agora + (10 + Math.random() * 70) * 60 * 1000;
+    novo.proximaCarta = agora + (1 + Math.random() * 44) * 60 * 1000;
     persistir(novo);
   }, [dados]);
 
@@ -3645,6 +3653,18 @@ function AguaTracker() {
           <h1 className="titulo">Hidratação do time</h1>
         </div>
         <div className="resumo">
+          <button
+            className="btn-regras-carta"
+            title="Regras da Carta Anti-Seca"
+            aria-label="Regras da Carta Anti-Seca"
+            onClick={() => setRegrasCarta(true)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+              <path d="M12 8.2a2 2 0 0 1 2 2c0 1-1 1.4-1.6 2-.3.3-.4.6-.4 1" />
+              <path d="M12 16.4h.01" />
+            </svg>
+          </button>
           <p className="resumo-num">{fmtPiso(totalHoje)}</p>
           <p className="resumo-label">
             {metaTotal > 0 ? `de ${fmt(metaTotal)} do time hoje` : "registrado hoje"}
@@ -4076,6 +4096,72 @@ function AguaTracker() {
           virada={cartaVirada}
           onVirar={() => (cartaVirada ? setCartaAlvo(true) : setCartaVirada(true))}
         />
+      )}
+
+      {regrasCarta && (
+        <div className="modal-fundo" onClick={() => setRegrasCarta(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🃏 Carta Anti-Seca</h2>
+            <p className="sub">
+              Uma carta que aparece sozinha, em segredo, para uma pessoa de
+              cada vez. Ela pode surgir a qualquer momento do dia.
+            </p>
+            <div className="regras-poder">
+              <p className="regras-poder-nome">Como ela chega</p>
+              <p className="regras-poder-linha">
+                • Aparece no canto da tela de <strong>uma única pessoa</strong>,
+                sorteada. Ninguém mais fica sabendo.
+              </p>
+              <p className="regras-poder-linha">
+                • Vale por <strong>1 hora</strong>. Sem uso nesse prazo, ela se
+                desfaz e outra aparece para alguém, em outro momento.
+              </p>
+
+              <p className="regras-poder-nome">O que você faz com ela</p>
+              <p className="regras-poder-linha">
+                • Escolhe <strong>alguém que não seja você</strong> para ficar
+                protegido contra o próximo cacto, deserto ou soterramento.
+              </p>
+              <p className="regras-poder-linha">
+                • A pessoa protegida <strong>não é avisada</strong> — nem ela
+                sabe que está blindada.
+              </p>
+              <p className="regras-poder-linha">
+                • Ter a carta não atrapalha em nada os seus próprios poderes.
+              </p>
+
+              <p className="regras-poder-nome">Quando alguém ataca</p>
+              <p className="regras-poder-linha">
+                • Se o atacante mira em <strong>quem você protegeu</strong>, o
+                feitiço trava no ar e ele precisa adivinhar quem jogou a carta.
+              </p>
+              <p className="regras-poder-linha">
+                • <strong>Acertou você:</strong> o efeito cai sobre a vítima e
+                sobre você.
+              </p>
+              <p className="regras-poder-linha">
+                • <strong>Errou:</strong> o feitiço volta contra ele — e o poder
+                usado fica <strong>com você</strong> até você usá-lo hoje. Enquanto
+                isso, ele fica sem o poder. Virou o dia, tudo volta ao normal.
+              </p>
+              <p className="regras-poder-linha">
+                • Quem bateu <strong>100% da meta</strong> não sofre o efeito de
+                volta, mas perde o poder do mesmo jeito. Os 60% que costumam dar
+                imunidade não valem nessa disputa.
+              </p>
+              <p className="regras-poder-linha">
+                • Se o atacante mirar em <strong>outra pessoa</strong>, nada
+                acontece: a carta se desfaz e só você é avisado.
+              </p>
+            </div>
+            <button
+              className="beber fechar-modal"
+              onClick={() => setRegrasCarta(false)}
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
       )}
 
       {cartaAlvo && (
