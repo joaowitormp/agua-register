@@ -381,23 +381,47 @@ body { margin: 0; }
 
 /* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
 .carta-antiseca {
-  position: fixed; right: 18px; bottom: 18px; z-index: 60;
-  width: 170px; height: 238px; /* proporção de carta de baralho */
-  display: flex; align-items: center; text-align: left; cursor: pointer;
-  background: rgba(255, 255, 255, 0.6); color: #7C93A0;
-  border: 1px dashed #CFE0E8; border-radius: 14px;
-  padding: 14px; font-family: inherit; font-size: 13px; line-height: 1.5;
-  box-shadow: none; opacity: 0.7; transition: opacity 0.2s, transform 0.2s;
-  box-sizing: border-box;
+  position: fixed; right: 20px; bottom: 20px; z-index: 60;
+  width: 215px; height: 301px; /* proporção de carta de baralho */
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: left; cursor: pointer; overflow: hidden;
+  background: rgba(255, 255, 255, 0.62); color: #7C93A0;
+  border: 1px dashed #CFE0E8; border-radius: 16px;
+  padding: 16px 15px 34px; font-family: inherit; font-size: 13.5px;
+  line-height: 1.5; box-shadow: none; opacity: 0.72;
+  transition: opacity 0.25s; box-sizing: border-box;
+  animation: carta-encantada 6s ease-in-out infinite;
 }
-.carta-antiseca:hover { opacity: 1; transform: translateY(-2px); }
+.carta-antiseca:hover { opacity: 1; }
 .carta-antiseca.virada {
   background: rgba(255, 252, 240, 0.97); border-style: solid;
   border-color: #E4D3A8; color: #6B5A38; opacity: 1;
+  font-size: 12.5px;
 }
-.carta-conteudo { display: flex; flex-direction: column; gap: 7px; width: 100%; }
+/* gota opaca ao fundo da carta fechada */
+.carta-gota {
+  position: absolute; right: -18px; bottom: -14px; width: 150px; height: 150px;
+  fill: rgba(15, 139, 176, 0.09); pointer-events: none;
+}
+.carta-conteudo {
+  display: flex; flex-direction: column; gap: 8px; width: 100%;
+  position: relative; z-index: 1;
+}
 .carta-conteudo strong { font-size: 15px; }
 .carta-cta { color: #0F8BB0; font-weight: 600; margin-top: 2px; }
+.carta-contador {
+  position: absolute; left: 15px; right: 15px; bottom: 12px;
+  font-size: 11.5px; letter-spacing: 0.2px; opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes carta-encantada {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  35% { transform: translateY(-6px) rotate(0.7deg); }
+  70% { transform: translateY(-2px) rotate(-0.3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .carta-antiseca { animation: none; }
+}
 
 /* Tempestade de areia */
 .tempestade { position: fixed; inset: 0; z-index: 90; }
@@ -632,7 +656,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-24.3";
+const APP_VERSION = "2026-08-24.4";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1642,6 +1666,52 @@ function AreiaCartao({ mapa }) {
   return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
 }
 
+/* Carta Anti-Seca: aparece só para o sorteado, com contador de validade */
+function CartaAntiSeca({ expiraEm, virada, onVirar }) {
+  const [agora, setAgora] = React.useState(Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const resta = Math.max(0, expiraEm - agora);
+  const mm = String(Math.floor(resta / 60000)).padStart(2, "0");
+  const ss = String(Math.floor((resta % 60000) / 1000)).padStart(2, "0");
+  return (
+    <button
+      className={`carta-antiseca ${virada ? "virada" : ""}`}
+      onClick={onVirar}
+    >
+      {!virada && (
+        <svg className="carta-gota" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />
+        </svg>
+      )}
+      <span className="carta-conteudo">
+        {virada ? (
+          <>
+            <strong>🃏 Carta Anti-Seca</strong>
+            <span>
+              Escolha alguém (menos você) para ficar imune ao próximo cacto,
+              deserto ou soterramento.
+            </span>
+            <span>
+              Se o atacante esbarrar nessa proteção, o feitiço pode voltar
+              contra ele — e o poder fica com você.
+            </span>
+            <span className="carta-cta">Escolher quem proteger →</span>
+          </>
+        ) : (
+          <>
+            <strong>🤫 Silêncio…</strong>
+            <span>Algo chegou só para você. Vire a carta.</span>
+          </>
+        )}
+      </span>
+      <span className="carta-contador">Abra em até: {mm}:{ss}</span>
+    </button>
+  );
+}
+
 function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
@@ -2148,7 +2218,7 @@ function AguaTracker() {
       (n) => typeof n.tipo === "string" && n.tipo.startsWith("anuncio-")
     ); /* visíveis para todos */
     const pessoais = novos.filter(
-      (n) => !n.tipo || n.tipo === "bastao"
+      (n) => !n.tipo || n.tipo === "bastao" || n.tipo === "carta-aviso"
     ).filter((n) => meus.has(n.to));
     if (anuncios.length === 0 && pessoais.length === 0) return;
     setAlertas((lista) => [
@@ -2402,14 +2472,12 @@ function AguaTracker() {
     if (proxima && agora < proxima) return;
     const novo = structuredClone(dados);
     /* MODO DE TESTE (temporário): a primeira carta vai para o TesterPower */
-    const testers = novo.members.filter((m) =>
-      ["testerpower", "testerpower2"].includes(nomeNormalizado(m.name))
+    /* MODO DE TESTE (temporário): a carta vai sempre para o TesterPower */
+    const tester = novo.members.find(
+      (m) => nomeNormalizado(m.name) === "testerpower"
     );
-    const jaFeitas = Number(novo.cartaTesteFeita || 0);
     const sorteado =
-      testers[jaFeitas] ||
-      novo.members[Math.floor(Math.random() * novo.members.length)];
-    if (testers[jaFeitas]) novo.cartaTesteFeita = jaFeitas + 1;
+      tester || novo.members[Math.floor(Math.random() * novo.members.length)];
     novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
     novo.proximaCarta = agora + (40 + Math.random() * 140) * 60 * 1000;
     persistir(novo);
@@ -2849,6 +2917,7 @@ function AguaTracker() {
     }
     const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
 
+    let cartaDesperdicada = null;
     /* Carta Anti-Seca: se o alvo estiver protegido, o golpe trava aqui e
        o atacante precisa adivinhar quem o protegeu */
     const cartaFresca =
@@ -2859,8 +2928,10 @@ function AguaTracker() {
         setPoderAberto(null);
         return;
       }
-      /* atacou alguém sem carta: a proteção some sem ninguém saber */
+      /* atacou alguém sem carta: a proteção se desfaz — e só o dono da
+         carta fica sabendo, para não entregar o jogo a ninguém */
       base.carta = { ...cartaFresca, usada: true };
+      cartaDesperdicada = cartaFresca;
     }
 
     const novo = structuredClone(base);
@@ -2908,6 +2979,17 @@ function AguaTracker() {
         tipo: `anuncio-${poderId}`,
         frase: frases[poderId],
       });
+      if (cartaDesperdicada && cartaDesperdicada.porId) {
+        const nomePoder =
+          (PODERES.find((p) => p.id === poderId) || {}).nome || "um feitiço";
+        novo.nudges.push({
+          id: `n-${agora}-c-${Math.random().toString(36).slice(2, 6)}`,
+          to: cartaDesperdicada.porId,
+          at: agora,
+          tipo: "carta-aviso",
+          frase: `🃏 ${alvo.name} levou ${nomePoder} — e não era quem você protegeu. Sua carta se desfez; outra vai aparecer para alguém, a qualquer momento.`,
+        });
+      }
       const avisos = {
         cacto: `🌵 ${alvo.name} foi cactificado!`,
         deserto: `🏜️ ${alvo.name} foi desertificado!`,
@@ -3539,7 +3621,9 @@ function AguaTracker() {
               className={`banner-alerta ${a.tipo && a.tipo !== "sino" ? a.tipo : ""}`}
             >
               <span className="banner-texto">
-                {a.tipo && a.tipo.startsWith("anuncio-") ? (
+                {a.tipo === "carta-aviso" ? (
+                  a.frase
+                ) : a.tipo && a.tipo.startsWith("anuncio-") ? (
                   a.frase
                 ) : a.tipo === "bastao" ? (
                   <>
@@ -3941,27 +4025,11 @@ function AguaTracker() {
       )}
 
       {minhaCarta && !cartaAlvo && (
-        <button
-          className={`carta-antiseca ${cartaVirada ? "virada" : ""}`}
-          onClick={() => (cartaVirada ? setCartaAlvo(true) : setCartaVirada(true))}
-        >
-          {cartaVirada ? (
-            <span className="carta-conteudo">
-              <strong>🃏 Carta Anti-Seca</strong>
-              <span>
-                Escolha alguém (menos você) para ficar imune ao próximo cacto,
-                deserto ou soterramento. Se o atacante esbarrar nessa proteção,
-                o feitiço pode voltar contra ele — e você fica com o poder.
-              </span>
-              <span className="carta-cta">Escolher quem proteger →</span>
-            </span>
-          ) : (
-            <span className="carta-conteudo">
-              <strong>🤫 Silêncio…</strong>
-              <span>Algo chegou só para você. Vire a carta.</span>
-            </span>
-          )}
-        </button>
+        <CartaAntiSeca
+          expiraEm={Number(minhaCarta.at || 0) + 60 * 60 * 1000}
+          virada={cartaVirada}
+          onVirar={() => (cartaVirada ? setCartaAlvo(true) : setCartaVirada(true))}
+        />
       )}
 
       {cartaAlvo && (
