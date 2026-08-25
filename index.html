@@ -381,23 +381,34 @@ body { margin: 0; }
 .banner-alerta.carta-aviso { background: #4B3F8F; } /* aviso privado da carta */
 
 /* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
-.carta-antiseca {
+.carta-palco {
   position: fixed; right: 20px; bottom: 20px; z-index: 60;
-  width: 215px; height: 301px; /* proporção de carta de baralho */
-  display: flex; flex-direction: column; justify-content: center;
-  text-align: left; cursor: pointer; overflow: hidden;
-  background: rgba(255, 255, 255, 0.62); color: #7C93A0;
-  border: 1px dashed #CFE0E8; border-radius: 16px;
-  padding: 16px 15px 34px; font-family: inherit; font-size: 13.5px;
-  line-height: 1.5; box-shadow: none; opacity: 0.72;
-  transition: opacity 0.25s; box-sizing: border-box;
-  animation: carta-encantada 6s ease-in-out infinite;
+  width: 215px; height: 301px; cursor: pointer;
+  perspective: 1100px; animation: carta-encantada 6s ease-in-out infinite;
 }
-.carta-antiseca:hover { opacity: 1; }
-.carta-antiseca.virada {
-  background: rgba(255, 252, 240, 0.97); border-style: solid;
-  border-color: #E4D3A8; color: #6B5A38; opacity: 1;
-  font-size: 12.5px;
+.carta-giro {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.75s cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+.carta-giro.virada { transform: rotateY(180deg); }
+.carta-face {
+  position: absolute; inset: 0; box-sizing: border-box; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: left; border-radius: 16px; padding: 16px 15px 34px;
+  font-family: inherit; line-height: 1.5;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.carta-frente {
+  background: rgba(255, 255, 255, 0.62); color: #7C93A0;
+  border: 1px dashed #CFE0E8; font-size: 13.5px;
+  opacity: 0.72; transition: opacity 0.25s;
+}
+.carta-palco:hover .carta-frente { opacity: 1; }
+.carta-verso {
+  background: rgba(255, 252, 240, 0.97); color: #6B5A38;
+  border: 1px solid #E4D3A8; font-size: 12.5px;
+  transform: rotateY(180deg);
 }
 /* gota opaca ao fundo da carta fechada */
 .carta-gota {
@@ -421,7 +432,8 @@ body { margin: 0; }
   70% { transform: translateY(-2px) rotate(-0.3deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .carta-antiseca { animation: none; }
+  .carta-palco { animation: none; }
+  .carta-giro { transition: none; }
 }
 
 /* Tempestade de areia */
@@ -657,7 +669,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-24.5";
+const APP_VERSION = "2026-08-25.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1667,7 +1679,8 @@ function AreiaCartao({ mapa }) {
   return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
 }
 
-/* Carta Anti-Seca: aparece só para o sorteado, com contador de validade */
+/* Carta Anti-Seca: aparece só para o sorteado, com contador de validade.
+   O clique gira a carta 180º no eixo vertical, revelando o outro lado */
 function CartaAntiSeca({ expiraEm, virada, onVirar }) {
   const [agora, setAgora] = React.useState(Date.now());
   React.useEffect(() => {
@@ -1677,19 +1690,28 @@ function CartaAntiSeca({ expiraEm, virada, onVirar }) {
   const resta = Math.max(0, expiraEm - agora);
   const mm = String(Math.floor(resta / 60000)).padStart(2, "0");
   const ss = String(Math.floor((resta % 60000) / 1000)).padStart(2, "0");
+  /* cada face tem seu próprio rótulo: fechada convida a abrir,
+     virada cobra o uso */
+  const contador = (rotulo) => (
+    <span className="carta-contador">
+      {rotulo}: {mm}:{ss}
+    </span>
+  );
   return (
-    <button
-      className={`carta-antiseca ${virada ? "virada" : ""}`}
-      onClick={onVirar}
-    >
-      {!virada && (
-        <svg className="carta-gota" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />
-        </svg>
-      )}
-      <span className="carta-conteudo">
-        {virada ? (
-          <>
+    <div className="carta-palco" onClick={onVirar}>
+      <div className={`carta-giro ${virada ? "virada" : ""}`}>
+        <div className="carta-face carta-frente">
+          <svg className="carta-gota" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />
+          </svg>
+          <span className="carta-conteudo">
+            <strong>🤫 Silêncio…</strong>
+            <span>Algo chegou só para você. Vire a carta.</span>
+          </span>
+          {contador("Abra em até")}
+        </div>
+        <div className="carta-face carta-verso">
+          <span className="carta-conteudo">
             <strong>🃏 Carta Anti-Seca</strong>
             <span>
               Escolha alguém (menos você) para ficar imune ao próximo cacto,
@@ -1700,16 +1722,11 @@ function CartaAntiSeca({ expiraEm, virada, onVirar }) {
               contra ele — e o poder fica com você.
             </span>
             <span className="carta-cta">Escolher quem proteger →</span>
-          </>
-        ) : (
-          <>
-            <strong>🤫 Silêncio…</strong>
-            <span>Algo chegou só para você. Vire a carta.</span>
-          </>
-        )}
-      </span>
-      <span className="carta-contador">Abra em até: {mm}:{ss}</span>
-    </button>
+          </span>
+          {contador("Use em até")}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2480,7 +2497,7 @@ function AguaTracker() {
     const sorteado =
       tester || novo.members[Math.floor(Math.random() * novo.members.length)];
     novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
-    novo.proximaCarta = agora + (40 + Math.random() * 140) * 60 * 1000;
+    novo.proximaCarta = agora + (10 + Math.random() * 70) * 60 * 1000;
     persistir(novo);
   }, [dados]);
 
