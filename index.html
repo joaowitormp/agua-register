@@ -681,7 +681,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-26.1";
+const APP_VERSION = "2026-08-26.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2504,12 +2504,20 @@ function AguaTracker() {
     if (proxima && agora < proxima) return;
     const novo = structuredClone(dados);
     /* MODO DE TESTE (temporário): a primeira carta vai para o TesterPower */
+    /* Só entra no sorteio quem registrou água nas últimas 24 h: carta
+       para quem sumiu do app não tem graça nenhuma */
+    const ativos = novo.members.filter(
+      (m) =>
+        agora - Number((novo.ultimo && novo.ultimo[m.id]) || 0) <
+        24 * 60 * 60 * 1000
+    );
+    if (ativos.length === 0) return;
     /* MODO DE TESTE (temporário): a carta vai sempre para o TesterPower */
-    const tester = novo.members.find(
+    const tester = ativos.find(
       (m) => nomeNormalizado(m.name) === "testerpower"
     );
     const sorteado =
-      tester || novo.members[Math.floor(Math.random() * novo.members.length)];
+      tester || ativos[Math.floor(Math.random() * ativos.length)];
     novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
     novo.proximaCarta = agora + (1 + Math.random() * 44) * 60 * 1000;
     persistir(novo);
@@ -4135,6 +4143,10 @@ function AguaTracker() {
               <p className="regras-poder-linha">
                 • Aparece no canto da tela de <strong>uma única pessoa</strong>,
                 sorteada. Ninguém mais fica sabendo.
+              </p>
+              <p className="regras-poder-linha">
+                • Só entra no sorteio quem registrou <strong>alguma água nas
+                últimas 24 horas</strong> — quem está sumido fica de fora.
               </p>
               <p className="regras-poder-linha">
                 • Vale por <strong>1 hora</strong>. Sem uso nesse prazo, ela se
