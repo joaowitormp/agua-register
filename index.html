@@ -335,7 +335,8 @@ body { margin: 0; }
   padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 600;
   cursor: pointer; flex-shrink: 0;
 }
-.mini-aplicar:hover { background: #0B7292; }
+.mini-aplicar:hover:not(:disabled) { background: #0B7292; }
+.mini-aplicar:disabled { background: #C7D8E0; cursor: not-allowed; opacity: 0.7; }
 .poder-novo { background: #F2FBF7; border: 1px solid #BFE7D6; }
 .regras-poder { text-align: left; margin-top: 10px; }
 .regras-poder-nome { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #0B3446; }
@@ -680,7 +681,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-25.6";
+const APP_VERSION = "2026-08-26.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2492,9 +2493,12 @@ function AguaTracker() {
       dados.cartaOferta &&
       dados.cartaOferta.dia === diaHoje &&
       agora - Number(dados.cartaOferta.at || 0) < 60 * 60 * 1000;
-    const cartaEmJogo =
-      ofertaViva ||
-      (dados.carta && dados.carta.dia === diaHoje && !dados.carta.usada);
+    const cartaViva =
+      dados.carta &&
+      dados.carta.dia === diaHoje &&
+      !dados.carta.usada &&
+      agora - Number(dados.carta.at || 0) < 60 * 60 * 1000;
+    const cartaEmJogo = ofertaViva || cartaViva;
     if (cartaEmJogo) return;
     const proxima = Number(dados.proximaCarta || 0);
     if (proxima && agora < proxima) return;
@@ -2658,8 +2662,14 @@ function AguaTracker() {
     cartaNoPrazo && meusMembros.some((m) => m.id === cartaOferta.paraId)
       ? cartaOferta
       : null;
+  /* A carta jogada vale por 1 hora. Ninguém atacou nesse prazo? Ela se
+     desfaz e o sorteio volta a correr para outra pessoa. E, como toda
+     carta carrega o dia em que nasceu, a virada da meia-noite zera tudo */
   const cartaAtiva =
-    dados.carta && dados.carta.dia === dia && !dados.carta.usada
+    dados.carta &&
+    dados.carta.dia === dia &&
+    !dados.carta.usada &&
+    Date.now() - Number(dados.carta.at || 0) < 60 * 60 * 1000
       ? dados.carta
       : null;
 
@@ -2852,6 +2862,16 @@ function AguaTracker() {
       return { ok: false, motivo: jaTem[poderId] || "já está sob esse efeito" };
     }
     const alvoProtegido = !!(cartaAtiva && cartaAtiva.paraId === alvo.id);
+    if (
+      alvoProtegido &&
+      meusMembros.some((m) => m.id === cartaAtiva.porId)
+    ) {
+      return {
+        ok: false,
+        motivo:
+          "você protegeu essa pessoa com a Carta Anti-Seca — não dá para atacar quem você blindou",
+      };
+    }
     if (!alvoProtegido && (poderId === "cacto" || poderId === "deserto")) {
       const cAlvo = registrosHoje[alvo.id] || 0;
       const eAlvo = extrasHoje[alvo.id] || 0;
@@ -2934,7 +2954,12 @@ function AguaTracker() {
       const pctF =
         alvo.goalMl > 0 ? (cF * alvo.bottleMl + eF) / alvo.goalMl : 0;
       const cartaF =
-        base.carta && base.carta.dia === dia && !base.carta.usada ? base.carta : null;
+        base.carta &&
+        base.carta.dia === dia &&
+        !base.carta.usada &&
+        agora - Number(base.carta.at || 0) < 60 * 60 * 1000
+          ? base.carta
+          : null;
       const protegidoF = !!(cartaF && cartaF.paraId === alvo.id);
       const imuneF = protegidoF
         ? false /* protegido pela carta: o golpe entra para o rebote rolar */
@@ -2968,7 +2993,12 @@ function AguaTracker() {
        segue livre para usar os próprios poderes — e a carta dele não é
        gasta nem anulada por isso */
     const cartaFresca =
-      base.carta && base.carta.dia === dia && !base.carta.usada ? base.carta : null;
+      base.carta &&
+      base.carta.dia === dia &&
+      !base.carta.usada &&
+      agora - Number(base.carta.at || 0) < 60 * 60 * 1000
+        ? base.carta
+        : null;
     const cartaEhMinha =
       cartaFresca && meusMembros.some((m) => m.id === cartaFresca.porId);
     if (cartaFresca && !cartaEhMinha && poderId !== "bastao") {
@@ -3656,8 +3686,7 @@ function AguaTracker() {
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
-              <path d="M12 8.2a2 2 0 0 1 2 2c0 1-1 1.4-1.6 2-.3.3-.4.6-.4 1" />
-              <path d="M12 16.4h.01" />
+              <path d="M12 17.6a3.6 3.6 0 0 0 3.6-3.6c0-1-.5-2-1.5-2.8-1-.8-1.8-2.1-2.1-3.4-.3 1.3-1.1 2.6-2.1 3.4-1 .8-1.5 1.8-1.5 2.8a3.6 3.6 0 0 0 3.6 3.6z" />
             </svg>
           </button>
           <p className="resumo-num">{fmtPiso(totalHoje)}</p>
@@ -4338,16 +4367,15 @@ function AguaTracker() {
                   return (
                     <div key={m.id} className={`alvo ${st.ok ? "" : "inelegivel"}`}>
                       <span className="alvo-nome">{m.name}</span>
-                      {st.ok ? (
-                        <button
-                          className="mini-aplicar"
-                          onClick={() => usarPoder(poderAberto, m)}
-                        >
-                          Aplicar
-                        </button>
-                      ) : (
-                        <span className="alvo-motivo">{st.motivo}</span>
-                      )}
+                      {!st.ok && <span className="alvo-motivo">{st.motivo}</span>}
+                      <button
+                        className="mini-aplicar"
+                        disabled={!st.ok}
+                        title={st.ok ? "Aplicar o poder" : st.motivo}
+                        onClick={() => st.ok && usarPoder(poderAberto, m)}
+                      >
+                        Aplicar
+                      </button>
                     </div>
                   );
                 })}
