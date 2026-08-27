@@ -681,7 +681,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-26.2";
+const APP_VERSION = "2026-08-26.5";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2645,8 +2645,9 @@ function AguaTracker() {
         if (!ef.limpo) ativos[tipo] = ef;
         return;
       }
-      const curado = tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
-      if (curado && (!ef.travaAte || agora >= ef.travaAte)) return;
+      /* cura única para todos os efeitos: só a meta batida liberta */
+      const curado = pctMeta >= 1;
+      if (curado) return; /* meta batida liberta, sem exceção */
       ativos[tipo] = ef;
     });
     return ativos;
@@ -2746,8 +2747,17 @@ function AguaTracker() {
       avisarProtetor(
         `🃏 Sua carta protegeu ${alvo.name}, mas ${meuNome} adivinhou que foi você quem a jogou. ${nomePoder} caiu sobre vocês dois.`
       );
-      /* MODO DE TESTE (temporário): anúncio público do rebote silenciado —
-         reativar quando os testes acabarem */
+      /* anúncio para o time todo: o atacante desmascarou a carta */
+      novo.nudges.push({
+        id: `n-${agora}-p-${Math.random().toString(36).slice(2, 6)}`,
+        to: alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: `anuncio-${poderId}`,
+        frase: `🃏 ${alvo.name} estava protegido por uma Carta Anti-Seca, mas ${meuNome} adivinhou quem a jogou: ${
+          protetor ? protetor.name : "o protetor"
+        }. ${nomePoder} caiu sobre os dois.`,
+      });
       setToast(`🃏 Você acertou! ${alvo.name} e ${protetor ? protetor.name : "o protetor"} pagaram o preço.`);
     } else {
       /* errou: o feitiço vira contra o atacante e o poder muda de mãos */
@@ -2765,7 +2775,16 @@ function AguaTracker() {
         `🃏 Sua carta funcionou! ${meuNome} tentou ${nomePoder} em ${alvo.name}, errou o palpite sobre quem protegeu e levou o próprio feitiço de volta.` +
           ` O poder agora é seu até você usá-lo hoje — depois volta para ${meuNome}.`
       );
-      /* MODO DE TESTE (temporário): anúncio público do rebote silenciado */
+      /* anúncio para o time todo: o feitiço voltou contra o atacante.
+         Quem jogou a carta segue no anonimato — ele não foi descoberto */
+      novo.nudges.push({
+        id: `n-${agora}-p-${Math.random().toString(36).slice(2, 6)}`,
+        to: eu ? eu.id : alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: `anuncio-${poderId}`,
+        frase: `🃏 ${meuNome} tentou ${nomePoder} em ${alvo.name}, esbarrou numa Carta Anti-Seca, errou o palpite sobre quem a jogou e levou o próprio feitiço de volta.`,
+      });
       setToast(
         metaBatida
           ? "🃏 Errou o palpite! A meta batida te salvou do efeito — mas o poder mudou de mãos."
@@ -3179,13 +3198,9 @@ function AguaTracker() {
         return;
       }
       ef.curas = [...(ef.curas || []), agora];
-      const rapidas = ef.curas.filter((t) => t - ef.desde < 10 * 60 * 1000).length;
-      if (rapidas >= 2 && !ef.travaAte) {
-        ef.travaAte =
-          tipo === "cacto" ? agora + 90 * 60 * 1000 : agora + 3 * 60 * 60 * 1000;
-      }
-      const curado = tipo === "cacto" ? pctMeta >= 0.6 : pctMeta >= 1;
-      if (curado && (!ef.travaAte || agora >= ef.travaAte)) return;
+      /* cura única para todos os efeitos: só a meta batida liberta */
+      const curado = pctMeta >= 1;
+      if (curado) return; /* meta batida liberta, sem exceção */
       restantes[tipo] = ef;
     });
     if (Object.keys(restantes).length === 0) delete novo.efeitos[id];
