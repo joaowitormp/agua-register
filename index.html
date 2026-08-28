@@ -681,7 +681,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-26.5";
+const APP_VERSION = "2026-08-28.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2494,10 +2494,7 @@ function AguaTracker() {
       dados.cartaOferta.dia === diaHoje &&
       agora - Number(dados.cartaOferta.at || 0) < 60 * 60 * 1000;
     const cartaViva =
-      dados.carta &&
-      dados.carta.dia === diaHoje &&
-      !dados.carta.usada &&
-      agora - Number(dados.carta.at || 0) < 60 * 60 * 1000;
+      dados.carta && dados.carta.dia === diaHoje && !dados.carta.usada;
     const cartaEmJogo = ofertaViva || cartaViva;
     if (cartaEmJogo) return;
     const proxima = Number(dados.proximaCarta || 0);
@@ -2671,14 +2668,11 @@ function AguaTracker() {
     cartaNoPrazo && meusMembros.some((m) => m.id === cartaOferta.paraId)
       ? cartaOferta
       : null;
-  /* A carta jogada vale por 1 hora. Ninguém atacou nesse prazo? Ela se
-     desfaz e o sorteio volta a correr para outra pessoa. E, como toda
-     carta carrega o dia em que nasceu, a virada da meia-noite zera tudo */
+  /* O prazo de 1 h vale para a carta OFERECIDA e não usada. Depois de
+     jogada em alguém, a proteção fica de pé até um ataque resolvê-la —
+     ou até a meia-noite, já que toda carta carrega o dia em que nasceu */
   const cartaAtiva =
-    dados.carta &&
-    dados.carta.dia === dia &&
-    !dados.carta.usada &&
-    Date.now() - Number(dados.carta.at || 0) < 60 * 60 * 1000
+    dados.carta && dados.carta.dia === dia && !dados.carta.usada
       ? dados.carta
       : null;
 
@@ -2981,10 +2975,7 @@ function AguaTracker() {
       const pctF =
         alvo.goalMl > 0 ? (cF * alvo.bottleMl + eF) / alvo.goalMl : 0;
       const cartaF =
-        base.carta &&
-        base.carta.dia === dia &&
-        !base.carta.usada &&
-        agora - Number(base.carta.at || 0) < 60 * 60 * 1000
+        base.carta && base.carta.dia === dia && !base.carta.usada
           ? base.carta
           : null;
       const protegidoF = !!(cartaF && cartaF.paraId === alvo.id);
@@ -3020,10 +3011,7 @@ function AguaTracker() {
        segue livre para usar os próprios poderes — e a carta dele não é
        gasta nem anulada por isso */
     const cartaFresca =
-      base.carta &&
-      base.carta.dia === dia &&
-      !base.carta.usada &&
-      agora - Number(base.carta.at || 0) < 60 * 60 * 1000
+      base.carta && base.carta.dia === dia && !base.carta.usada
         ? base.carta
         : null;
     const cartaEhMinha =
@@ -4164,8 +4152,12 @@ function AguaTracker() {
                 últimas 24 horas</strong> — quem está sumido fica de fora.
               </p>
               <p className="regras-poder-linha">
-                • Vale por <strong>1 hora</strong>. Sem uso nesse prazo, ela se
-                desfaz e outra aparece para alguém, em outro momento.
+                • Você tem <strong>1 hora</strong> para usá-la. Passou disso sem
+                escolher ninguém, ela se desfaz e outra aparece para alguém.
+              </p>
+              <p className="regras-poder-linha">
+                • Depois de jogada, a proteção fica de pé até alguém atacar —
+                ou até a virada do dia.
               </p>
 
               <p className="regras-poder-nome">O que você faz com ela</p>
