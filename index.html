@@ -613,26 +613,34 @@ const FRASES_CONQUISTA = {
   "cachoeira-alarmante": [
     "50 litros de correnteza. Você ainda é torneira pingando.",
     "Quando eu passo, os rios pedem autógrafo.",
+    "Eu corro, você goteja. Cada um no seu ritmo.",
   ],
   "represa-billings": [
     "200 litros me contemplam. E você aí, de gole em gole.",
     "Eu sou basicamente um reservatório público. Você, uma poça.",
+    "Tem gente que bebe água. Tem gente que estoca. Adivinha.",
+    "200 litros de calma olhando para a sua pressa de nada.",
   ],
   "soberano-da-torneira": [
     "Ordem real: hidrate-se, plebeu.",
     "O trono da torneira observa a sua seca com desgosto.",
+    "Meus súditos bebem água. E você, é o quê?",
   ],
   "pe-no-podio": [
     "Falo do pódio: a vista daqui é ótima. E daí de baixo?",
     "Medalhado te chamando para o gole. É quase uma honra, aproveita.",
+    "Olha, eu não quero me gabar, mas a vista daqui é incrível.",
   ],
   "semana-molhada": [
     "Tá parecendo uma bolacha água e sal — sem a água.",
     "Sua desidratação já tem CNPJ e tempo de casa.",
+    "Cuidado: alguém aqui tem poderes e você está bem vulnerável.",
   ],
   "dinastia-da-gota": [
     "Três semanas no trono. Isso já não é ranking, é reinado.",
     "Dinastias caem, dizem. A minha só se hidrata.",
+    "Meu nome está no ranking. O seu, na poeira.",
+    "Você bebe às vezes. Eu bebo há gerações.",
   ],
 };
 
@@ -681,7 +689,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-28.1";
+const APP_VERSION = "2026-08-28.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -723,6 +731,17 @@ const FRASES = [
   "Últimas notícias: garrafa segue intacta há horas. População apreensiva.",
   "O banco aprovou seu empréstimo de 500 ml. Juros: zero.",
   "Trânsito livre entre você e a garrafa. Aproveite.",
+  "Panela no fogo sem água é assim que começa incêndio.",
+  "Isso já não é preguiça, é greve de hidratação.",
+  "Continue assim e você vira o próximo cacto do escritório.",
+  "Sua gota no ranking está pedindo água emprestada.",
+  "Passa a mão na garrafa, não custa nada.",
+  "A previsão para a sua mesa é de tempo firme e seco. De novo.",
+  "Situação crítica: até o sal de cozinha está mais hidratado.",
+  "Você está oficialmente em processo de fossilização.",
+  "Emergência: colaborador operando com reservas do ano passado.",
+  "Isso aqui já não é desidratação, é estilo de vida.",
+  "Falta pouco para o seu cartão virar cenário de filme de faroeste.",
 ];
 
 /* Benefícios do consumo de água — exibidos um por vez, em ordem
@@ -2850,15 +2869,25 @@ function AguaTracker() {
         motivo: "esse poder foi tomado de você hoje — só volta quando for usado",
       };
     }
-    if (poderId === "cacto") {
-      /* Cacto não cactifica ninguém */
-      const euCactificado = meusMembros.some((m) => !!efeitosDe(m).cacto);
-      if (euCactificado) {
-        return {
-          ok: false,
-          motivo: "você está cactificado — cacto não cactifica ninguém",
-        };
+    /* Quem está sob efeito não desfere poder nenhum: primeiro se cura */
+    const meuEfeito = (() => {
+      for (const m of meusMembros) {
+        const efs = efeitosDe(m);
+        const tipo = Object.keys(efs)[0];
+        if (tipo) return tipo;
       }
+      return null;
+    })();
+    if (meuEfeito) {
+      const rotulo = {
+        cacto: "cactificado",
+        deserto: "desertificado",
+        tempestade: "soterrado",
+      }[meuEfeito] || "sob efeito";
+      return {
+        ok: false,
+        motivo: `você está ${rotulo} — bata a meta e se livre disso antes de atacar alguém`,
+      };
     }
     const RECARGAS = { cacto: 3600000, deserto: 3600000, tempestade: 2 * 3600000 };
     if (RECARGAS[poderId]) {
