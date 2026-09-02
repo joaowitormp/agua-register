@@ -250,17 +250,27 @@ body { margin: 0; }
 }
 .banner-alerta {
   display: flex; align-items: center; gap: 12px; box-sizing: border-box;
-  background: #0B3446; color: #FFFFFF; padding: 12px 14px 12px 20px;
+  background: #FFFFFF; color: #0B3446; padding: 12px 14px 12px 18px;
+  border: 1px solid #E2ECF2; border-left: 5px solid #0B3446;
   border-radius: 14px; font-size: 14px; font-weight: 600;
-  box-shadow: 0 8px 24px rgba(11, 52, 70, 0.35);
+  box-shadow: 0 6px 18px rgba(11, 52, 70, 0.12);
   animation: chacoalhar 0.6s ease 2;
 }
-.banner-hora { font-size: 11px; font-weight: 400; color: #9ECFDF; white-space: nowrap; }
+.banner-hora { font-size: 11px; font-weight: 400; color: #9FBFCC; white-space: nowrap; }
 .fechar-alerta {
-  border: none; background: rgba(255, 255, 255, 0.12); color: #FFFFFF;
+  border: none; background: #EEF5F9; color: #4B7A8E;
   width: 26px; height: 26px; border-radius: 8px; font-size: 16px;
   line-height: 1; cursor: pointer; flex-shrink: 0;
 }
+.fechar-alerta:hover { background: #DCEAF2; color: #0B3446; }
+/* barra "fechar todas" quando há mais de um aviso */
+.limpar-alertas {
+  align-self: flex-end; border: 1px solid #D8ECF3; background: #FFFFFF;
+  color: #4B7A8E; border-radius: 99px; padding: 5px 13px;
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(11, 52, 70, 0.1);
+}
+.limpar-alertas:hover { background: #EAF6FA; color: #0B3446; }
 .fechar-alerta:hover { background: rgba(255, 255, 255, 0.25); }
 
 .modal-fundo {
@@ -387,9 +397,11 @@ body { margin: 0; }
 }
 
 /* Banners especiais */
-.banner-alerta.anuncio-cacto, .banner-alerta.anuncio-deserto, .banner-alerta.anuncio-tempestade { background: #0FA36B; }
-.banner-alerta.bastao { background: linear-gradient(90deg, #B8860B, #DAA520); }
-.banner-alerta.carta-aviso { background: #4B3F8F; } /* aviso privado da carta */
+.banner-alerta.anuncio-cacto,
+.banner-alerta.anuncio-deserto,
+.banner-alerta.anuncio-tempestade { border-left-color: #0FA36B; }
+.banner-alerta.bastao { border-left-color: #DAA520; }
+.banner-alerta.carta-aviso { border-left-color: #6C5CE7; } /* aviso da carta */
 
 .btn-regras-carta {
   border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0;
@@ -713,7 +725,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-28.4";
+const APP_VERSION = "2026-08-28.5";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -3811,6 +3823,11 @@ function AguaTracker() {
 
       {alertas.length > 0 && (
         <div className="pilha-alertas">
+          {alertas.length > 1 && (
+            <button className="limpar-alertas" onClick={() => setAlertas([])}>
+              Fechar todas ({alertas.length})
+            </button>
+          )}
           {alertas.map((a) => (
             <div
               key={a.id}
