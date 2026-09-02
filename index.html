@@ -713,7 +713,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-28.3";
+const APP_VERSION = "2026-08-28.4";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -944,6 +944,38 @@ function CampoSenha({ value, onChange, placeholder, autoFocus, onEnter }) {
   );
 }
 
+/* Feriados nacionais: nesses dias a competição não vale — não somam nem
+   quebram sequências e ninguém pode ser atacado. Datas fixas (dd-mm) e
+   as móveis, ligadas à Páscoa, listadas por ano */
+const FERIADOS_FIXOS = [
+  "01-01", /* Confraternização Universal */
+  "21-04", /* Tiradentes */
+  "01-05", /* Dia do Trabalho */
+  "07-09", /* Independência */
+  "12-10", /* Nossa Senhora Aparecida */
+  "02-11", /* Finados */
+  "15-11", /* Proclamação da República */
+  "20-11", /* Consciência Negra */
+  "25-12", /* Natal */
+];
+const FERIADOS_MOVEIS = [
+  /* Carnaval (segunda e terça), Sexta-feira Santa e Corpus Christi */
+  "2026-02-16", "2026-02-17", "2026-04-03", "2026-06-04",
+  "2027-02-08", "2027-02-09", "2027-03-26", "2027-05-27",
+  "2028-02-28", "2028-02-29", "2028-04-14", "2028-06-15",
+];
+const ehFeriado = (d) => {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  if (FERIADOS_FIXOS.includes(`${dd}-${mm}`)) return true;
+  return FERIADOS_MOVEIS.includes(`${d.getFullYear()}-${mm}-${dd}`);
+};
+/* Dia que vale para o jogo: segunda a sexta, fora feriado nacional */
+const ehDiaUtil = (d) => {
+  const s = d.getDay();
+  return s !== 0 && s !== 6 && !ehFeriado(d);
+};
+
 const chaveDe = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -1007,10 +1039,9 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
       const metaDia = metaDoDia(m, chaveDe(d));
       const bateu = metaDia > 0 && ml >= metaDia;
       if (bateu) diasMeta++;
-      /* Sequências contam apenas dias úteis: sábado e domingo
-         não somam nem quebram a corrente */
-      const diaSemana = d.getDay();
-      if (diaSemana !== 0 && diaSemana !== 6) {
+      /* Sequências contam apenas dias úteis: fim de semana e feriado
+         nacional não somam nem quebram a corrente */
+      if (ehDiaUtil(d)) {
         if (bateu) { seqUtil++; } else { seqUtil = 0; }
         if (seqUtil > maxUtil) maxUtil = seqUtil;
       }
@@ -1036,13 +1067,16 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
     const linhas = [];
     members.forEach((m) => {
       const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
-      let soma = 0, validos = 0, metas = 0;
+      let soma = 0, validos = 0, metas = 0, uteis = 0;
       for (let i = 0; i < 5; i++) {
         const d = new Date(seg);
         d.setDate(seg.getDate() + i);
         const fim = new Date(d);
         fim.setHours(23, 59, 59, 999);
         if (criadoEm > fim.getTime()) continue;
+        /* feriado nacional não entra na conta da semana */
+        if (!ehDiaUtil(d)) continue;
+        uteis++;
         const ml = mlDoDia(m, chaveDe(d));
         const metaDia = metaDoDia(m, chaveDe(d));
         soma += metaDia > 0 ? ml / metaDia : 0;
@@ -1051,7 +1085,9 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
       }
       if (validos > 0) {
         linhas.push({ id: m.id, media: soma / validos });
-        if (validos === 5 && metas === 5)
+        /* semana perfeita = todos os dias úteis da semana batidos, sejam
+           5 ou menos quando cair feriado */
+        if (metas === uteis && uteis > 0)
           resultado[m.id].conjunto.add("semana-molhada");
       }
     });
@@ -2659,8 +2695,8 @@ function AguaTracker() {
   /* Relógio da seca: corre a partir das 8h, de segunda a sexta */
   const baseSeca = (m) => {
     const agora = new Date();
-    const diaSem = agora.getDay();
-    if (diaSem === 0 || diaSem === 6) return null;
+    /* feriado nacional é trégua, como o fim de semana */
+    if (!ehDiaUtil(agora)) return null;
     const oito = new Date(agora);
     oito.setHours(8, 0, 0, 0);
     if (agora < oito) return null;
@@ -3020,10 +3056,10 @@ function AguaTracker() {
     if (!souTester && ["cacto", "deserto", "tempestade"].includes(poderId)) {
       const oito = new Date();
       oito.setHours(8, 0, 0, 0);
-      const diaSem = new Date().getDay();
+      const utilHoje = ehDiaUtil(new Date());
       const ultimoF = (base.ultimo && base.ultimo[alvo.id]) || 0;
       const baseRelogio =
-        diaSem === 0 || diaSem === 6 || agora < oito.getTime()
+        !utilHoje || agora < oito.getTime()
           ? null
           : Math.max(ultimoF, oito.getTime());
       const secoF = baseRelogio === null ? null : agora - baseRelogio;
