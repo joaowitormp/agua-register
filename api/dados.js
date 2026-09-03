@@ -10,7 +10,7 @@ const CHAVE = "agua:dados";
 const CHAVE_BACKUP = "agua:backup";
 const VAZIO = { members: [], intake: {} };
 /* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-08-19.1-metas-congeladas";
+const API_VERSION = "2026-08-29.1-agua-protegida";
 
 /* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
    o servidor une as entradas já salvas com as recebidas (chave = momento
@@ -57,6 +57,36 @@ const mesclarMetas = (antigo, novo) => {
   const resultado = { ...(antigo || {}) };
   Object.keys(novo || {}).forEach((dia) => {
     resultado[dia] = { ...(novo[dia] || {}), ...(resultado[dia] || {}) };
+  });
+  return resultado;
+};
+
+/* Intake e extras: a água registrada nunca regride. Se duas abas gravam
+   quase juntas, a atrasada traz um total menor de alguém — aceitar isso
+   apagaria o que a outra acabou de registrar. Então, por (dia, membro),
+   vence o MAIOR valor. Só um Desfazer explícito reduz, e ele é raro e
+   local; o risco de perder registro é muito pior que o de um desfazer
+   demorar um ciclo a aparecer para terceiros */
+const mesclarContagem = (antigo, novo, reduzir) => {
+  const resultado = {};
+  const dias = new Set([
+    ...Object.keys(antigo || {}),
+    ...Object.keys(novo || {}),
+  ]);
+  dias.forEach((dia) => {
+    const a = (antigo && antigo[dia]) || {};
+    const n = (novo && novo[dia]) || {};
+    const ids = new Set([...Object.keys(a), ...Object.keys(n)]);
+    const linha = {};
+    ids.forEach((id) => {
+      const autorizouReduzir = !!(reduzir && reduzir[dia] && reduzir[dia][id]);
+      /* Desfazer explícito: aceita o valor que o cliente mandou (pode ser
+         menor). Fora isso, vence o maior — água não regride sozinha */
+      linha[id] = autorizouReduzir
+        ? Number(n[id] || 0)
+        : Math.max(Number(a[id] || 0), Number(n[id] || 0));
+    });
+    resultado[dia] = linha;
   });
   return resultado;
 };
@@ -145,11 +175,14 @@ export default async function handler(req, res) {
         }
         await redis.set(CHAVE_BACKUP, atual);
         completarHistorico(atual, corpo);
+        corpo.intake = mesclarContagem(atual.intake, corpo.intake, corpo.reduzir);
+        corpo.extras = mesclarContagem(atual.extras, corpo.extras, corpo.reduzir);
         corpo.historico = mesclarHistorico(atual.historico, corpo.historico);
         corpo.ultimo = mesclarUltimo(atual.ultimo, corpo.ultimo);
         corpo.metas = mesclarMetas(atual.metas, corpo.metas);
       }
 
+      delete corpo.reduzir; /* campo auxiliar de gravação, não persiste */
       await redis.set(CHAVE, corpo);
       return res.status(200).json({ ok: true });
     }
