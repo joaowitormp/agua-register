@@ -355,6 +355,14 @@ body { margin: 0; }
 .recompensa { font-size: 11px; color: #B8860B; margin-top: 2px; }
 .efeito-badge { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: #7A4B12; }
 .exclusivas-titulo { margin-top: 14px; }
+.frase-livre { margin-bottom: 6px; }
+.frase-livre-linha { display: flex; gap: 8px; }
+.frase-livre-linha input {
+  flex: 1; border: 1px solid #D8ECF3; border-radius: 10px; padding: 9px 11px;
+  font-family: inherit; font-size: 13px; color: #0B3446; box-sizing: border-box;
+}
+.frase-livre-linha input:focus { outline: 2px solid #41C9E6; border-color: transparent; }
+.frase-livre-conta { margin: 3px 2px 0; font-size: 11px; color: #9FBFCC; text-align: right; }
 .grupo-conquista {
   display: flex; align-items: center; gap: 6px;
   margin: 12px 0 5px; font-size: 11.5px; font-weight: 700;
@@ -388,19 +396,11 @@ body { margin: 0; }
 .cartao.desertico .barra { background: rgba(120, 78, 25, 0.18); }
 .cartao.desertico .circulo-conquista { background: rgba(255, 255, 255, 0.55); }
 
-/* Cutucada do bastão dourado */
-.cartao.cutucado { animation: cutucar 0.42s ease; }
-@keyframes cutucar {
-  0%, 100% { transform: translateX(0) rotate(0); }
-  30% { transform: translateX(-9px) rotate(-1.2deg); }
-  60% { transform: translateX(5px) rotate(0.6deg); }
-}
 
 /* Banners especiais */
 .banner-alerta.anuncio-cacto,
 .banner-alerta.anuncio-deserto,
 .banner-alerta.anuncio-tempestade { border-left-color: #0FA36B; }
-.banner-alerta.bastao { border-left-color: #DAA520; }
 .banner-alerta.carta-aviso { border-left-color: #6C5CE7; } /* aviso da carta */
 
 .btn-regras-carta {
@@ -560,7 +560,7 @@ body { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .barra-fill, .garrafa-btn, .sino { transition: none; }
-  .cartao.alertando, .banner-alerta, .dica-agua, .comemoracao-emoji, .cartao.cutucado { animation: none; }
+  .cartao.alertando, .banner-alerta, .dica-agua, .comemoracao-emoji { animation: none; }
 }
 </style>
 </head>
@@ -725,7 +725,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-08-28.5";
+const APP_VERSION = "2026-09-03.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -880,7 +880,7 @@ const CONQUISTAS = [
   { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", recompensaFrases: true, paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
   { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", recompensaFrases: true, paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
   { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensaFrases: true, paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
-  { id: "incactificavel", nome: "Incactificável", desc: "Nunca foi cactificado(a).", paths: ["M12 21V7", "M12 14H9.5A2.5 2.5 0 0 1 7 11.5V9", "M12 17h2.5A2.5 2.5 0 0 0 17 14.5V11", "M9 21h6", "M10.5 7a1.5 1.5 0 0 1 3 0"] },
+  { id: "incactificavel", nome: "Incactificável", desc: "Nunca foi cactificado(a).", recompensa: "Provocação personalizada ✍️ — escreva a sua própria frase", paths: ["M12 21V7", "M12 14H9.5A2.5 2.5 0 0 1 7 11.5V9", "M12 17h2.5A2.5 2.5 0 0 0 17 14.5V11", "M9 21h6", "M10.5 7a1.5 1.5 0 0 1 3 0"] },
 ];
 
 const IconeConquista = ({ conquista, tamanho = 11 }) => (
@@ -1134,11 +1134,6 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
       if (seguidas >= 3) c.add("dinastia-da-gota");
       ultimaSemana = p.semana;
     });
-    /* MODO DE TESTE (temporário): o cartão "TesterPower" recebe todas as
-       conquistas — remover esta condição após os testes */
-    if (["testerpower", "testerpower2"].includes(nomeNormalizado(m.name))) {
-      CONQUISTAS.forEach((cq) => c.add(cq.id));
-    }
   });
 
   /* Incactificável: de quem nunca foi cactificado. É a única conquista que
@@ -1205,30 +1200,6 @@ const notificar = (msg) => {
       new Notification("🔔 Hora de beber água!", { body: msg });
     } catch {}
   }
-};
-
-/* Batida metálica do bastão dourado (dois cliques rápidos) */
-const tocarSomBastao = () => {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    if (ctx.state === "suspended") ctx.resume();
-    [0, 0.09].forEach((d) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = "triangle";
-      o.frequency.value = 1900;
-      o.connect(g);
-      g.connect(ctx.destination);
-      const t = ctx.currentTime + d;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.25, t + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
-      o.start(t);
-      o.stop(t + 0.08);
-    });
-  } catch {}
 };
 
 /* Garrafa cactificada 🌵 */
@@ -1831,7 +1802,7 @@ function CartaAntiSeca({ expiraEm, virada, onVirar }) {
   );
 }
 
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, cutucando, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -1843,7 +1814,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
 
   return (
     <div
-      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${cutucando ? "cutucado" : ""} ${soterrado ? "soterrado" : ""}`}
+      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""}`}
     >
       <div className="cartao-topo">
         <div>
@@ -2223,7 +2194,6 @@ function AguaTracker() {
   const [poderAberto, setPoderAberto] = useState(null); // poder com o seletor de alvos aberto
   const [regrasAbertas, setRegrasAbertas] = useState(false); // "saber mais" das regras do poder
   const [poderesNovos, setPoderesNovos] = useState([]); // popup de anúncio de poder novo
-  const [cutucadaId, setCutucadaId] = useState(null); // cartão sendo cutucado pelo bastão
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null);
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
@@ -2233,6 +2203,7 @@ function AguaTracker() {
   const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
+  const [fraseLivre, setFraseLivre] = useState(""); // provocação personalizada (Incactificável)
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
   const [historicoDe, setHistoricoDe] = useState(null); // membro cujo histórico está aberto
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
@@ -2338,7 +2309,7 @@ function AguaTracker() {
       (n) => typeof n.tipo === "string" && n.tipo.startsWith("anuncio-")
     ); /* visíveis para todos */
     const pessoais = novos.filter(
-      (n) => !n.tipo || n.tipo === "bastao" || n.tipo === "carta-aviso"
+      (n) => !n.tipo || n.tipo === "carta-aviso"
     ).filter((n) => meus.has(n.to));
     if (anuncios.length === 0 && pessoais.length === 0) return;
     setAlertas((lista) => [
@@ -2516,24 +2487,6 @@ function AguaTracker() {
     setPoderesNovos(novosPoderes);
   }, [dados, posseExtra]);
 
-  /* Bastão dourado: enquanto o aviso real estiver aberto, o cartão da
-     vítima é cutucado com a batida metálica em sincronia */
-  useEffect(() => {
-    const alvo = alertas.find((a) => a.tipo === "bastao");
-    if (!alvo) return;
-    const bater = () => {
-      tocarSomBastao();
-      setCutucadaId(alvo.memberId);
-      setTimeout(() => setCutucadaId(null), 420);
-    };
-    bater();
-    const idInt = setInterval(bater, 1200);
-    return () => {
-      clearInterval(idInt);
-      setCutucadaId(null);
-    };
-  }, [alertas]);
-
   /* Auto-atualização: abas deixadas abertas continuam rodando o código
      antigo mesmo após um deploy — os dados sincronizam, o código não.
      Este verificador compara a versão em execução com a publicada e
@@ -2591,7 +2544,6 @@ function AguaTracker() {
     const proxima = Number(dados.proximaCarta || 0);
     if (proxima && agora < proxima) return;
     const novo = structuredClone(dados);
-    /* MODO DE TESTE (temporário): a primeira carta vai para o TesterPower */
     /* Só entra no sorteio quem registrou água nas últimas 24 h: carta
        para quem sumiu do app não tem graça nenhuma */
     const ativos = novo.members.filter(
@@ -2600,19 +2552,17 @@ function AguaTracker() {
         24 * 60 * 60 * 1000
     );
     if (ativos.length === 0) return;
-    /* MODO DE TESTE (temporário): a carta vai sempre para o TesterPower */
-    const tester = ativos.find(
-      (m) => nomeNormalizado(m.name) === "testerpower"
-    );
-    const sorteado =
-      tester || ativos[Math.floor(Math.random() * ativos.length)];
+    const sorteado = ativos[Math.floor(Math.random() * ativos.length)];
     novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
     novo.proximaCarta = agora + (1 + Math.random() * 44) * 60 * 1000;
     persistir(novo);
   }, [dados]);
 
   const persistir = useCallback(async (novo) => {
-    setDados(novo);
+    /* "reduzir" é uma instrução de UMA gravação (Desfazer): não fica no
+       estado nem viaja em gravações futuras */
+    const { reduzir, ...limpo } = novo;
+    setDados(limpo);
     try {
       const r = await storage.set(KEY, JSON.stringify(novo));
       setErroSalvar(!r);
@@ -2682,6 +2632,9 @@ function AguaTracker() {
       poderesBloqueados.add(r.poder);
     }
   });
+
+  const podeFrasePersonalizada = minhasConquistas.has("incactificavel");
+  const LIMITE_FRASE = 90;
 
   const meusPoderes = PODERES.filter(
     (p) =>
@@ -2772,10 +2725,6 @@ function AguaTracker() {
     dados.carta && dados.carta.dia === dia && !dados.carta.usada
       ? dados.carta
       : null;
-
-  const souTester = meusMembros.some((m) =>
-    ["testerpower", "testerpower2"].includes(nomeNormalizado(m.name))
-  );
 
   /* Tempestade ativa em um cartão MEU: só a vítima vê a tela soterrada */
   const minhaTempestade = (() => {
@@ -2937,10 +2886,6 @@ function AguaTracker() {
     const meuAlvo =
       alvo.ownerId === meuDispositivo || posseExtra.includes(alvo.id);
     if (meuAlvo) return { ok: false, motivo: "é o seu próprio cartão" };
-    /* MODO DE TESTE (temporário): TesterPower usa qualquer poder em
-       qualquer pessoa, sem critério — remover após os testes */
-    if (souTester) return { ok: true, motivo: "" };
-
     if (poderesBloqueados.has(poderId)) {
       return {
         ok: false,
@@ -3040,11 +2985,6 @@ function AguaTracker() {
         };
       }
     }
-    if (poderId === "bastao") {
-      if (localStorage.getItem(`agua-bastao-${alvo.id}-${dia}`)) {
-        return { ok: false, motivo: "bastão já usado nesse alvo hoje" };
-      }
-    }
     return { ok: true, motivo: "" };
   };
 
@@ -3065,7 +3005,7 @@ function AguaTracker() {
     } catch {}
     const agora = Date.now();
     let horasAnuncio = 1;
-    if (!souTester && ["cacto", "deserto", "tempestade"].includes(poderId)) {
+    if (["cacto", "deserto", "tempestade"].includes(poderId)) {
       const oito = new Date();
       oito.setHours(8, 0, 0, 0);
       const utilHoje = ehDiaUtil(new Date());
@@ -3123,7 +3063,7 @@ function AguaTracker() {
         : null;
     const cartaEhMinha =
       cartaFresca && meusMembros.some((m) => m.id === cartaFresca.porId);
-    if (cartaFresca && !cartaEhMinha && poderId !== "bastao") {
+    if (cartaFresca && !cartaEhMinha) {
       if (cartaFresca.paraId === alvo.id) {
         setAdivinhacao({ poderId, alvo, carta: cartaFresca, base });
         setPoderAberto(null);
@@ -3138,18 +3078,7 @@ function AguaTracker() {
     const novo = structuredClone(base);
     if (!Array.isArray(novo.nudges)) novo.nudges = [];
     novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
-    if (poderId === "bastao") {
-      novo.nudges.push({
-        id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
-        to: alvo.id,
-        at: agora,
-        fromName: meuNome,
-        tipo: "bastao",
-        frase: "Beba água, sua majestade ordena!",
-      });
-      localStorage.setItem(`agua-bastao-${alvo.id}-${dia}`, "1");
-      setToast(`🥇 Bastão dourado aplicado em ${alvo.name}`);
-    } else {
+    {
       if (!novo.efeitos) novo.efeitos = {};
       const atuais = normalizarEfeitos(novo.efeitos[alvo.id]);
       atuais[poderId] = {
@@ -3347,6 +3276,9 @@ function AguaTracker() {
   /* Desfaz sempre o último registro, seja garrafa ou medida avulsa */
   const desfazer = (id) => {
     const novo = structuredClone(dados);
+    /* marca que a redução em intake/extras deste membro hoje é intencional,
+       para o servidor não "restaurar" o valor pela regra do maior */
+    novo.reduzir = { [dia]: { [id]: true } };
     const lista =
       (novo.eventos && novo.eventos[dia] && novo.eventos[dia][id]) || [];
     if (lista.length > 0) {
@@ -3373,9 +3305,10 @@ function AguaTracker() {
       return;
     }
     /* Registros feitos antes do log existir: desfaz as garrafas uma a uma
-       e, quando elas acabam, zera o avulso restante */
+       e, quando elas acabam, zera o avulso restante. reduzir já marcado */
     if (novo.intake[dia] && novo.intake[dia][id] > 0) {
       novo.intake[dia][id] -= 1;
+      descontarSeguranca(id, (dados.members.find((m) => m.id === id) || {}).bottleMl || 0);
       persistir(novo);
     } else if (novo.extras && novo.extras[dia] && novo.extras[dia][id] > 0) {
       delete novo.extras[dia][id];
@@ -3425,6 +3358,9 @@ function AguaTracker() {
   const zerarExtra = () => {
     if (!extraPara) return;
     const novo = structuredClone(dados);
+    /* redução intencional: sem esta marca, a regra do "maior valor" no
+       servidor restauraria o avulso que a pessoa acabou de zerar */
+    novo.reduzir = { [dia]: { [extraPara.id]: true } };
     if (novo.extras && novo.extras[dia]) delete novo.extras[dia][extraPara.id];
     if (novo.eventos && novo.eventos[dia] && novo.eventos[dia][extraPara.id]) {
       novo.eventos[dia][extraPara.id] = novo.eventos[dia][extraPara.id].filter(
@@ -3838,10 +3774,6 @@ function AguaTracker() {
                   a.frase
                 ) : a.tipo && a.tipo.startsWith("anuncio-") ? (
                   a.frase
-                ) : a.tipo === "bastao" ? (
-                  <>
-                    🥇 <strong>{a.nome}:</strong> {a.frase}
-                  </>
                 ) : (
                   <>
                     🔔 <strong>{a.nome}:</strong> {a.frase}
@@ -3864,9 +3796,50 @@ function AguaTracker() {
       {toast && <div className="toast">{toast}</div>}
 
       {sinoPara && (
-        <div className="modal-fundo" onClick={() => setSinoPara(null)}>
+        <div className="modal-fundo" onClick={() => { setSinoPara(null); setFraseLivre(""); }}>
           <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">🔔 Tocar o sino para {sinoPara.name}</h2>
+            {podeFrasePersonalizada && (
+              <div className="frase-livre">
+                <p className="grupo-conquista">
+                  <span className="grupo-icone">
+                    <IconeConquista
+                      conquista={CONQUISTAS.find((c) => c.id === "incactificavel")}
+                      tamanho={11}
+                    />
+                  </span>
+                  Sua provocação
+                </p>
+                <div className="frase-livre-linha">
+                  <input
+                    type="text"
+                    maxLength={LIMITE_FRASE}
+                    placeholder="Escreva sua própria frase…"
+                    value={fraseLivre}
+                    onChange={(e) => setFraseLivre(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && fraseLivre.trim()) {
+                        tocarSino(sinoPara, fraseLivre.trim());
+                        setFraseLivre("");
+                      }
+                    }}
+                  />
+                  <button
+                    className="mini-aplicar"
+                    disabled={!fraseLivre.trim()}
+                    onClick={() => {
+                      tocarSino(sinoPara, fraseLivre.trim());
+                      setFraseLivre("");
+                    }}
+                  >
+                    Enviar
+                  </button>
+                </div>
+                <p className="frase-livre-conta">
+                  {fraseLivre.length}/{LIMITE_FRASE}
+                </p>
+              </div>
+            )}
             <p className="sub">Escolha a mensagem:</p>
             <div className="lista-frases">
               {FRASES.map((f) => (
@@ -3959,7 +3932,6 @@ function AguaTracker() {
                 }
                 return ativos;
               })()}
-              cutucando={cutucadaId === m.id}
               selos={CONQUISTAS.filter(
                 (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
               )}
@@ -4430,13 +4402,54 @@ function AguaTracker() {
       )}
 
       {massaAberto && (
-        <div className="modal-fundo" onClick={() => setMassaAberto(false)}>
+        <div className="modal-fundo" onClick={() => { setMassaAberto(false); setFraseLivre(""); }}>
           <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">📢 Envio em massa</h2>
             <p className="sub">
               A mesma provocação para o time todo. Quem já recebeu 2 sinos seus
               nos últimos 10 minutos (ou já bateu a meta de hoje) fica de fora.
             </p>
+            {podeFrasePersonalizada && (
+              <div className="frase-livre">
+                <p className="grupo-conquista">
+                  <span className="grupo-icone">
+                    <IconeConquista
+                      conquista={CONQUISTAS.find((c) => c.id === "incactificavel")}
+                      tamanho={11}
+                    />
+                  </span>
+                  Sua provocação
+                </p>
+                <div className="frase-livre-linha">
+                  <input
+                    type="text"
+                    maxLength={LIMITE_FRASE}
+                    placeholder="Escreva sua própria frase…"
+                    value={fraseLivre}
+                    onChange={(e) => setFraseLivre(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && fraseLivre.trim()) {
+                        enviarEmMassa(fraseLivre.trim());
+                        setFraseLivre("");
+                      }
+                    }}
+                  />
+                  <button
+                    className="mini-aplicar"
+                    disabled={!fraseLivre.trim()}
+                    onClick={() => {
+                      enviarEmMassa(fraseLivre.trim());
+                      setFraseLivre("");
+                    }}
+                  >
+                    Enviar
+                  </button>
+                </div>
+                <p className="frase-livre-conta">
+                  {fraseLivre.length}/{LIMITE_FRASE}
+                </p>
+              </div>
+            )}
             <div className="lista-frases">
               {FRASES.map((f) => (
                 <button key={f} className="frase" onClick={() => enviarEmMassa(f)}>
