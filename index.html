@@ -734,7 +734,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-04.2";
+const APP_VERSION = "2026-09-04.3";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2150,7 +2150,7 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
             </tr>
           </thead>
           <tbody>
-            {ranking.map(({ membro: m, criadoEm }, i) => {
+            {ranking.map(({ membro: m, criadoEm, desempenho, penal }, i) => {
               const posicao = ["🥇", "🥈", "🥉"][i] || `${i + 1}º`;
               return (
                 <tr key={m.id}>
