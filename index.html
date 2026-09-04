@@ -501,7 +501,13 @@ body { margin: 0; }
 .hist-data {
   font-size: 11px; color: #9FBFCC; white-space: nowrap; font-variant-numeric: tabular-nums;
 }
-.hist-texto { font-size: 13px; color: #0B3446; }
+.hist-texto { font-size: 13px; color: #0B3446; flex: 1; }
+.hist-pct { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.hist-pct.mais { color: #0FA36B; }
+.hist-pct.menos { color: #C0392B; }
+.btn-historico-rank { color: #B6C9D3; margin-left: 2px; padding: 2px; }
+.nome-rank-linha { display: inline-flex; align-items: center; gap: 3px; }
+.penal-rank { color: #C0392B; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -691,6 +697,7 @@ const PODERES = [
       "Use em quem está há 3h ou mais sem registrar água (o relógio corre a partir das 8h, de segunda a sexta).",
       "Você precisa ter registrado ao menos 1 garrafa hoje — e quem está cactificado não cactifica ninguém.",
       "O poder tem recarga de 1 hora entre usos.",
+      "Tira 4% do desempenho semanal de quem recebe.",
       "Como o feitiço se desfaz? Isso, cada cacto descobre sozinho. 🌵",
     ],
   },
@@ -704,6 +711,7 @@ const PODERES = [
       "O cartão vira deserto e só a meta batida do dia faz chover de novo.",
       "2 ou mais garrafas em menos de 10 min travam o deserto por 3h.",
       "O poder tem recarga de 1 hora entre usos.",
+      "Tira 8% do desempenho semanal de quem recebe.",
     ],
   },
   {
@@ -716,6 +724,7 @@ const PODERES = [
       "A tela da vítima é enterrada em areia — só ela vê o estrago por inteiro; o time vê o cartão dela coberto.",
       "Para se desenterrar, ela precisa arrastar a areia para fora, camada por camada.",
       "Some sozinho na virada do dia. O poder tem recarga de 2 horas entre usos.",
+      "Tira 10% do desempenho semanal de quem recebe.",
     ],
   },
 ];
@@ -725,7 +734,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-03.3";
+const APP_VERSION = "2026-09-04.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1365,6 +1374,13 @@ function Garrafa({ pct, tamanho = 92 }) {
 /* Mapa compartilhado do soterramento: altura da areia em 24 colunas,
    cada uma de 0 a 9 (9 = enterrado até o topo) */
 const AREIA_COLS = 24;
+
+/* Penalidade de cada poder no desempenho semanal de quem sofre (em %) */
+const PENALIDADE = { cacto: 4, deserto: 8, tempestade: 10 };
+/* As penalidades no desempenho só valem para poderes aplicados a partir
+   desta atualização — nada do que aconteceu antes desconta nada. O marco
+   é o momento em que esta versão entrou no ar */
+const PENALIDADE_DESDE = 1788532224081;
 
 /* Textura de areia: base com variação de tom, manchas suaves e grãos de
    tamanhos e cores diversos. Pintada uma única vez e depois só recortada
@@ -2051,7 +2067,7 @@ function GotaDia({ pct, idClip }) {
   );
 }
 
-function HistoricoSemanal({ members, intake, extras = {} }) {
+function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHistorico }) {
   if (members.length === 0) return null;
   /* Semana fixa: da segunda-feira à sexta-feira da semana atual */
   const agora = new Date();
@@ -2071,6 +2087,11 @@ function HistoricoSemanal({ members, intake, extras = {} }) {
   /* Ranking: média do % diário nos dias válidos da semana
      (ignora dias futuros e dias anteriores à criação da garrafa,
      para não punir quem entrou no meio da semana) */
+  const ini = segunda.getTime();
+  const fimSemana = new Date(dias[4]);
+  fimSemana.setHours(23, 59, 59, 999);
+  const fimTs = fimSemana.getTime();
+
   const ranking = members
     .map((m) => {
       const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
@@ -2087,13 +2108,23 @@ function HistoricoSemanal({ members, intake, extras = {} }) {
         soma += m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
         diasValidos++;
       });
+      /* penalidades sofridas nesta semana (poderes registrados no histórico) */
+      let penal = 0;
+      ((historico && historico[m.id]) || []).forEach((e) => {
+        if (!e || e.anulado) return;
+        if (e.t < ini || e.t > fimTs) return;
+        if (e.t < PENALIDADE_DESDE) return; /* poder anterior à regra não conta */
+        if (PENALIDADE[e.tipo]) penal += PENALIDADE[e.tipo];
+      });
+      const mediaPct = diasValidos > 0 ? (soma / diasValidos) * 100 : 0;
       return {
         membro: m,
         criadoEm,
-        media: diasValidos > 0 ? soma / diasValidos : 0,
+        desempenho: mediaPct - penal,
+        penal,
       };
     })
-    .sort((a, b) => b.media - a.media);
+    .sort((a, b) => b.desempenho - a.desempenho);
 
   return (
     <section className="historico">
@@ -2119,16 +2150,33 @@ function HistoricoSemanal({ members, intake, extras = {} }) {
             </tr>
           </thead>
           <tbody>
-            {ranking.map(({ membro: m, criadoEm, media }, i) => {
+            {ranking.map(({ membro: m, criadoEm }, i) => {
               const posicao = ["🥇", "🥈", "🥉"][i] || `${i + 1}º`;
               return (
                 <tr key={m.id}>
                   <td className="col-nome" title={m.name}>
                     <span className={`posicao ${i < 3 ? "medalha" : ""}`}>{posicao}</span>
                     <span className="nome-rank">
-                      {m.name}
+                      <span className="nome-rank-linha">
+                        {m.name}
+                        <button
+                          className="btn-historico btn-historico-rank"
+                          title={`Ver histórico de ${m.name}`}
+                          aria-label={`Ver histórico de ${m.name}`}
+                          onClick={() => onHistorico && onHistorico(m)}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12.5 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v4.5" />
+                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                            <path d="M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+                          </svg>
+                        </button>
+                      </span>
                       <span className="media-rank">
-                        média {Math.round(media * 100)}%
+                        desempenho {Math.round(desempenho)}%
+                        {penal > 0 && (
+                          <span className="penal-rank"> (−{penal}% em poderes)</span>
+                        )}
                       </span>
                     </span>
                   </td>
@@ -2198,6 +2246,9 @@ function AguaTracker() {
   const [sinoPara, setSinoPara] = useState(null);
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
   const [regrasCarta, setRegrasCarta] = useState(false); // manual da carta anti-seca
+  const [novidadeDesempenho, setNovidadeDesempenho] = useState(
+    () => !localStorage.getItem("agua-novidade-desempenho")
+  );
   const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
   const [cartaAlvo, setCartaAlvo] = useState(false); // escolhendo quem proteger
   const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
@@ -2749,7 +2800,7 @@ function AguaTracker() {
       travaAte: 0,
     };
     novo.efeitos[membroId] = efs;
-    registrarHistorico(novo, membroId, { t: agora, tipo: poderId, por: autorNome });
+    registrarHistorico(novo, membroId, { t: agora, tipo: poderId, por: autorNome, pct: -(PENALIDADE[poderId] || 0) });
   };
 
   /* Resolve o palpite do atacante que esbarrou na Carta Anti-Seca */
@@ -3089,7 +3140,7 @@ function AguaTracker() {
         travaAte: 0,
       };
       novo.efeitos[alvo.id] = atuais;
-      registrarHistorico(novo, alvo.id, { t: agora, tipo: poderId, por: meuNome });
+      registrarHistorico(novo, alvo.id, { t: agora, tipo: poderId, por: meuNome, pct: -(PENALIDADE[poderId] || 0) });
       localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
       /* usou um poder tomado pelo rebote? devolve ao dono original */
       meusMembros.forEach((m) => {
@@ -3265,7 +3316,7 @@ function AguaTracker() {
     registrarEvento(novo, id, { t: "g" });
     const alvoNovo = novo.members.find((m) => m.id === id);
     if (alvoNovo) {
-      registrarHistorico(novo, id, { t: agora, tipo: "g", ml: alvoNovo.bottleMl });
+      registrarHistorico(novo, id, { t: agora, tipo: "g", ml: alvoNovo.bottleMl, pct: alvoNovo.goalMl > 0 ? Math.round((alvoNovo.bottleMl / alvoNovo.goalMl) * 100) : 0 });
     }
     aoRegistrarAgua(novo, id, agora);
     persistir(novo);
@@ -3345,7 +3396,7 @@ function AguaTracker() {
     if (!novo.extras[dia]) novo.extras[dia] = {};
     novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
     registrarEvento(novo, extraPara.id, { t: "e", ml });
-    registrarHistorico(novo, extraPara.id, { t: Date.now(), tipo: "e", ml });
+    registrarHistorico(novo, extraPara.id, { t: Date.now(), tipo: "e", ml, pct: extraPara.goalMl > 0 ? Math.round((ml / extraPara.goalMl) * 100) : 0 });
     aoRegistrarAgua(novo, extraPara.id, Date.now());
     persistir(novo);
     verificarSeguranca(extraPara.id, ml);
@@ -3749,6 +3800,45 @@ function AguaTracker() {
           </p>
         </div>
       </header>
+
+      {novidadeDesempenho && (
+        <div
+          className="modal-fundo"
+          onClick={() => {
+            localStorage.setItem("agua-novidade-desempenho", "1");
+            setNovidadeDesempenho(false);
+          }}
+        >
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <p className="comemoracao-emoji" aria-hidden="true">⚡</p>
+            <h2 className="nome">Novidade no ranking</h2>
+            <p className="aviso-agua-texto">
+              O ranking da semana agora mostra o seu <strong>desempenho</strong>,
+              não só a média de água. Beber conta a favor; sofrer poderes conta
+              contra.
+            </p>
+            <div className="regras-poder">
+              <p className="regras-poder-linha">💧 Cada registro de água soma pontos ao seu desempenho.</p>
+              <p className="regras-poder-linha">🌵 Ser cactificado tira <strong>4%</strong>.</p>
+              <p className="regras-poder-linha">🏜️ Ser desertificado tira <strong>8%</strong>.</p>
+              <p className="regras-poder-linha">⏳ Ser soterrado tira <strong>10%</strong>.</p>
+            </div>
+            <p className="aviso-agua-texto secundario">
+              Tudo fica registrado no seu histórico, com quanto cada ação somou
+              ou tirou. Ou seja: beba água e fuja dos poderes. 😄
+            </p>
+            <button
+              className="beber fechar-modal"
+              onClick={() => {
+                localStorage.setItem("agua-novidade-desempenho", "1");
+                setNovidadeDesempenho(false);
+              }}
+            >
+              Entendi!
+            </button>
+          </div>
+        </div>
+      )}
 
       {dica && (
         <div className="dica-agua" key={dica}>
@@ -4729,7 +4819,13 @@ function AguaTracker() {
                       {e.tipo === "e" && `💧 Medida avulsa · ${fmt(e.ml || 0)}`}
                       {e.tipo === "cacto" && `🌵 Cactificado por ${e.por || "alguém"}`}
                       {e.tipo === "deserto" && `🏜️ Desertificado por ${e.por || "alguém"}`}
+                      {e.tipo === "tempestade" && `⏳ Soterrado por ${e.por || "alguém"}`}
                     </span>
+                    {typeof e.pct === "number" && e.pct !== 0 && (
+                      <span className={`hist-pct ${e.pct > 0 ? "mais" : "menos"}`}>
+                        {e.pct > 0 ? `+${e.pct}%` : `${e.pct}%`}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -4798,6 +4894,8 @@ function AguaTracker() {
         members={dados.members}
         intake={dados.intake}
         extras={dados.extras || {}}
+        historico={dados.historico || {}}
+        onHistorico={setHistoricoDe}
       />
 
       <footer className="rodape">
