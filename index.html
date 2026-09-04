@@ -505,6 +505,18 @@ body { margin: 0; }
 .hist-pct { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .hist-pct.mais { color: #0FA36B; }
 .hist-pct.menos { color: #C0392B; }
+.hist-dia { margin-bottom: 14px; }
+.hist-dia-cab {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin: 6px 2px 6px; border-bottom: 1px solid #E2ECF2;
+  padding-bottom: 4px;
+}
+.hist-dia-nome {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; color: #4B7A8E;
+}
+.hist-dia-saldo { display: inline-flex; gap: 8px; }
+.hist-dia-saldo .hist-pct { font-size: 12px; }
 .btn-historico-rank { color: #B6C9D3; margin-left: 2px; padding: 2px; }
 .nome-rank-linha { display: inline-flex; align-items: center; gap: 3px; }
 .penal-rank { color: #C0392B; }
@@ -734,7 +746,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-04.6";
+const APP_VERSION = "2026-09-04.7";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2179,9 +2191,6 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
                       </span>
                       <span className="media-rank">
                         desempenho {Math.round(desempenho)}%
-                        {penal > 0 && (
-                          <span className="penal-rank"> (−{penal}% em poderes)</span>
-                        )}
                       </span>
                     </span>
                   </td>
@@ -4822,40 +4831,83 @@ function AguaTracker() {
           []
         )
           .filter((e) => !e.anulado)
-          .slice()
-          .reverse();
-        const fmtData = (ts) => {
+          /* poderes anteriores à regra de penalidade não entram */
+          .filter((e) => !(PENALIDADE[e.tipo] && e.t < PENALIDADE_DESDE));
+
+        /* agrupa por dia (mais recente primeiro) */
+        const chaveDia = (ts) => {
           const d = new Date(ts);
-          return `${String(d.getDate()).padStart(2, "0")}/${String(
-            d.getMonth() + 1
-          ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
-            d.getMinutes()
-          ).padStart(2, "0")}`;
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         };
+        const rotuloDia = (ts) => {
+          const d = new Date(ts);
+          const hojeK = chaveDia(Date.now());
+          const ontem = new Date();
+          ontem.setDate(ontem.getDate() - 1);
+          if (chaveDia(ts) === hojeK) return "Hoje";
+          if (chaveDia(ts) === chaveDia(ontem.getTime())) return "Ontem";
+          const semana = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+          return `${semana[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+        };
+        const hora = (ts) => {
+          const d = new Date(ts);
+          return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        };
+
+        const grupos = [];
+        [...lista].sort((a, b) => b.t - a.t).forEach((e) => {
+          const k = chaveDia(e.t);
+          let g = grupos.find((x) => x.k === k);
+          if (!g) {
+            g = { k, ts: e.t, itens: [], ganho: 0, perda: 0 };
+            grupos.push(g);
+          }
+          g.itens.push(e);
+          if (typeof e.pct === "number") {
+            if (e.pct > 0) g.ganho += e.pct;
+            else g.perda += Math.abs(e.pct);
+          }
+        });
+
         return (
           <div className="modal-fundo" onClick={() => setHistoricoDe(null)}>
             <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
               <h2 className="nome">📜 Histórico de {historicoDe.name}</h2>
-              <p className="sub">Registros mais recentes primeiro (até 100).</p>
+              <p className="sub">Do dia mais recente para o mais antigo (até 100 registros).</p>
               <div className="lista-historico">
-                {lista.length === 0 && (
+                {grupos.length === 0 && (
                   <p className="sub">Nada registrado por aqui ainda.</p>
                 )}
-                {lista.map((e, i) => (
-                  <div key={`${e.t}-${i}`} className="hist-item">
-                    <span className="hist-data">{fmtData(e.t)}</span>
-                    <span className="hist-texto">
-                      {e.tipo === "g" && `🍶 Garrafa · ${fmt(e.ml || 0)}`}
-                      {e.tipo === "e" && `💧 Medida avulsa · ${fmt(e.ml || 0)}`}
-                      {e.tipo === "cacto" && `🌵 Cactificado por ${e.por || "alguém"}`}
-                      {e.tipo === "deserto" && `🏜️ Desertificado por ${e.por || "alguém"}`}
-                      {e.tipo === "tempestade" && `⏳ Soterrado por ${e.por || "alguém"}`}
-                    </span>
-                    {typeof e.pct === "number" && e.pct !== 0 && (
-                      <span className={`hist-pct ${e.pct > 0 ? "mais" : "menos"}`}>
-                        {e.pct > 0 ? `+${e.pct}%` : `${e.pct}%`}
+                {grupos.map((g) => (
+                  <div key={g.k} className="hist-dia">
+                    <div className="hist-dia-cab">
+                      <span className="hist-dia-nome">{rotuloDia(g.ts)}</span>
+                      <span className="hist-dia-saldo">
+                        {g.ganho > 0 && (
+                          <span className="hist-pct mais">+{g.ganho}%</span>
+                        )}
+                        {g.perda > 0 && (
+                          <span className="hist-pct menos">−{g.perda}%</span>
+                        )}
                       </span>
-                    )}
+                    </div>
+                    {g.itens.map((e, i) => (
+                      <div key={`${e.t}-${i}`} className="hist-item">
+                        <span className="hist-data">{hora(e.t)}</span>
+                        <span className="hist-texto">
+                          {e.tipo === "g" && `🍶 Garrafa · ${fmt(e.ml || 0)}`}
+                          {e.tipo === "e" && `💧 Medida avulsa · ${fmt(e.ml || 0)}`}
+                          {e.tipo === "cacto" && `🌵 Cactificado por ${e.por || "alguém"}`}
+                          {e.tipo === "deserto" && `🏜️ Desertificado por ${e.por || "alguém"}`}
+                          {e.tipo === "tempestade" && `⏳ Soterrado por ${e.por || "alguém"}`}
+                        </span>
+                        {typeof e.pct === "number" && e.pct !== 0 && (
+                          <span className={`hist-pct ${e.pct > 0 ? "mais" : "menos"}`}>
+                            {e.pct > 0 ? `+${e.pct}%` : `${e.pct}%`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
