@@ -406,7 +406,7 @@ body { margin: 0; }
 .btn-regras-carta {
   border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0;
   cursor: pointer; padding: 7px; border-radius: 10px; line-height: 1;
-  display: inline-flex; margin-bottom: 6px;
+  display: inline-flex; margin: 0 6px 6px 0;
   box-shadow: 0 2px 6px rgba(15, 139, 176, 0.12);
   transition: background 0.15s, transform 0.15s;
 }
@@ -734,7 +734,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-04.5";
+const APP_VERSION = "2026-09-04.6";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1380,7 +1380,7 @@ const PENALIDADE = { cacto: 4, deserto: 8, tempestade: 10 };
 /* As penalidades no desempenho só valem para poderes aplicados a partir
    desta atualização — nada do que aconteceu antes desconta nada. O marco
    é o momento em que esta versão entrou no ar */
-const PENALIDADE_DESDE = 1788532224081;
+const PENALIDADE_DESDE = 1788537049282;
 /* Metas abaixo de 2 L sofrem 1,5x a penalidade (compensa a meta menor) */
 const penalidadeEfetiva = (poderId, meta) => {
   const base = PENALIDADE[poderId] || 0;
@@ -2252,7 +2252,7 @@ function AguaTracker() {
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
   const [regrasCarta, setRegrasCarta] = useState(false); // manual da carta anti-seca
   const [novidadeDesempenho, setNovidadeDesempenho] = useState(
-    () => !localStorage.getItem("agua-novidade-desempenho-2")
+    () => !localStorage.getItem("agua-novidade-desempenho-3")
   );
   const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
   const [cartaAlvo, setCartaAlvo] = useState(false); // escolhendo quem proteger
@@ -3801,6 +3801,16 @@ function AguaTracker() {
         <div className="resumo">
           <button
             className="btn-regras-carta"
+            title="Regras do desempenho e dos poderes"
+            aria-label="Regras do desempenho e dos poderes"
+            onClick={() => setNovidadeDesempenho(true)}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
+            </svg>
+          </button>
+          <button
+            className="btn-regras-carta"
             title="Regras da Carta Anti-Seca"
             aria-label="Regras da Carta Anti-Seca"
             onClick={() => setRegrasCarta(true)}
@@ -3821,7 +3831,7 @@ function AguaTracker() {
         <div
           className="modal-fundo"
           onClick={() => {
-            localStorage.setItem("agua-novidade-desempenho-2", "1");
+            localStorage.setItem("agua-novidade-desempenho-3", "1");
             setNovidadeDesempenho(false);
           }}
         >
@@ -3850,7 +3860,7 @@ function AguaTracker() {
             <button
               className="beber fechar-modal"
               onClick={() => {
-                localStorage.setItem("agua-novidade-desempenho-2", "1");
+                localStorage.setItem("agua-novidade-desempenho-3", "1");
                 setNovidadeDesempenho(false);
               }}
             >
