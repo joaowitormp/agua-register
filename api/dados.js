@@ -10,7 +10,7 @@ const CHAVE = "agua:dados";
 const CHAVE_BACKUP = "agua:backup";
 const VAZIO = { members: [], intake: {} };
 /* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-08-29.1-agua-protegida";
+const API_VERSION = "2026-09-04.1-efeitos-fundidos";
 
 /* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
    o servidor une as entradas já salvas com as recebidas (chave = momento
@@ -53,6 +53,31 @@ const mesclarUltimo = (antigo, novo) => {
 /* Metas congeladas por dia: uma vez gravada, a meta daquele dia nunca é
    sobrescrita por uma aba desatualizada — é o que impede alterar a meta
    hoje e "reescrever" se os dias antigos foram batidos ou não */
+/* Efeitos ativos (cacto/deserto/soterramento): funde por membro para que
+   uma aba sem o efeito recém-aplicado não o apague. Efeitos de dias
+   anteriores não são preservados — a virada do dia zera tudo */
+const mesclarEfeitos = (antigo, novo, diaHoje) => {
+  const res = {};
+  const ids = new Set([
+    ...Object.keys(antigo || {}),
+    ...Object.keys(novo || {}),
+  ]);
+  ids.forEach((id) => {
+    const merged = { ...((antigo && antigo[id]) || {}), ...((novo && novo[id]) || {}) };
+    /* mantém só o que é de hoje */
+    const limpo = {};
+    Object.keys(merged).forEach((tipo) => {
+      const ef = merged[tipo];
+      if (!ef || typeof ef.desde !== "number") return;
+      const d = new Date(ef.desde);
+      const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (chave === diaHoje) limpo[tipo] = ef;
+    });
+    if (Object.keys(limpo).length > 0) res[id] = limpo;
+  });
+  return res;
+};
+
 const mesclarMetas = (antigo, novo) => {
   const resultado = { ...(antigo || {}) };
   Object.keys(novo || {}).forEach((dia) => {
@@ -180,6 +205,10 @@ export default async function handler(req, res) {
         corpo.historico = mesclarHistorico(atual.historico, corpo.historico);
         corpo.ultimo = mesclarUltimo(atual.ultimo, corpo.ultimo);
         corpo.metas = mesclarMetas(atual.metas, corpo.metas);
+        /* dia atual segundo o servidor, para expirar efeitos antigos */
+        const _d = new Date();
+        const diaHoje = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
+        corpo.efeitos = mesclarEfeitos(atual.efeitos, corpo.efeitos, diaHoje);
       }
 
       delete corpo.reduzir; /* campo auxiliar de gravação, não persiste */
