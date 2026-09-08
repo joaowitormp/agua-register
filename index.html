@@ -530,11 +530,12 @@ body { margin: 0; }
 .hist-recorde { font-size: 11.5px; color: #6FA6BC; white-space: nowrap; }
 .bloco-titulo { margin: 14px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #4B7A8E; }
 .graf-mensal { margin-top: 6px; }
-.graf-linha { width: 100%; height: 120px; display: block; }
+.graf-linha { width: 100%; height: 150px; display: block; }
 .graf-legenda { display: flex; gap: 16px; justify-content: center; margin-top: 4px; font-size: 11px; color: #4B7A8E; }
 .graf-legenda i { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin-right: 4px; }
 .leg-agua { border-top: 2.5px solid #0F8BB0; }
 .leg-meta { border-top: 1.5px dashed #C0392B; }
+.graf-eixo-txt { font-size: 8px; fill: #9FBFCC; font-family: inherit; }
 .cal-navegacao { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 16px 0 4px; }
 .cal-seta { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #D8ECF3; background: #FFFFFF; color: #0F8BB0; font-size: 18px; line-height: 1; cursor: pointer; }
 .cal-seta:hover:not(:disabled) { background: #EAF6FA; }
@@ -773,7 +774,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-05.7";
+const APP_VERSION = "2026-09-05.8";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1889,7 +1890,7 @@ function GraficoMensal({ membro, intake, extras, metas, offset }) {
     pts.push({ dia, ml: count * membro.bottleMl + extra, meta: metaDia });
   }
 
-  const W = 300, H = 120, padL = 4, padR = 4, padT = 10, padB = 16;
+  const W = 320, H = 150, padL = 30, padR = 8, padT = 10, padB = 22;
   const areaW = W - padL - padR;
   const areaH = H - padT - padB;
   const maxV = Math.max(
@@ -1900,6 +1901,11 @@ function GraficoMensal({ membro, intake, extras, metas, offset }) {
   ) * 1.1;
   const x = (i) => padL + (pts.length <= 1 ? areaW / 2 : (i / (pts.length - 1)) * areaW);
   const y = (v) => padT + areaH - (v / maxV) * areaH;
+  /* marcações do eixo Y em litros (0, meio, topo) */
+  const maxL = maxV / 1000;
+  const ticksY = [0, maxL / 2, maxL];
+  /* rótulos de dia no eixo X: no máximo ~8 para não poluir */
+  const passoX = Math.max(1, Math.ceil(pts.length / 8));
 
   /* caminho suavizado passando pelos pontos (curvas, sem bicos) */
   const suave = (vals) => {
@@ -1933,16 +1939,36 @@ function GraficoMensal({ membro, intake, extras, metas, offset }) {
         <p className="sub">Sem registros neste mês.</p>
       ) : (
         <>
-          <svg className="graf-linha" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+          <svg className="graf-linha" viewBox={`0 0 ${W} ${H}`}>
             <defs>
               <linearGradient id={`gl-${membro.id}-${offset}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stopColor="#41C9E6" stopOpacity="0.35" />
                 <stop offset="1" stopColor="#41C9E6" stopOpacity="0" />
               </linearGradient>
             </defs>
+            {/* grade horizontal + rótulos de litros à esquerda */}
+            {ticksY.map((t, i) => {
+              const gy = padT + areaH - (t / maxL) * areaH;
+              return (
+                <g key={i}>
+                  <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke="#E2ECF2" strokeWidth="1" />
+                  <text x={padL - 6} y={gy + 3} textAnchor="end" className="graf-eixo-txt">
+                    {t >= 1 ? t.toFixed(t < 10 ? 1 : 0) : t === 0 ? "0" : t.toFixed(1)}
+                  </text>
+                </g>
+              );
+            })}
             {areaAgua && <path d={areaAgua} fill={`url(#gl-${membro.id}-${offset})`} />}
             <path d={linhaMeta} fill="none" stroke="#C0392B" strokeWidth="1.2" strokeDasharray="4 3" strokeLinecap="round" />
             <path d={linhaAgua} fill="none" stroke="#0F8BB0" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+            {/* rótulos de dia no eixo X */}
+            {pts.map((p, i) =>
+              i % passoX === 0 || i === pts.length - 1 ? (
+                <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="graf-eixo-txt">
+                  {p.dia}
+                </text>
+              ) : null
+            )}
           </svg>
           <div className="graf-legenda">
             <span><i className="leg-agua" /> Bebido</span>
