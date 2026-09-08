@@ -520,6 +520,7 @@ body { margin: 0; }
 .btn-historico-rank { color: #B6C9D3; margin-left: 2px; padding: 2px; }
 .nome-rank-linha { display: inline-flex; align-items: center; gap: 3px; }
 .penal-rank { color: #C0392B; }
+.seq-rank { color: #E8710A; font-weight: 600; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -746,7 +747,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-04.7";
+const APP_VERSION = "2026-09-05.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1075,11 +1076,13 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia) {
       /* Sequências contam apenas dias úteis: fim de semana e feriado
          nacional não somam nem quebram a corrente */
       if (ehDiaUtil(d)) {
-        if (bateu) { seqUtil++; } else { seqUtil = 0; }
+        /* hoje ainda não batido não quebra a sequência — o dia não acabou */
+        if (bateu) { seqUtil++; }
+        else if (chaveDe(d) !== chaveHoje) { seqUtil = 0; }
         if (seqUtil > maxUtil) maxUtil = seqUtil;
       }
     }
-    resultado[m.id] = { conjunto: new Set(), totalMl, diasMeta, maxUtil };
+    resultado[m.id] = { conjunto: new Set(), totalMl, diasMeta, maxUtil, seqAtual: seqUtil };
   });
 
   /* Semanas já fechadas: posições do ranking e semanas perfeitas */
@@ -2084,7 +2087,7 @@ function GotaDia({ pct, idClip }) {
   );
 }
 
-function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHistorico }) {
+function HistoricoSemanal({ members, intake, extras = {}, historico = {}, sequencias = {}, onHistorico }) {
   if (members.length === 0) return null;
   /* Semana fixa: da segunda-feira à sexta-feira da semana atual */
   const agora = new Date();
@@ -2117,6 +2120,8 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
       dias.forEach((d) => {
         const k = chave(d);
         if (k > chaveHoje) return;
+        /* feriado nacional e fim de semana não entram no desempenho */
+        if (!ehDiaUtil(d)) return;
         const fimDoDia = new Date(d);
         fimDoDia.setHours(23, 59, 59, 999);
         if (criadoEm > fimDoDia.getTime()) return;
@@ -2191,6 +2196,12 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
                       </span>
                       <span className="media-rank">
                         desempenho {Math.round(desempenho)}%
+                        {(sequencias[m.id]?.seqAtual || 0) > 0 && (
+                          <span className="seq-rank">
+                            {" · 🔥 "}{sequencias[m.id].seqAtual} dia
+                            {sequencias[m.id].seqAtual > 1 ? "s" : ""} seguidos
+                          </span>
+                        )}
                       </span>
                     </span>
                   </td>
@@ -4977,6 +4988,7 @@ function AguaTracker() {
         intake={dados.intake}
         extras={dados.extras || {}}
         historico={dados.historico || {}}
+        sequencias={conquistas}
         onHistorico={setHistoricoDe}
       />
 
