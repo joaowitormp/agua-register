@@ -523,11 +523,11 @@ body { margin: 0; }
 .hist-sequencia {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 10px; margin: 8px 0 2px; padding: 9px 12px;
-  background: #FFF4EC; border: 1px solid #FBD9BF; border-radius: 10px;
-  font-size: 13px; color: #B5540A;
+  background: #EAF6FA; border: 1px solid #C9E7F2; border-radius: 10px;
+  font-size: 13px; color: #0B5A73;
 }
-.hist-sequencia strong { font-size: 15px; }
-.hist-recorde { font-size: 11.5px; color: #C88A5A; white-space: nowrap; }
+.hist-sequencia strong { font-size: 15px; color: #0F8BB0; }
+.hist-recorde { font-size: 11.5px; color: #6FA6BC; white-space: nowrap; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -754,7 +754,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-05.2";
+const APP_VERSION = "2026-09-05.3";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -4898,7 +4898,7 @@ function AguaTracker() {
                 return (
                   <div className="hist-sequencia">
                     <span>
-                      🔥 <strong>{seq}</strong> dia{seq === 1 ? "" : "s"} seguido
+                      <strong>{seq}</strong> dia{seq === 1 ? "" : "s"} seguido
                       {seq === 1 ? "" : "s"} com a meta
                     </span>
                     {rec > 0 && (
