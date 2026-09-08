@@ -528,6 +528,25 @@ body { margin: 0; }
 }
 .hist-sequencia strong { font-size: 15px; color: #0F8BB0; }
 .hist-recorde { font-size: 11.5px; color: #6FA6BC; white-space: nowrap; }
+.bloco-titulo { margin: 14px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #4B7A8E; }
+.graf-mensal { margin-top: 6px; }
+.graf-barras { display: flex; align-items: flex-end; gap: 8px; height: 96px; }
+.graf-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; }
+.graf-valor { font-size: 10.5px; color: #4B7A8E; font-variant-numeric: tabular-nums; height: 12px; }
+.graf-trilho { flex: 1; width: 100%; max-width: 34px; background: #EAF6FA; border-radius: 6px 6px 0 0; display: flex; align-items: flex-end; overflow: hidden; }
+.graf-preenche { width: 100%; background: linear-gradient(180deg, #41C9E6, #0F8BB0); border-radius: 6px 6px 0 0; min-height: 2px; transition: height 0.3s; }
+.graf-mes { font-size: 10.5px; color: #9FBFCC; }
+.cal-navegacao { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 16px 0 4px; }
+.cal-seta { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #D8ECF3; background: #FFFFFF; color: #0F8BB0; font-size: 18px; line-height: 1; cursor: pointer; }
+.cal-seta:hover:not(:disabled) { background: #EAF6FA; }
+.cal-seta:disabled { opacity: 0.35; cursor: not-allowed; }
+.cal-nav-label { font-size: 12.5px; font-weight: 600; color: #0B3446; min-width: 96px; text-align: center; }
+.cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-cab { text-align: center; font-size: 10.5px; font-weight: 700; color: #9FBFCC; padding-bottom: 2px; }
+.cal-dia { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 0; border-radius: 8px; }
+.cal-hoje { background: #EAF6FA; }
+.cal-num { font-size: 10px; color: #6B8A99; }
+.cal-vazio { display: inline-block; width: 22px; height: 24px; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -754,7 +773,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-05.3";
+const APP_VERSION = "2026-09-05.4";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1845,6 +1864,101 @@ function CartaAntiSeca({ expiraEm, virada, onVirar }) {
   );
 }
 
+/* Gráfico de barras: total de água (L) por mês, últimos ~6 meses.
+   Puramente visual, calculado a partir de intake/extras do membro */
+function GraficoMensal({ membro, intake, extras }) {
+  const meses = [];
+  const base = new Date();
+  base.setDate(1);
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+    let ml = 0;
+    Object.keys(intake || {}).forEach((k) => {
+      const [ano, mes] = k.split("-").map(Number);
+      if (ano === d.getFullYear() && mes === d.getMonth() + 1) {
+        ml += ((intake[k] || {})[membro.id] || 0) * membro.bottleMl;
+      }
+    });
+    Object.keys(extras || {}).forEach((k) => {
+      const [ano, mes] = k.split("-").map(Number);
+      if (ano === d.getFullYear() && mes === d.getMonth() + 1) {
+        ml += (extras[k] || {})[membro.id] || 0;
+      }
+    });
+    meses.push({ nome: ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][d.getMonth()], litros: ml / 1000 });
+  }
+  const max = Math.max(1, ...meses.map((m) => m.litros));
+  return (
+    <div className="graf-mensal">
+      <p className="bloco-titulo">Água por mês (L)</p>
+      <div className="graf-barras">
+        {meses.map((m, i) => (
+          <div key={i} className="graf-col">
+            <span className="graf-valor">{m.litros >= 1 ? Math.round(m.litros) : m.litros > 0 ? m.litros.toFixed(1) : ""}</span>
+            <div className="graf-trilho">
+              <div
+                className="graf-preenche"
+                style={{ height: `${Math.round((m.litros / max) * 100)}%` }}
+              />
+            </div>
+            <span className="graf-mes">{m.nome}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Calendário do mês com uma gota por dia representando a % da meta batida.
+   offset 0 = mês atual, 1 = mês anterior (limite máximo) */
+function CalendarioGotas({ membro, intake, extras, metas, offset }) {
+  const hoje = new Date();
+  const ref = new Date(hoje.getFullYear(), hoje.getMonth() - offset, 1);
+  const ano = ref.getFullYear();
+  const mes = ref.getMonth();
+  const primeiroDiaSemana = new Date(ano, mes, 1).getDay();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const nomeMes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][mes];
+  const chaveHojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
+
+  const celulas = [];
+  for (let i = 0; i < primeiroDiaSemana; i++) celulas.push(null);
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const k = `${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    const count = (intake[k] && intake[k][membro.id]) || 0;
+    const extra = (extras[k] && extras[k][membro.id]) || 0;
+    const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
+    const pct = metaDia > 0 ? (count * membro.bottleMl + extra) / metaDia : 0;
+    const futuro = k > chaveHojeStr;
+    celulas.push({ dia, pct, futuro, hoje: k === chaveHojeStr });
+  }
+
+  return (
+    <div className="calendario">
+      <p className="bloco-titulo">{nomeMes} {ano}</p>
+      <div className="cal-grade">
+        {["D","S","T","Q","Q","S","S"].map((d, i) => (
+          <span key={`h${i}`} className="cal-cab">{d}</span>
+        ))}
+        {celulas.map((c, i) =>
+          c === null ? (
+            <span key={`v${i}`} />
+          ) : (
+            <span key={c.dia} className={`cal-dia ${c.hoje ? "cal-hoje" : ""}`} title={c.futuro ? "" : `${Math.round(c.pct*100)}% da meta`}>
+              {c.futuro ? (
+                <span className="cal-vazio" />
+              ) : (
+                <GotaDia pct={c.pct} idClip={`cal-${membro.id}-${c.dia}-${offset}`} />
+              )}
+              <span className="cal-num">{c.dia}</span>
+            </span>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
@@ -2290,6 +2404,7 @@ function AguaTracker() {
   const [fraseLivre, setFraseLivre] = useState(""); // provocação personalizada (Incactificável)
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
   const [historicoDe, setHistoricoDe] = useState(null); // membro cujo histórico está aberto
+  const [mesHist, setMesHist] = useState(0); // 0 = mês atual, 1 = mês anterior
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
@@ -2956,6 +3071,10 @@ function AguaTracker() {
     novo.efeitos[id] = efs;
     persistir(novo);
   };
+
+  React.useEffect(() => {
+    if (historicoDe) setMesHist(0);
+  }, [historicoDe]);
 
   const limparTempestade = (id) => {
     const novo = structuredClone(dados);
@@ -4907,7 +5026,42 @@ function AguaTracker() {
                   </div>
                 );
               })()}
-              <p className="sub">Do dia mais recente para o mais antigo (até 100 registros).</p>
+              <GraficoMensal
+                membro={historicoDe}
+                intake={dados.intake}
+                extras={dados.extras || {}}
+              />
+
+              <div className="cal-navegacao">
+                <button
+                  className="cal-seta"
+                  disabled={mesHist >= 1}
+                  onClick={() => setMesHist(1)}
+                  aria-label="Mês anterior"
+                >
+                  ‹
+                </button>
+                <span className="cal-nav-label">
+                  {mesHist === 0 ? "Mês atual" : "Mês anterior"}
+                </span>
+                <button
+                  className="cal-seta"
+                  disabled={mesHist <= 0}
+                  onClick={() => setMesHist(0)}
+                  aria-label="Mês seguinte"
+                >
+                  ›
+                </button>
+              </div>
+              <CalendarioGotas
+                membro={historicoDe}
+                intake={dados.intake}
+                extras={dados.extras || {}}
+                metas={dados.metas || {}}
+                offset={mesHist}
+              />
+
+              <p className="sub sub-registros">Registros — do mais recente ao mais antigo (até 100).</p>
               <div className="lista-historico">
                 {grupos.length === 0 && (
                   <p className="sub">Nada registrado por aqui ainda.</p>
