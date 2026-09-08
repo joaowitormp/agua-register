@@ -530,12 +530,11 @@ body { margin: 0; }
 .hist-recorde { font-size: 11.5px; color: #6FA6BC; white-space: nowrap; }
 .bloco-titulo { margin: 14px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #4B7A8E; }
 .graf-mensal { margin-top: 6px; }
-.graf-barras { display: flex; align-items: flex-end; gap: 8px; height: 96px; }
-.graf-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; }
-.graf-valor { font-size: 10.5px; color: #4B7A8E; font-variant-numeric: tabular-nums; height: 12px; }
-.graf-trilho { flex: 1; width: 100%; max-width: 34px; background: #EAF6FA; border-radius: 6px 6px 0 0; display: flex; align-items: flex-end; overflow: hidden; }
-.graf-preenche { width: 100%; background: linear-gradient(180deg, #41C9E6, #0F8BB0); border-radius: 6px 6px 0 0; min-height: 2px; transition: height 0.3s; }
-.graf-mes { font-size: 10.5px; color: #9FBFCC; }
+.graf-linha { width: 100%; height: 120px; display: block; }
+.graf-legenda { display: flex; gap: 16px; justify-content: center; margin-top: 4px; font-size: 11px; color: #4B7A8E; }
+.graf-legenda i { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin-right: 4px; }
+.leg-agua { border-top: 2.5px solid #0F8BB0; }
+.leg-meta { border-top: 1.5px dashed #C0392B; }
 .cal-navegacao { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 16px 0 4px; }
 .cal-seta { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #D8ECF3; background: #FFFFFF; color: #0F8BB0; font-size: 18px; line-height: 1; cursor: pointer; }
 .cal-seta:hover:not(:disabled) { background: #EAF6FA; }
@@ -773,7 +772,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-05.5";
+const APP_VERSION = "2026-09-05.6";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1866,45 +1865,72 @@ function CartaAntiSeca({ expiraEm, virada, onVirar }) {
 
 /* Gráfico de barras: total de água (L) por mês, últimos ~6 meses.
    Puramente visual, calculado a partir de intake/extras do membro */
-function GraficoMensal({ membro, intake, extras }) {
-  const meses = [];
-  const base = new Date();
-  base.setDate(1);
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
-    let ml = 0;
-    Object.keys(intake || {}).forEach((k) => {
-      const [ano, mes] = k.split("-").map(Number);
-      if (ano === d.getFullYear() && mes === d.getMonth() + 1) {
-        ml += ((intake[k] || {})[membro.id] || 0) * membro.bottleMl;
-      }
-    });
-    Object.keys(extras || {}).forEach((k) => {
-      const [ano, mes] = k.split("-").map(Number);
-      if (ano === d.getFullYear() && mes === d.getMonth() + 1) {
-        ml += (extras[k] || {})[membro.id] || 0;
-      }
-    });
-    meses.push({ nome: ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][d.getMonth()], litros: ml / 1000 });
+/* Gráfico de linha: água bebida por dia no mês (offset 0 = atual, 1 = anterior),
+   com a linha da meta. A meta é a do dia (congelada) — varia só se o usuário
+   mudou a meta ao longo do mês; senão fica reta */
+function GraficoMensal({ membro, intake, extras, metas, offset }) {
+  const hoje = new Date();
+  const ref = new Date(hoje.getFullYear(), hoje.getMonth() - offset, 1);
+  const ano = ref.getFullYear();
+  const mes = ref.getMonth();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const chaveHojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
+
+  const pts = [];
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const k = `${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    if (k > chaveHojeStr) break; /* não desenha o futuro */
+    const count = (intake[k] && intake[k][membro.id]) || 0;
+    const extra = (extras[k] && extras[k][membro.id]) || 0;
+    const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
+    pts.push({ dia, ml: count * membro.bottleMl + extra, meta: metaDia });
   }
-  const max = Math.max(1, ...meses.map((m) => m.litros));
+
+  const W = 300, H = 120, padL = 4, padR = 4, padT = 10, padB = 16;
+  const areaW = W - padL - padR;
+  const areaH = H - padT - padB;
+  const maxV = Math.max(
+    membro.goalMl,
+    ...pts.map((p) => p.ml),
+    ...pts.map((p) => p.meta),
+    1
+  ) * 1.1;
+  const x = (i) => padL + (pts.length <= 1 ? areaW / 2 : (i / (pts.length - 1)) * areaW);
+  const y = (v) => padT + areaH - (v / maxV) * areaH;
+
+  const linhaAgua = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(p.ml).toFixed(1)}`).join(" ");
+  const areaAgua = pts.length
+    ? `${linhaAgua} L${x(pts.length-1).toFixed(1)} ${(padT+areaH).toFixed(1)} L${x(0).toFixed(1)} ${(padT+areaH).toFixed(1)} Z`
+    : "";
+  const linhaMeta = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(p.meta).toFixed(1)}`).join(" ");
+
   return (
     <div className="graf-mensal">
-      <p className="bloco-titulo">Água por mês (L)</p>
-      <div className="graf-barras">
-        {meses.map((m, i) => (
-          <div key={i} className="graf-col">
-            <span className="graf-valor">{m.litros >= 1 ? Math.round(m.litros) : m.litros > 0 ? m.litros.toFixed(1) : ""}</span>
-            <div className="graf-trilho">
-              <div
-                className="graf-preenche"
-                style={{ height: `${Math.round((m.litros / max) * 100)}%` }}
-              />
-            </div>
-            <span className="graf-mes">{m.nome}</span>
+      <p className="bloco-titulo">Água por dia (L)</p>
+      {pts.length === 0 ? (
+        <p className="sub">Sem registros neste mês.</p>
+      ) : (
+        <>
+          <svg className="graf-linha" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+            <defs>
+              <linearGradient id={`gl-${membro.id}-${offset}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#41C9E6" stopOpacity="0.35" />
+                <stop offset="1" stopColor="#41C9E6" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {areaAgua && <path d={areaAgua} fill={`url(#gl-${membro.id}-${offset})`} />}
+            <path d={linhaMeta} fill="none" stroke="#C0392B" strokeWidth="1.5" strokeDasharray="4 3" />
+            <path d={linhaAgua} fill="none" stroke="#0F8BB0" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            {pts.map((p, i) => (
+              <circle key={i} cx={x(i)} cy={y(p.ml)} r="2.4" fill={p.ml >= p.meta ? "#0FA36B" : "#0F8BB0"} />
+            ))}
+          </svg>
+          <div className="graf-legenda">
+            <span><i className="leg-agua" /> Bebido</span>
+            <span><i className="leg-meta" /> Meta</span>
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -5025,12 +5051,6 @@ function AguaTracker() {
                   </div>
                 );
               })()}
-              <GraficoMensal
-                membro={historicoDe}
-                intake={dados.intake}
-                extras={dados.extras || {}}
-              />
-
               <div className="cal-navegacao">
                 <button
                   className="cal-seta"
@@ -5052,6 +5072,15 @@ function AguaTracker() {
                   ›
                 </button>
               </div>
+
+              <GraficoMensal
+                membro={historicoDe}
+                intake={dados.intake}
+                extras={dados.extras || {}}
+                metas={dados.metas || {}}
+                offset={mesHist}
+              />
+
               <CalendarioGotas
                 membro={historicoDe}
                 intake={dados.intake}
