@@ -408,6 +408,12 @@ body { margin: 0; }
 .sino-noivo { color: #E8B004 !important; }
 .frase-casamento { border-color: #F2D680; background: #FFFBF0; }
 .frase-casamento:hover { background: #FFF6DA; border-color: #E8B004; }
+.historico-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.semana-nav { display: inline-flex; align-items: center; gap: 8px; }
+.semana-seta { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #D8ECF3; background: #FFFFFF; color: #0F8BB0; font-size: 16px; line-height: 1; cursor: pointer; }
+.semana-seta:hover:not(:disabled) { background: #EAF6FA; }
+.semana-seta:disabled { opacity: 0.35; cursor: not-allowed; }
+.semana-label { font-size: 12px; font-weight: 600; color: #4B7A8E; min-width: 96px; text-align: center; }
 
 .btn-regras-carta {
   border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0;
@@ -780,7 +786,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-08.1";
+const APP_VERSION = "2026-09-08.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2373,11 +2379,12 @@ function GotaDia({ pct, idClip }) {
 }
 
 function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHistorico }) {
+  const [semanaOffset, setSemanaOffset] = useState(0); // 0 = atual, 1 = passada
   if (members.length === 0) return null;
-  /* Semana fixa: da segunda-feira à sexta-feira da semana atual */
+  /* Semana fixa: segunda a sexta; offset recua semanas inteiras */
   const agora = new Date();
   const segunda = new Date(agora);
-  segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7));
+  segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7) - semanaOffset * 7);
   const dias = [];
   for (let i = 0; i < 5; i++) {
     const d = new Date(segunda);
@@ -2433,9 +2440,35 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
     })
     .sort((a, b) => b.desempenho - a.desempenho);
 
+  const rotuloSemana =
+    semanaOffset === 0
+      ? "esta semana"
+      : `${chave(dias[0]).slice(8)}/${chave(dias[0]).slice(5,7)} a ${chave(dias[4]).slice(8)}/${chave(dias[4]).slice(5,7)}`;
+
   return (
     <section className="historico">
-      <h2 className="historico-titulo">Ranking da semana</h2>
+      <div className="historico-cab">
+        <h2 className="historico-titulo">Ranking da semana</h2>
+        <div className="semana-nav">
+          <button
+            className="semana-seta"
+            disabled={semanaOffset >= 1}
+            onClick={() => setSemanaOffset(1)}
+            aria-label="Semana passada"
+          >
+            ‹
+          </button>
+          <span className="semana-label">{rotuloSemana}</span>
+          <button
+            className="semana-seta"
+            disabled={semanaOffset <= 0}
+            onClick={() => setSemanaOffset(0)}
+            aria-label="Semana atual"
+          >
+            ›
+          </button>
+        </div>
+      </div>
       <p className="historico-sub">
         Segunda a sexta — ordenado pela média diária da meta. Gota verde = meta
         batida.
