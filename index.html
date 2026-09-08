@@ -773,7 +773,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-05.4";
+const APP_VERSION = "2026-09-05.5";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2405,6 +2405,9 @@ function AguaTracker() {
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
   const [historicoDe, setHistoricoDe] = useState(null); // membro cujo histórico está aberto
   const [mesHist, setMesHist] = useState(0); // 0 = mês atual, 1 = mês anterior
+  useEffect(() => {
+    if (historicoDe) setMesHist(0);
+  }, [historicoDe]);
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
@@ -3071,10 +3074,6 @@ function AguaTracker() {
     novo.efeitos[id] = efs;
     persistir(novo);
   };
-
-  React.useEffect(() => {
-    if (historicoDe) setMesHist(0);
-  }, [historicoDe]);
 
   const limparTempestade = (id) => {
     const novo = structuredClone(dados);
