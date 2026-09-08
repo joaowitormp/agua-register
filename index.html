@@ -546,6 +546,7 @@ body { margin: 0; }
 .cal-hoje { background: #EAF6FA; }
 .cal-num { font-size: 10px; color: #6B8A99; }
 .cal-vazio { display: inline-block; width: 22px; height: 24px; }
+.cal-traco { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; color: #C5D6DE; font-weight: 700; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -772,7 +773,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-05.6";
+const APP_VERSION = "2026-09-05.7";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1880,6 +1881,8 @@ function GraficoMensal({ membro, intake, extras, metas, offset }) {
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const k = `${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
     if (k > chaveHojeStr) break; /* não desenha o futuro */
+    const d = new Date(ano, mes, dia);
+    if (!ehDiaUtil(d)) continue; /* fim de semana e feriado não contam */
     const count = (intake[k] && intake[k][membro.id]) || 0;
     const extra = (extras[k] && extras[k][membro.id]) || 0;
     const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
@@ -1898,11 +1901,30 @@ function GraficoMensal({ membro, intake, extras, metas, offset }) {
   const x = (i) => padL + (pts.length <= 1 ? areaW / 2 : (i / (pts.length - 1)) * areaW);
   const y = (v) => padT + areaH - (v / maxV) * areaH;
 
-  const linhaAgua = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(p.ml).toFixed(1)}`).join(" ");
+  /* caminho suavizado passando pelos pontos (curvas, sem bicos) */
+  const suave = (vals) => {
+    const P = vals.map((v, i) => [x(i), y(v)]);
+    if (P.length === 0) return "";
+    if (P.length === 1) return `M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;
+    let d = `M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;
+    for (let i = 0; i < P.length - 1; i++) {
+      const p0 = P[i - 1] || P[i];
+      const p1 = P[i];
+      const p2 = P[i + 1];
+      const p3 = P[i + 2] || p2;
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+      const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+      const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
+  const linhaAgua = suave(pts.map((p) => p.ml));
   const areaAgua = pts.length
     ? `${linhaAgua} L${x(pts.length-1).toFixed(1)} ${(padT+areaH).toFixed(1)} L${x(0).toFixed(1)} ${(padT+areaH).toFixed(1)} Z`
     : "";
-  const linhaMeta = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(p.meta).toFixed(1)}`).join(" ");
+  const linhaMeta = suave(pts.map((p) => p.meta));
 
   return (
     <div className="graf-mensal">
@@ -1919,11 +1941,8 @@ function GraficoMensal({ membro, intake, extras, metas, offset }) {
               </linearGradient>
             </defs>
             {areaAgua && <path d={areaAgua} fill={`url(#gl-${membro.id}-${offset})`} />}
-            <path d={linhaMeta} fill="none" stroke="#C0392B" strokeWidth="1.5" strokeDasharray="4 3" />
-            <path d={linhaAgua} fill="none" stroke="#0F8BB0" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {pts.map((p, i) => (
-              <circle key={i} cx={x(i)} cy={y(p.ml)} r="2.4" fill={p.ml >= p.meta ? "#0FA36B" : "#0F8BB0"} />
-            ))}
+            <path d={linhaMeta} fill="none" stroke="#C0392B" strokeWidth="1.2" strokeDasharray="4 3" strokeLinecap="round" />
+            <path d={linhaAgua} fill="none" stroke="#0F8BB0" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
           </svg>
           <div className="graf-legenda">
             <span><i className="leg-agua" /> Bebido</span>
@@ -1951,12 +1970,14 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
   for (let i = 0; i < primeiroDiaSemana; i++) celulas.push(null);
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const k = `${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    const d = new Date(ano, mes, dia);
+    const util = ehDiaUtil(d); /* fim de semana e feriado: só traço */
     const count = (intake[k] && intake[k][membro.id]) || 0;
     const extra = (extras[k] && extras[k][membro.id]) || 0;
     const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
     const pct = metaDia > 0 ? (count * membro.bottleMl + extra) / metaDia : 0;
     const futuro = k > chaveHojeStr;
-    celulas.push({ dia, pct, futuro, hoje: k === chaveHojeStr });
+    celulas.push({ dia, pct, futuro, util, hoje: k === chaveHojeStr });
   }
 
   return (
@@ -1970,9 +1991,11 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
           c === null ? (
             <span key={`v${i}`} />
           ) : (
-            <span key={c.dia} className={`cal-dia ${c.hoje ? "cal-hoje" : ""}`} title={c.futuro ? "" : `${Math.round(c.pct*100)}% da meta`}>
+            <span key={c.dia} className={`cal-dia ${c.hoje ? "cal-hoje" : ""}`} title={c.futuro || !c.util ? "" : `${Math.round(c.pct*100)}% da meta`}>
               {c.futuro ? (
                 <span className="cal-vazio" />
+              ) : !c.util ? (
+                <span className="cal-traco">–</span>
               ) : (
                 <GotaDia pct={c.pct} idClip={`cal-${membro.id}-${c.dia}-${offset}`} />
               )}
