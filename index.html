@@ -520,7 +520,14 @@ body { margin: 0; }
 .btn-historico-rank { color: #B6C9D3; margin-left: 2px; padding: 2px; }
 .nome-rank-linha { display: inline-flex; align-items: center; gap: 3px; }
 .penal-rank { color: #C0392B; }
-.seq-rank { color: #E8710A; font-weight: 600; }
+.hist-sequencia {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin: 8px 0 2px; padding: 9px 12px;
+  background: #FFF4EC; border: 1px solid #FBD9BF; border-radius: 10px;
+  font-size: 13px; color: #B5540A;
+}
+.hist-sequencia strong { font-size: 15px; }
+.hist-recorde { font-size: 11.5px; color: #C88A5A; white-space: nowrap; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -747,7 +754,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-05.1";
+const APP_VERSION = "2026-09-05.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2087,7 +2094,7 @@ function GotaDia({ pct, idClip }) {
   );
 }
 
-function HistoricoSemanal({ members, intake, extras = {}, historico = {}, sequencias = {}, onHistorico }) {
+function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHistorico }) {
   if (members.length === 0) return null;
   /* Semana fixa: da segunda-feira à sexta-feira da semana atual */
   const agora = new Date();
@@ -2196,12 +2203,6 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, sequen
                       </span>
                       <span className="media-rank">
                         desempenho {Math.round(desempenho)}%
-                        {(sequencias[m.id]?.seqAtual || 0) > 0 && (
-                          <span className="seq-rank">
-                            {" · 🔥 "}{sequencias[m.id].seqAtual} dia
-                            {sequencias[m.id].seqAtual > 1 ? "s" : ""} seguidos
-                          </span>
-                        )}
                       </span>
                     </span>
                   </td>
@@ -2211,16 +2212,23 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, sequen
                     fimDoDia.setHours(23, 59, 59, 999);
                     const antesDeExistir = criadoEm > fimDoDia.getTime();
                     const futuro = k > chaveHoje;
+                    const feriado = k === "2026-09-07"; /* 7/9: sem gota */
                     const count = (intake[k] && intake[k][m.id]) || 0;
                     const extra = (extras[k] && extras[k][m.id]) || 0;
                     const pct =
                       m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
                     return (
                       <td key={k} className={k === chaveHoje ? "col-hoje" : ""}>
-                        {antesDeExistir || futuro ? (
+                        {antesDeExistir || futuro || feriado ? (
                           <span
                             className="sem-dado"
-                            title={futuro ? "Ainda não chegou" : "A garrafa ainda não existia"}
+                            title={
+                              feriado
+                                ? "Feriado — não conta"
+                                : futuro
+                                ? "Ainda não chegou"
+                                : "A garrafa ainda não existia"
+                            }
                           >
                             –
                           </span>
@@ -4884,6 +4892,21 @@ function AguaTracker() {
           <div className="modal-fundo" onClick={() => setHistoricoDe(null)}>
             <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
               <h2 className="nome">📜 Histórico de {historicoDe.name}</h2>
+              {(() => {
+                const seq = conquistas[historicoDe.id]?.seqAtual || 0;
+                const rec = conquistas[historicoDe.id]?.maxUtil || 0;
+                return (
+                  <div className="hist-sequencia">
+                    <span>
+                      🔥 <strong>{seq}</strong> dia{seq === 1 ? "" : "s"} seguido
+                      {seq === 1 ? "" : "s"} com a meta
+                    </span>
+                    {rec > 0 && (
+                      <span className="hist-recorde">recorde: {rec}</span>
+                    )}
+                  </div>
+                );
+              })()}
               <p className="sub">Do dia mais recente para o mais antigo (até 100 registros).</p>
               <div className="lista-historico">
                 {grupos.length === 0 && (
@@ -4988,7 +5011,6 @@ function AguaTracker() {
         intake={dados.intake}
         extras={dados.extras || {}}
         historico={dados.historico || {}}
-        sequencias={conquistas}
         onHistorico={setHistoricoDe}
       />
 
