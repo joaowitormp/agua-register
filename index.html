@@ -402,6 +402,12 @@ body { margin: 0; }
 .banner-alerta.anuncio-deserto,
 .banner-alerta.anuncio-tempestade { border-left-color: #0FA36B; }
 .banner-alerta.carta-aviso { border-left-color: #6C5CE7; } /* aviso da carta */
+.banner-alerta.casamento { border-left-color: #E8B004; background: #FFFBF0; }
+.badge-casamento { color: #8A6D1A !important; background: #FFF6DA; border: 1px solid #F2D680; border-radius: 8px; padding: 4px 8px; display: inline-block; }
+.cartao.noivo { border-color: #F2D680; }
+.sino-noivo { color: #E8B004 !important; }
+.frase-casamento { border-color: #F2D680; background: #FFFBF0; }
+.frase-casamento:hover { background: #FFF6DA; border-color: #E8B004; }
 
 .btn-regras-carta {
   border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0;
@@ -774,7 +780,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-06.1";
+const APP_VERSION = "2026-09-08.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1025,6 +1031,34 @@ const FERIADOS_MOVEIS = [
   "2027-02-08", "2027-02-09", "2027-03-26", "2027-05-27",
   "2028-02-28", "2028-02-29", "2028-04-14", "2028-06-15",
 ];
+/* Casamento do Renan: imunidade, tema no cartão e frases exclusivas,
+   ativos só na semana de 21 a 25/09/2026 */
+const NOIVO_NOME = "renan";
+const CASAMENTO_INICIO = "2026-09-21";
+const CASAMENTO_FIM = "2026-09-25";
+const ehSemanaCasamento = () => {
+  const hoje = chaveDe(new Date());
+  return hoje >= CASAMENTO_INICIO && hoje <= CASAMENTO_FIM;
+};
+/* Frases de casamento — curtas, positivas, água + casamento */
+const FRASES_CASAMENTO = [
+  "Que a vida de casado seja como boa hidratação: constante e leve.",
+  "Casou! Agora são dois copos para encher todo dia.",
+  "Um brinde: que nunca falte água nem amor nessa casa.",
+  "Feliz para sempre — e bem hidratado, claro.",
+  "O amor é líquido: escorre, preenche e mata a sede.",
+  "Encontrou sua cara-metade... e sua garrafa sentiu sua falta.",
+  "Casamento é igual água: essencial todo santo dia.",
+  "Dizem que casamento afunda gente. O seu que te mantenha boiando feliz.",
+  "Que vocês se hidratem de amor a vida inteira.",
+  "Água lava, renova, recomeça. Que seu casamento seja assim.",
+  "O melhor gole é o da vida a dois. Saúde!",
+  "Volte com sede de viver — a água a gente repõe.",
+  "Bem-vindo de volta, noivo! A garrafa te esperou sequinha.",
+  "Voltou casado e desidratado? Bora repor as duas coisas.",
+  "A lua de mel acabou, mas a hidratação é para sempre.",
+];
+
 const ehFeriado = (d) => {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -2034,7 +2068,59 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
   );
 }
 
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+/* Garrafa vestida de terno azul royal — tema do noivo (Renan) na semana
+   do casamento. Cobre quase todo o corpo, sobrando só a ponta */
+function GarrafaNoivo({ tamanho = 92 }) {
+  return (
+    <svg width={tamanho} height={(tamanho * 138) / 92} viewBox="0 0 92 138" aria-hidden="true">
+      <defs>
+        <clipPath id="corpo-noivo">
+          <path d="M36 30 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" />
+        </clipPath>
+      </defs>
+      <path d="M36 30 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" fill="#EAF6FA" stroke="#0B3446" strokeWidth="3" strokeLinejoin="round" />
+      <g clipPath="url(#corpo-noivo)">
+        <rect x="14" y="40" width="64" height="76" fill="#1E49B5" />
+        <path d="M46 40 L34 60 L46 112 L58 60 Z" fill="#F4F7FB" />
+        <path d="M46 42 L28 54 L34 60 L44 72 L46 48 Z" fill="#173A93" />
+        <path d="M46 42 L64 54 L58 60 L48 72 L46 48 Z" fill="#173A93" />
+        <path d="M34 60 L44 72 L40 60 Z" fill="#1E49B5" />
+        <path d="M58 60 L48 72 L52 60 Z" fill="#1E49B5" />
+        <path d="M46 46 l-4 7 4 42 4 -42 z" fill="#12245A" />
+        <path d="M46 46 l-3 4 3 4 3 -4 z" fill="#0C1838" />
+        <circle cx="46" cy="86" r="1.6" fill="#F4F7FB" />
+        <circle cx="46" cy="96" r="1.6" fill="#F4F7FB" />
+        <path d="M60 70 h8 l-4 5 z" fill="#F4F7FB" />
+      </g>
+      <path d="M40 40 l6 6 6 -6" fill="none" stroke="#F4F7FB" strokeWidth="2.5" strokeLinejoin="round" />
+      <rect x="33" y="23" width="26" height="9" rx="3" fill="#0B3446" />
+    </svg>
+  );
+}
+
+/* Gota do ranking com gravata — noivo na semana do casamento */
+function GotaNoivo({ idClip }) {
+  return (
+    <svg width="22" height="26" viewBox="0 0 24 30" aria-hidden="true">
+      <defs>
+        <clipPath id={idClip}>
+          <path d="M12 4 C12 4 4 14 4 20 a8 8 0 0 0 16 0 C20 14 12 4 12 4 Z" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${idClip})`}>
+        <rect x="0" y="0" width="24" height="30" fill="#1E49B5" />
+        <path d="M12 4 L7 13 L12 27 L17 13 Z" fill="#F4F7FB" />
+        <path d="M12 5 L5 11 L8 14 L12 9 Z" fill="#173A93" />
+        <path d="M12 5 L19 11 L16 14 L12 9 Z" fill="#173A93" />
+      </g>
+      <path d="M12 4 C12 4 4 14 4 20 a8 8 0 0 0 16 0 C20 14 12 4 12 4 Z" fill="none" stroke="#0B3446" strokeWidth="1.6" />
+      <path d="M12 8 l-2.5 3.5 2.5 12 2.5 -12 z" fill="#12245A" />
+      <path d="M12 8 l-2 2.5 2 2.5 2 -2.5 z" fill="#0C1838" />
+    </svg>
+  );
+}
+
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -2046,7 +2132,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
 
   return (
     <div
-      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""}`}
+      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${noivo ? "noivo" : ""}`}
     >
       <div className="cartao-topo">
         <div>
@@ -2101,11 +2187,11 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
               </svg>
             </button>
           )}
-          {mostrarSino && (
+          {(mostrarSino || noivo) && (
             <button
-              className="sino"
-              title={`Tocar o sino para ${membro.name} beber água`}
-              aria-label={`Tocar o sino para ${membro.name} beber água`}
+              className={`sino ${noivo ? "sino-noivo" : ""}`}
+              title={noivo ? `Mandar mensagem de casamento para ${membro.name}` : `Tocar o sino para ${membro.name} beber água`}
+              aria-label={noivo ? `Mandar mensagem de casamento para ${membro.name}` : `Tocar o sino para ${membro.name} beber água`}
               onClick={() => onSino(membro)}
             >
               <svg
@@ -2153,16 +2239,19 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
             title="Registrar 1 garrafa"
             aria-label={`Registrar uma garrafa de ${fmt(membro.bottleMl)} para ${membro.name}`}
           >
-            {cactificado ? <Cacto /> : <Garrafa pct={pct} />}
+            {noivo ? <GarrafaNoivo /> : cactificado ? <Cacto /> : <Garrafa pct={pct} />}
           </button>
         ) : (
           <div className="garrafa-fixa" title="Somente quem criou esta garrafa pode registrar">
-            {cactificado ? <Cacto /> : <Garrafa pct={pct} />}
+            {noivo ? <GarrafaNoivo /> : cactificado ? <Cacto /> : <Garrafa pct={pct} />}
           </div>
         )}
         <div className="numeros">
           <p className="bebido">{fmtPiso(bebido)}</p>
           <p className="de-meta">de {fmt(membro.goalMl)}</p>
+          {noivo && (
+            <p className="efeito-badge badge-casamento">💍 Semana do casamento · imune aos poderes</p>
+          )}
           {cactificado && (
             <p className="efeito-badge">🌵 Cactificado por {efeitos.cacto.por}</p>
           )}
@@ -2423,7 +2512,11 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
                           </span>
                         ) : (
                           <div className="celula-dia">
-                            <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
+                            {nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento() ? (
+                              <GotaNoivo idClip={`gn-${m.id}-${k}`} />
+                            ) : (
+                              <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
+                            )}
                             <span className={`pct ${pct >= 1 ? "ok" : ""}`}>
                               {Math.round(pct * 100)}%
                             </span>
@@ -2586,7 +2679,7 @@ function AguaTracker() {
       (n) => typeof n.tipo === "string" && n.tipo.startsWith("anuncio-")
     ); /* visíveis para todos */
     const pessoais = novos.filter(
-      (n) => !n.tipo || n.tipo === "carta-aviso"
+      (n) => !n.tipo || n.tipo === "carta-aviso" || n.tipo === "casamento"
     ).filter((n) => meus.has(n.to));
     if (anuncios.length === 0 && pessoais.length === 0) return;
     setAlertas((lista) => [
@@ -3853,6 +3946,9 @@ function AguaTracker() {
   /* Abre o seletor de frases — exige cartão próprio e respeita o limite
      de 2 sinos por membro-alvo a cada 10 min (janela deslizante).
      Membros diferentes têm contadores independentes, sem limite global */
+  const ehNoivo = (m) =>
+    nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento();
+
   const abrirSino = (membro) => {
     const meuCartao = dados.members.some(
       (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
@@ -3867,6 +3963,23 @@ function AguaTracker() {
       setTimeout(() => setToast(null), 4000);
       return;
     }
+    /* Semana do casamento: o sino do noivo abre o seletor de frases de
+       casamento, com regras próprias; sino comum não vai a ele */
+    if (ehNoivo(membro)) {
+      const ultimo = Number(
+        localStorage.getItem("agua-casamento-cooldown") || 0
+      );
+      const resto = 60 * 60 * 1000 - (Date.now() - ultimo);
+      if (ultimo && resto > 0) {
+        setToast(
+          `Você já mandou uma mensagem de casamento — libera em ${Math.ceil(resto / 60000)} min`
+        );
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      setSinoPara(membro);
+      return;
+    }
     const toques = toquesRecentes(membro.id);
     if (toques.length >= 2) {
       const min = Math.ceil((toques[0] + 10 * 60 * 1000 - Date.now()) / 60000);
@@ -3877,6 +3990,55 @@ function AguaTracker() {
       return;
     }
     setSinoPara(membro);
+  };
+
+  /* Frases de casamento que ESTE dispositivo ainda não enviou ao noivo
+     (cada frase só pode ser usada uma vez por pessoa) */
+  const frasesCasamentoDisponiveis = () => {
+    let usadas = [];
+    try {
+      usadas = JSON.parse(localStorage.getItem("agua-casamento-usadas") || "[]");
+    } catch {}
+    return FRASES_CASAMENTO.filter((f) => !usadas.includes(f));
+  };
+
+  /* Envia uma frase de casamento ao noivo: 1 por hora, cada frase 1x */
+  const enviarCasamento = (frase) => {
+    setSinoPara(null);
+    const noivo = dados.members.find(
+      (m) => nomeNormalizado(m.name) === NOIVO_NOME
+    );
+    if (!noivo) return;
+    const agora = Date.now();
+    const ultimo = Number(localStorage.getItem("agua-casamento-cooldown") || 0);
+    if (ultimo && agora - ultimo < 60 * 60 * 1000) {
+      setToast("Você já mandou uma mensagem de casamento nesta hora");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    let usadas = [];
+    try {
+      usadas = JSON.parse(localStorage.getItem("agua-casamento-usadas") || "[]");
+    } catch {}
+    if (usadas.includes(frase)) return; /* já usou essa */
+    const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 30 * 24 * 60 * 60 * 1000);
+    novo.nudges.push({
+      id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+      to: noivo.id,
+      at: agora,
+      fromName: meuNome,
+      tipo: "casamento",
+      frase,
+    });
+    persistir(novo);
+    usadas.push(frase);
+    localStorage.setItem("agua-casamento-usadas", JSON.stringify(usadas));
+    localStorage.setItem("agua-casamento-cooldown", String(agora));
+    setToast("💍 Mensagem de casamento enviada ao Renan!");
+    setTimeout(() => setToast(null), 4000);
   };
 
   /* Envia o sino para o dono de outro cartão.
@@ -3892,6 +4054,7 @@ function AguaTracker() {
     const alvos = dados.members.filter((m) => {
       const meu = m.ownerId === meuDispositivo || posseExtra.includes(m.id);
       if (meu) return false;
+      if (ehNoivo(m)) return false; /* noivo fora do disparo em massa */
       const c = registrosHoje[m.id] || 0;
       const e = extrasHoje[m.id] || 0;
       if (m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl) return false;
@@ -3927,6 +4090,7 @@ function AguaTracker() {
   };
 
   const tocarSino = (membro, frase) => {
+    if (ehNoivo(membro)) { setSinoPara(null); return; } /* noivo: só casamento */
     setSinoPara(null);
     const agora = Date.now();
     const toques = toquesRecentes(membro.id);
@@ -4115,6 +4279,10 @@ function AguaTracker() {
                   a.frase
                 ) : a.tipo && a.tipo.startsWith("anuncio-") ? (
                   a.frase
+                ) : a.tipo === "casamento" ? (
+                  <>
+                    💍 <strong>{a.nome}</strong> deseja: {a.frase}
+                  </>
                 ) : (
                   <>
                     🔔 <strong>{a.nome}:</strong> {a.frase}
@@ -4136,7 +4304,33 @@ function AguaTracker() {
       )}
       {toast && <div className="toast">{toast}</div>}
 
-      {sinoPara && (
+      {sinoPara && ehNoivo(sinoPara) && (
+        <div className="modal-fundo" onClick={() => setSinoPara(null)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">💍 Mensagem de casamento para {sinoPara.name}</h2>
+            <p className="sub">
+              Uma mensagem carinhosa para o noivo. Cada frase só pode ser
+              enviada uma vez, e você manda uma por hora — dê a vez aos outros.
+            </p>
+            {frasesCasamentoDisponiveis().length === 0 ? (
+              <p className="sub">Você já enviou todas as mensagens de casamento. 💛</p>
+            ) : (
+              <div className="lista-frases">
+                {frasesCasamentoDisponiveis().map((f) => (
+                  <button key={f} className="frase frase-casamento" onClick={() => enviarCasamento(f)}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sinoPara && !ehNoivo(sinoPara) && (
         <div className="modal-fundo" onClick={() => { setSinoPara(null); setFraseLivre(""); }}>
           <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">🔔 Tocar o sino para {sinoPara.name}</h2>
@@ -4256,6 +4450,7 @@ function AguaTracker() {
               count={c}
               extraMl={extraMl}
               dono={donoDoCartao}
+              noivo={nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento()}
               mostrarSino={
                 tenhoCartao &&
                 minhasConquistas.has("primeiro-gole") &&
