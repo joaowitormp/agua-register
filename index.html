@@ -363,6 +363,21 @@ body { margin: 0; }
 }
 .frase-livre-linha input:focus { outline: 2px solid #41C9E6; border-color: transparent; }
 .frase-livre-conta { margin: 3px 2px 0; font-size: 11px; color: #9FBFCC; text-align: right; }
+.frase-livre-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.frase-livre-titulo { margin: 0; }
+.alt-modo { border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0; border-radius: 8px; padding: 3px 10px; font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px; }
+.alt-modo:hover { background: #D8EEF6; }
+.gif-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px; min-height: 90px; }
+.gif-aviso { grid-column: 1 / -1; text-align: center; margin: 16px 0; }
+.gif-item { width: 100%; height: 74px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+.gif-item:hover { border-color: #0F8BB0; }
+.gif-confirma { margin-top: 8px; display: flex; gap: 12px; align-items: flex-start; }
+.gif-confirma img { width: 130px; border-radius: 10px; display: block; }
+.gif-confirma-acoes { display: flex; flex-direction: column; gap: 8px; }
+.gif-fonte { text-align: left; color: #C5D6DE; }
+.banner-gif-bloco { display: flex; flex-direction: column; gap: 6px; }
+.banner-gif-nome { font-size: 13px; }
+.banner-gif { max-width: 200px; width: 100%; border-radius: 8px; display: block; }
 .grupo-conquista {
   display: flex; align-items: center; gap: 6px;
   margin: 12px 0 5px; font-size: 11.5px; font-weight: 700;
@@ -786,7 +801,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-08.2";
+const APP_VERSION = "2026-09-08.3";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1039,6 +1054,7 @@ const FERIADOS_MOVEIS = [
 ];
 /* Casamento do Renan: imunidade, tema no cartão e frases exclusivas,
    ativos só na semana de 21 a 25/09/2026 */
+const GIPHY_KEY = "gqiuTgoyJTDO3mlc695hEuDiI7pb0cjT";
 const NOIVO_NOME = "renan";
 const CASAMENTO_INICIO = "2026-09-21";
 const CASAMENTO_FIM = "2026-09-25";
@@ -2074,6 +2090,160 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
   );
 }
 
+/* Campo de provocação personalizada com alternador texto ⇄ GIF.
+   No modo texto: digita e envia. No modo GIF: busca no Giphy, escolhe,
+   confirma e envia. onEnviar(texto) e onEnviarGif(url) fazem o disparo */
+function FraseLivre({ limite, onEnviar, onEnviarGif }) {
+  const [modo, setModo] = React.useState("texto"); // "texto" | "gif"
+  const [texto, setTexto] = React.useState("");
+  const [busca, setBusca] = React.useState("");
+  const [resultados, setResultados] = React.useState([]);
+  const [carregando, setCarregando] = React.useState(false);
+  const [erro, setErro] = React.useState("");
+  const [escolhido, setEscolhido] = React.useState(null); // {preview, full}
+
+  const buscarGif = async (termo) => {
+    if (!termo.trim()) return;
+    setCarregando(true);
+    setErro("");
+    setEscolhido(null);
+    try {
+      const r = await fetch(
+        `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(termo)}&limit=12&rating=g`
+      );
+      const d = await r.json();
+      if (!d.data || d.data.length === 0) {
+        setResultados([]);
+        setErro("Nada encontrado 🤷");
+      } else {
+        setResultados(
+          d.data.map((g) => ({
+            preview: (g.images.fixed_width_small || g.images.fixed_width).url,
+            full: (g.images.fixed_width || g.images.original).url,
+          }))
+        );
+      }
+    } catch {
+      setErro("Não consegui buscar agora. Tente de novo.");
+    }
+    setCarregando(false);
+  };
+
+  return (
+    <div className="frase-livre">
+      <div className="frase-livre-cab">
+        <p className="grupo-conquista frase-livre-titulo">
+          <span className="grupo-icone">
+            <IconeConquista
+              conquista={CONQUISTAS.find((c) => c.id === "incactificavel")}
+              tamanho={11}
+            />
+          </span>
+          {modo === "texto" ? "Sua provocação" : "Buscar GIF"}
+        </p>
+        <button
+          type="button"
+          className="alt-modo"
+          title={modo === "texto" ? "Enviar um GIF" : "Escrever texto"}
+          onClick={() => {
+            setModo(modo === "texto" ? "gif" : "texto");
+            setEscolhido(null);
+          }}
+        >
+          {modo === "texto" ? "GIF" : "Aa"}
+        </button>
+      </div>
+
+      {modo === "texto" ? (
+        <>
+          <div className="frase-livre-linha">
+            <input
+              type="text"
+              maxLength={limite}
+              placeholder="Escreva sua própria frase…"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && texto.trim()) {
+                  onEnviar(texto.trim());
+                  setTexto("");
+                }
+              }}
+            />
+            <button
+              className="mini-aplicar"
+              disabled={!texto.trim()}
+              onClick={() => {
+                onEnviar(texto.trim());
+                setTexto("");
+              }}
+            >
+              Enviar
+            </button>
+          </div>
+          <p className="frase-livre-conta">{texto.length}/{limite}</p>
+        </>
+      ) : (
+        <>
+          <div className="frase-livre-linha">
+            <input
+              type="text"
+              placeholder="Buscar no Giphy…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && buscarGif(busca)}
+            />
+            <button className="mini-aplicar" onClick={() => buscarGif(busca)}>
+              Buscar
+            </button>
+          </div>
+
+          {escolhido ? (
+            <div className="gif-confirma">
+              <img src={escolhido.full} alt="GIF escolhido" />
+              <div className="gif-confirma-acoes">
+                <button
+                  className="mini-aplicar"
+                  onClick={() => {
+                    onEnviarGif(escolhido.full);
+                    setEscolhido(null);
+                  }}
+                >
+                  Enviar GIF
+                </button>
+                <button className="desfazer" onClick={() => setEscolhido(null)}>
+                  Escolher outro
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="gif-grade">
+              {carregando && <p className="sub gif-aviso">Buscando…</p>}
+              {!carregando && erro && <p className="sub gif-aviso">{erro}</p>}
+              {!carregando &&
+                !erro &&
+                resultados.length === 0 && (
+                  <p className="sub gif-aviso">Digite algo e toque em Buscar 🔍</p>
+                )}
+              {!carregando &&
+                resultados.map((g, i) => (
+                  <img
+                    key={i}
+                    src={g.preview}
+                    alt="GIF"
+                    className="gif-item"
+                    onClick={() => setEscolhido(g)}
+                  />
+                ))}
+            </div>
+          )}
+          <p className="frase-livre-conta gif-fonte">Resultados via GIPHY</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* Garrafa vestida de terno azul royal — tema do noivo (Renan) na semana
    do casamento. Cobre quase todo o corpo, sobrando só a ponta */
 function GarrafaNoivo({ tamanho = 92 }) {
@@ -2602,7 +2772,6 @@ function AguaTracker() {
   const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
-  const [fraseLivre, setFraseLivre] = useState(""); // provocação personalizada (Incactificável)
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
   const [historicoDe, setHistoricoDe] = useState(null); // membro cujo histórico está aberto
   const [mesHist, setMesHist] = useState(0); // 0 = mês atual, 1 = mês anterior
@@ -2730,7 +2899,8 @@ function AguaTracker() {
         memberId: n.to,
         tipo: n.tipo || "sino",
         nome: n.fromName || "Alguém",
-        frase: n.frase || "hora de beber água! 💧",
+        frase: n.gif ? "" : n.frase || "hora de beber água! 💧",
+        gif: n.gif || null,
         hora: horaDe(n.at),
       })),
     ]);
@@ -4080,7 +4250,7 @@ function AguaTracker() {
      provocação para todo mundo, PULANDO quem já bateu o limite de 2
      sinos em 10 min e quem não pode receber (você mesmo e quem já
      bateu a meta) */
-  const enviarEmMassa = (frase) => {
+  const enviarEmMassa = (frase, gif) => {
     setMassaAberto(false);
     const agora = Date.now();
     const meuCartao = meusMembros[0];
@@ -4110,7 +4280,8 @@ function AguaTracker() {
         to: m.id,
         at: agora,
         fromName: meuCartao ? meuCartao.name : null,
-        frase,
+        frase: gif ? "" : frase,
+        ...(gif ? { gif } : {}),
       });
     });
     persistir(novo);
@@ -4122,7 +4293,7 @@ function AguaTracker() {
     setTimeout(() => setToast(null), 5000);
   };
 
-  const tocarSino = (membro, frase) => {
+  const tocarSino = (membro, frase, gif) => {
     if (ehNoivo(membro)) { setSinoPara(null); return; } /* noivo: só casamento */
     setSinoPara(null);
     const agora = Date.now();
@@ -4152,10 +4323,11 @@ function AguaTracker() {
       to: membro.id,
       at: agora,
       fromName: meuCartao ? meuCartao.name : null,
-      frase,
+      frase: gif ? "" : frase,
+      ...(gif ? { gif } : {}),
     });
     persistir(novo);
-    setToast(`Sino enviado para ${membro.name} 🔔`);
+    setToast(gif ? `GIF enviado para ${membro.name} 🎬` : `Sino enviado para ${membro.name} 🔔`);
     setTimeout(() => setToast(null), 4000);
   };
 
@@ -4316,6 +4488,11 @@ function AguaTracker() {
                   <>
                     💍 <strong>{a.nome}</strong> deseja: {a.frase}
                   </>
+                ) : a.gif ? (
+                  <span className="banner-gif-bloco">
+                    <span className="banner-gif-nome">🎬 <strong>{a.nome}</strong> te mandou um GIF:</span>
+                    <img src={a.gif} alt="GIF recebido" className="banner-gif" />
+                  </span>
                 ) : (
                   <>
                     🔔 <strong>{a.nome}:</strong> {a.frase}
@@ -4368,45 +4545,11 @@ function AguaTracker() {
           <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">🔔 Tocar o sino para {sinoPara.name}</h2>
             {podeFrasePersonalizada && (
-              <div className="frase-livre">
-                <p className="grupo-conquista">
-                  <span className="grupo-icone">
-                    <IconeConquista
-                      conquista={CONQUISTAS.find((c) => c.id === "incactificavel")}
-                      tamanho={11}
-                    />
-                  </span>
-                  Sua provocação
-                </p>
-                <div className="frase-livre-linha">
-                  <input
-                    type="text"
-                    maxLength={LIMITE_FRASE}
-                    placeholder="Escreva sua própria frase…"
-                    value={fraseLivre}
-                    onChange={(e) => setFraseLivre(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && fraseLivre.trim()) {
-                        tocarSino(sinoPara, fraseLivre.trim());
-                        setFraseLivre("");
-                      }
-                    }}
-                  />
-                  <button
-                    className="mini-aplicar"
-                    disabled={!fraseLivre.trim()}
-                    onClick={() => {
-                      tocarSino(sinoPara, fraseLivre.trim());
-                      setFraseLivre("");
-                    }}
-                  >
-                    Enviar
-                  </button>
-                </div>
-                <p className="frase-livre-conta">
-                  {fraseLivre.length}/{LIMITE_FRASE}
-                </p>
-              </div>
+              <FraseLivre
+                limite={LIMITE_FRASE}
+                onEnviar={(t) => tocarSino(sinoPara, t)}
+                onEnviarGif={(url) => tocarSino(sinoPara, "", url)}
+              />
             )}
             <p className="sub">Escolha a mensagem:</p>
             <div className="lista-frases">
@@ -4979,45 +5122,11 @@ function AguaTracker() {
               nos últimos 10 minutos (ou já bateu a meta de hoje) fica de fora.
             </p>
             {podeFrasePersonalizada && (
-              <div className="frase-livre">
-                <p className="grupo-conquista">
-                  <span className="grupo-icone">
-                    <IconeConquista
-                      conquista={CONQUISTAS.find((c) => c.id === "incactificavel")}
-                      tamanho={11}
-                    />
-                  </span>
-                  Sua provocação
-                </p>
-                <div className="frase-livre-linha">
-                  <input
-                    type="text"
-                    maxLength={LIMITE_FRASE}
-                    placeholder="Escreva sua própria frase…"
-                    value={fraseLivre}
-                    onChange={(e) => setFraseLivre(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && fraseLivre.trim()) {
-                        enviarEmMassa(fraseLivre.trim());
-                        setFraseLivre("");
-                      }
-                    }}
-                  />
-                  <button
-                    className="mini-aplicar"
-                    disabled={!fraseLivre.trim()}
-                    onClick={() => {
-                      enviarEmMassa(fraseLivre.trim());
-                      setFraseLivre("");
-                    }}
-                  >
-                    Enviar
-                  </button>
-                </div>
-                <p className="frase-livre-conta">
-                  {fraseLivre.length}/{LIMITE_FRASE}
-                </p>
-              </div>
+              <FraseLivre
+                limite={LIMITE_FRASE}
+                onEnviar={(t) => enviarEmMassa(t)}
+                onEnviarGif={(url) => enviarEmMassa("", url)}
+              />
             )}
             <div className="lista-frases">
               {FRASES.map((f) => (
