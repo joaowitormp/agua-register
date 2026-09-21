@@ -422,7 +422,13 @@ body { margin: 0; }
 .cartao.noivo { border-color: #F2D680; }
 .sino-noivo { color: #E8B004 !important; }
 .frase-casamento { border-color: #F2D680; background: #FFFBF0; }
-.frase-casamento:hover { background: #FFF6DA; border-color: #E8B004; }
+.frase-casamento:hover:not(:disabled) { background: #FFF6DA; border-color: #E8B004; }
+.frase-casamento { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.frase-bloqueada { opacity: 0.55; cursor: not-allowed; }
+.frase-texto { }
+.frase-status { font-size: 10.5px; font-weight: 700; }
+.frase-status.enviada { color: #0FA36B; }
+.frase-status.espera { color: #B5540A; }
 .historico-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .semana-nav { display: inline-flex; align-items: center; gap: 8px; }
 .semana-seta { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #D8ECF3; background: #FFFFFF; color: #0F8BB0; font-size: 16px; line-height: 1; cursor: pointer; }
@@ -801,7 +807,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-21.3";
+const APP_VERSION = "2026-09-21.4";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2059,7 +2065,10 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
     const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
     const pct = metaDia > 0 ? (count * membro.bottleMl + extra) / metaDia : 0;
     const futuro = k > chaveHojeStr;
-    celulas.push({ dia, pct, futuro, util, hoje: k === chaveHojeStr });
+    const casamento =
+      nomeNormalizado(membro.name) === NOIVO_NOME &&
+      k >= CASAMENTO_INICIO && k <= CASAMENTO_FIM;
+    celulas.push({ dia, pct, futuro, util, casamento, hoje: k === chaveHojeStr });
   }
 
   return (
@@ -2076,6 +2085,8 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
             <span key={c.dia} className={`cal-dia ${c.hoje ? "cal-hoje" : ""}`} title={c.futuro || !c.util ? "" : `${Math.round(c.pct*100)}% da meta`}>
               {c.futuro ? (
                 <span className="cal-vazio" />
+              ) : c.casamento ? (
+                <GotaNoivo idClip={`caln-${membro.id}-${c.dia}-${offset}`} />
               ) : !c.util ? (
                 <span className="cal-traco">–</span>
               ) : (
@@ -2690,7 +2701,9 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
                         </button>
                       </span>
                       <span className="media-rank">
-                        desempenho {Math.round(desempenho)}%
+                        {nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento()
+                          ? "🤵 de férias no casamento"
+                          : `desempenho ${Math.round(desempenho)}%`}
                       </span>
                     </span>
                   </td>
@@ -4214,25 +4227,35 @@ function AguaTracker() {
     return FRASES_CASAMENTO.filter((f) => !usadas.includes(f));
   };
 
-  /* Envia uma frase de casamento ao noivo: 1 por hora, cada frase 1x */
+  /* Minha recarga: quanto falta para eu poder mandar outra mensagem */
+  const recargaCasamento = () => {
+    const ultimo = Number(localStorage.getItem("agua-casamento-cooldown") || 0);
+    const resto = 60 * 60 * 1000 - (Date.now() - ultimo);
+    return ultimo && resto > 0 ? resto : 0;
+  };
+
+  /* Envia uma frase de casamento ao noivo: 1 por hora, cada frase 1x
+     (o registro de quem enviou cada frase fica nos dados compartilhados) */
   const enviarCasamento = (frase) => {
-    setSinoPara(null);
     const noivo = dados.members.find(
       (m) => nomeNormalizado(m.name) === NOIVO_NOME
     );
     if (!noivo) return;
     const agora = Date.now();
-    const ultimo = Number(localStorage.getItem("agua-casamento-cooldown") || 0);
-    if (ultimo && agora - ultimo < 60 * 60 * 1000) {
-      setToast("Você já mandou uma mensagem de casamento nesta hora");
+    /* já foi enviada por alguém? (registro compartilhado) */
+    const jaEnviada = dados.casamento && dados.casamento[frase];
+    if (jaEnviada) {
+      setToast(`Essa mensagem já foi enviada por ${jaEnviada.por}`);
       setTimeout(() => setToast(null), 4000);
       return;
     }
-    let usadas = [];
-    try {
-      usadas = JSON.parse(localStorage.getItem("agua-casamento-usadas") || "[]");
-    } catch {}
-    if (usadas.includes(frase)) return; /* já usou essa */
+    if (recargaCasamento() > 0) {
+      setToast(
+        `Aguarde ${Math.ceil(recargaCasamento() / 60000)} min para mandar outra mensagem`
+      );
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
     const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
     const novo = structuredClone(dados);
     if (!Array.isArray(novo.nudges)) novo.nudges = [];
@@ -4245,7 +4268,14 @@ function AguaTracker() {
       tipo: "casamento",
       frase,
     });
+    /* registro compartilhado: essa frase foi usada por mim */
+    if (!novo.casamento) novo.casamento = {};
+    novo.casamento[frase] = { por: meuNome, at: agora };
     persistir(novo);
+    let usadas = [];
+    try {
+      usadas = JSON.parse(localStorage.getItem("agua-casamento-usadas") || "[]");
+    } catch {}
     usadas.push(frase);
     localStorage.setItem("agua-casamento-usadas", JSON.stringify(usadas));
     localStorage.setItem("agua-casamento-cooldown", String(agora));
@@ -4529,19 +4559,38 @@ function AguaTracker() {
             <h2 className="nome">💍 Mensagem de casamento para {sinoPara.name}</h2>
             <p className="sub">
               Uma mensagem carinhosa para o noivo. Cada frase só pode ser
-              enviada uma vez, e você manda uma por hora — dê a vez aos outros.
+              enviada uma vez pelo time, e você manda uma por hora — dê a vez aos outros.
             </p>
-            {frasesCasamentoDisponiveis().length === 0 ? (
-              <p className="sub">Você já enviou todas as mensagens de casamento. 💛</p>
-            ) : (
-              <div className="lista-frases">
-                {frasesCasamentoDisponiveis().map((f) => (
-                  <button key={f} className="frase frase-casamento" onClick={() => enviarCasamento(f)}>
-                    {f}
-                  </button>
-                ))}
-              </div>
-            )}
+            {(() => {
+              const recarga = recargaCasamento();
+              return (
+                <div className="lista-frases">
+                  {FRASES_CASAMENTO.map((f) => {
+                    const enviada = dados.casamento && dados.casamento[f];
+                    const bloqueadaTempo = !enviada && recarga > 0;
+                    const disponivel = !enviada && !bloqueadaTempo;
+                    return (
+                      <button
+                        key={f}
+                        className={`frase frase-casamento ${disponivel ? "" : "frase-bloqueada"}`}
+                        disabled={!disponivel}
+                        onClick={() => disponivel && enviarCasamento(f)}
+                      >
+                        <span className="frase-texto">{f}</span>
+                        {enviada && (
+                          <span className="frase-status enviada">✓ enviada por {enviada.por}</span>
+                        )}
+                        {bloqueadaTempo && (
+                          <span className="frase-status espera">
+                            🔒 libera em {Math.ceil(recarga / 60000)} min
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
               Fechar
             </button>
