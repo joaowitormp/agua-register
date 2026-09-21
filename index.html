@@ -807,7 +807,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-21.4";
+const APP_VERSION = "2026-09-21.5";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -4188,20 +4188,10 @@ function AguaTracker() {
       setTimeout(() => setToast(null), 4000);
       return;
     }
-    /* Semana do casamento: o sino do noivo abre o seletor de frases de
-       casamento, com regras próprias; sino comum não vai a ele */
+    /* Semana do casamento: o sino do noivo SEMPRE abre a lista de frases;
+       a recarga e o "já enviada" controlam cada card dentro do modal,
+       não a abertura */
     if (ehNoivo(membro)) {
-      const ultimo = Number(
-        localStorage.getItem("agua-casamento-cooldown") || 0
-      );
-      const resto = 60 * 60 * 1000 - (Date.now() - ultimo);
-      if (ultimo && resto > 0) {
-        setToast(
-          `Você já mandou uma mensagem de casamento — libera em ${Math.ceil(resto / 60000)} min`
-        );
-        setTimeout(() => setToast(null), 4000);
-        return;
-      }
       setSinoPara(membro);
       return;
     }
