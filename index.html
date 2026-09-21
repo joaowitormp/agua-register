@@ -807,7 +807,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-21.6";
+const APP_VERSION = "2026-09-21.7";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2439,13 +2439,13 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           {noivo && (
             <p className="efeito-badge badge-casamento">💍 Semana do casamento · imune aos poderes</p>
           )}
-          {cactificado && (
+          {!noivo && cactificado && (
             <p className="efeito-badge">🌵 Cactificado por {efeitos.cacto.por}</p>
           )}
-          {desertico && (
+          {!noivo && desertico && (
             <p className="efeito-badge">🏜️ Desertificado por {efeitos.deserto.por}</p>
           )}
-          {soterrado && (
+          {!noivo && soterrado && (
             <p className="efeito-badge">
               ⏳ Soterrado por {efeitos.tempestade.por}
             </p>
