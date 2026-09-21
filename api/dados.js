@@ -10,7 +10,7 @@ const CHAVE = "agua:dados";
 const CHAVE_BACKUP = "agua:backup";
 const VAZIO = { members: [], intake: {} };
 /* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-09-04.1-efeitos-fundidos";
+const API_VERSION = "2026-09-21.1-casamento";
 
 /* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
    o servidor une as entradas já salvas com as recebidas (chave = momento
@@ -209,6 +209,8 @@ export default async function handler(req, res) {
         const _d = new Date();
         const diaHoje = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
         corpo.efeitos = mesclarEfeitos(atual.efeitos, corpo.efeitos, diaHoje);
+        /* casamento: união simples — frase registrada por alguém permanece */
+        corpo.casamento = { ...(atual.casamento || {}), ...(corpo.casamento || {}) };
       }
 
       delete corpo.reduzir; /* campo auxiliar de gravação, não persiste */
