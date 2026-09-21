@@ -801,7 +801,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-08.3";
+const APP_VERSION = "2026-09-21.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2248,7 +2248,7 @@ function FraseLivre({ limite, onEnviar, onEnviarGif }) {
    do casamento. Cobre quase todo o corpo, sobrando só a ponta */
 function GarrafaNoivo({ tamanho = 92 }) {
   return (
-    <svg width={tamanho} height={(tamanho * 138) / 92} viewBox="0 0 92 138" aria-hidden="true">
+    <svg width={tamanho} height={(tamanho * 130) / 92} viewBox="0 0 92 130" aria-hidden="true">
       <defs>
         <clipPath id="corpo-noivo">
           <path d="M36 30 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" />
@@ -2338,7 +2338,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
             </button>
           </div>
           <p className="sub">
-            Garrafa de {fmt(membro.bottleMl)} · meta {fmt(membro.goalMl)}
+            {noivo ? "🤵 De férias no casamento" : `Garrafa de ${fmt(membro.bottleMl)} · meta ${fmt(membro.goalMl)}`}
           </p>
         </div>
         <div className="topo-acoes">
@@ -2423,8 +2423,8 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           </div>
         )}
         <div className="numeros">
-          <p className="bebido">{fmtPiso(bebido)}</p>
-          <p className="de-meta">de {fmt(membro.goalMl)}</p>
+          {!noivo && <p className="bebido">{fmtPiso(bebido)}</p>}
+          {!noivo && <p className="de-meta">de {fmt(membro.goalMl)}</p>}
           {noivo && (
             <p className="efeito-badge badge-casamento">💍 Semana do casamento · imune aos poderes</p>
           )}
@@ -2492,10 +2492,17 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           </button>
         </div>
       )}
-      <p className="registros">
-        {count}/{totalGarrafas} garrafas hoje
-        {extraMl > 0 && <span> · +{fmt(extraMl)} avulsos</span>}
-      </p>
+      {!noivo && (
+        <p className="registros">
+          {count}/{totalGarrafas} garrafas hoje
+          {extraMl > 0 && <span> · +{fmt(extraMl)} avulsos</span>}
+        </p>
+      )}
+      {noivo && (
+        <p className="registros registros-casamento">
+          Aproveite a lua de mel — a hidratação espera você 💧
+        </p>
+      )}
       {dono && (
         <button className="link-extra" onClick={() => onExtra(membro)}>
           Adicionar outra medida
