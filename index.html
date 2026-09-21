@@ -801,7 +801,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-21.1";
+const APP_VERSION = "2026-09-21.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2725,11 +2725,13 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
                             {nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento() ? (
                               <GotaNoivo idClip={`gn-${m.id}-${k}`} />
                             ) : (
-                              <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
+                              <>
+                                <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
+                                <span className={`pct ${pct >= 1 ? "ok" : ""}`}>
+                                  {Math.round(pct * 100)}%
+                                </span>
+                              </>
                             )}
-                            <span className={`pct ${pct >= 1 ? "ok" : ""}`}>
-                              {Math.round(pct * 100)}%
-                            </span>
                           </div>
                         )}
                       </td>
