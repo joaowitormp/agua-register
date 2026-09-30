@@ -10,7 +10,7 @@ const CHAVE = "agua:dados";
 const CHAVE_BACKUP = "agua:backup";
 const VAZIO = { members: [], intake: {} };
 /* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-09-21.1-casamento";
+const API_VERSION = "2026-09-30.1-garrafas";
 
 /* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
    o servidor une as entradas já salvas com as recebidas (chave = momento
@@ -84,6 +84,28 @@ const mesclarMetas = (antigo, novo) => {
     resultado[dia] = { ...(novo[dia] || {}), ...(resultado[dia] || {}) };
   });
   return resultado;
+};
+
+/* Garrafas colecionáveis de cada membro: união dos ids (nunca se perde
+   uma garrafa já conquistada por causa de uma aba desatualizada) */
+const mesclarGarrafas = (antigo, novo) => {
+  const res = { ...(antigo || {}) };
+  Object.keys(novo || {}).forEach((id) => {
+    const set = new Set([...((antigo && antigo[id]) || []), ...((novo && novo[id]) || [])]);
+    res[id] = [...set];
+  });
+  return res;
+};
+
+/* Garrafa selecionada por membro: o valor recebido prevalece; os demais
+   mantêm a seleção anterior */
+const mesclarGarrafaSel = (antigo, novo) => ({ ...(antigo || {}), ...(novo || {}) });
+
+/* Cartadas certeiras (ricochete da carta): união — true nunca regride */
+const mesclarCartadas = (antigo, novo) => {
+  const res = { ...(antigo || {}) };
+  Object.keys(novo || {}).forEach((id) => { if (novo[id]) res[id] = true; });
+  return res;
 };
 
 /* Intake e extras: a água registrada nunca regride. Se duas abas gravam
@@ -211,6 +233,10 @@ export default async function handler(req, res) {
         corpo.efeitos = mesclarEfeitos(atual.efeitos, corpo.efeitos, diaHoje);
         /* casamento: união simples — frase registrada por alguém permanece */
         corpo.casamento = { ...(atual.casamento || {}), ...(corpo.casamento || {}) };
+        /* garrafas colecionáveis, seleção e cartadas certeiras */
+        corpo.garrafas = mesclarGarrafas(atual.garrafas, corpo.garrafas);
+        corpo.garrafaSel = mesclarGarrafaSel(atual.garrafaSel, corpo.garrafaSel);
+        corpo.cartadas = mesclarCartadas(atual.cartadas, corpo.cartadas);
       }
 
       delete corpo.reduzir; /* campo auxiliar de gravação, não persiste */
