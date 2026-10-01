@@ -290,8 +290,15 @@ body { margin: 0; }
   position: absolute; left: -20px; top: 50%; width: 60px; height: 150px;
   margin-top: -75px; transform: rotate(-15deg); transform-origin: 50% 90%;
   z-index: 6; pointer-events: none;
+  animation: bastao-flutua 3.2s ease-in-out infinite;
+}
+@keyframes bastao-flutua {
+  0%, 100% { transform: rotate(-15deg) translateY(0); }
+  50% { transform: rotate(-15deg) translateY(-9px); }
 }
 @media (max-width: 520px) { .bastao-rei { left: -14px; width: 48px; height: 120px; margin-top: -60px; } }
+/* arraste suave dos cards ao reordenar por desempenho (FLIP via JS) */
+.grade > .cartao { will-change: transform; }
 
 /* Animação de cactificação do Rei (overlay que percorre a tela) */
 .cact-overlay { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
@@ -547,6 +554,7 @@ body { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .carta-palco { animation: none; }
   .carta-giro { transition: none; }
+  .bastao-rei { animation: none; transform: rotate(-15deg); }
 }
 
 /* Tempestade de areia */
@@ -854,7 +862,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-01.1";
+const APP_VERSION = "2026-10-01.2";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -3448,6 +3456,38 @@ function AguaTracker() {
       try { localStorage.setItem("agua-cact-anim-seen", String(best.t)); } catch {}
     }
   }, [dados, animCacto]);
+
+  /* Arraste suave dos cards ao reordenar por desempenho (técnica FLIP):
+     mede a posição de layout de cada card, e quando ela muda entre renders,
+     desloca o card para a posição antiga e anima de volta até a nova. */
+  const cardPosRef = React.useRef({});
+  React.useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    let reduzido = false;
+    try { reduzido = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch {}
+    const prev = cardPosRef.current;
+    const next = {};
+    document.querySelectorAll(".grade > .cartao").forEach((el) => {
+      if (!el.id || el.id.indexOf("card-") !== 0) return;
+      const left = el.offsetLeft;
+      const top = el.offsetTop;
+      next[el.id] = { left, top };
+      const p = prev[el.id];
+      if (p && !reduzido) {
+        const dx = p.left - left;
+        const dy = p.top - top;
+        if (dx || dy) {
+          el.style.transition = "none";
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = "transform 0.5s cubic-bezier(.2,.8,.2,1)";
+            el.style.transform = "";
+          });
+        }
+      }
+    });
+    cardPosRef.current = next;
+  });
 
   /* Benefício da hidratação: sorteado de um "baralho" local sem repetição
      até os 45 saírem (aí o ciclo recomeça embaralhado). Intervalo mínimo
