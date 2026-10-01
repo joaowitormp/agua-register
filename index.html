@@ -854,7 +854,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-09-30.4";
+const APP_VERSION = "2026-10-01.1";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -1378,6 +1378,58 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia, car
     if (reiId && m.id === reiId) r.conjunto.add("rei-da-cactificacao");
   });
   return resultado;
+}
+
+/* Desempenho da semana por membro (média do % diário nos dias úteis válidos,
+   menos as penalidades dos poderes sofridos). Retorna a lista ordenada do
+   maior para o menor — usada no ranking E na ordem dos cards. */
+function calcularDesempenho(members, intake, extras, historico, semanaOffset) {
+  extras = extras || {};
+  historico = historico || {};
+  const agora = new Date();
+  const segunda = new Date(agora);
+  segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7) - (semanaOffset || 0) * 7);
+  const dias = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(segunda);
+    d.setDate(segunda.getDate() + i);
+    dias.push(d);
+  }
+  const chave = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const chaveHoje = chave(new Date());
+  const ini = segunda.getTime();
+  const fimSemana = new Date(dias[4]);
+  fimSemana.setHours(23, 59, 59, 999);
+  const fimTs = fimSemana.getTime();
+  return members
+    .map((m) => {
+      const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+      let soma = 0;
+      let diasValidos = 0;
+      dias.forEach((d) => {
+        const k = chave(d);
+        if (k > chaveHoje) return;
+        if (!ehDiaUtil(d)) return;
+        const fimDoDia = new Date(d);
+        fimDoDia.setHours(23, 59, 59, 999);
+        if (criadoEm > fimDoDia.getTime()) return;
+        const count = (intake[k] && intake[k][m.id]) || 0;
+        const extra = (extras[k] && extras[k][m.id]) || 0;
+        soma += m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
+        diasValidos++;
+      });
+      let penal = 0;
+      ((historico && historico[m.id]) || []).forEach((e) => {
+        if (!e || e.anulado) return;
+        if (e.t < ini || e.t > fimTs) return;
+        if (e.t < PENALIDADE_DESDE) return;
+        if (PENALIDADE[e.tipo]) penal += Math.abs(e.pct || PENALIDADE[e.tipo]);
+      });
+      const mediaPct = diasValidos > 0 ? (soma / diasValidos) * 100 : 0;
+      return { membro: m, criadoEm, desempenho: mediaPct - penal, penal };
+    })
+    .sort((a, b) => b.desempenho - a.desempenho);
 }
 
 const tocarSom = () => {
@@ -2848,41 +2900,7 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
   fimSemana.setHours(23, 59, 59, 999);
   const fimTs = fimSemana.getTime();
 
-  const ranking = members
-    .map((m) => {
-      const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
-      let soma = 0;
-      let diasValidos = 0;
-      dias.forEach((d) => {
-        const k = chave(d);
-        if (k > chaveHoje) return;
-        /* feriado nacional e fim de semana não entram no desempenho */
-        if (!ehDiaUtil(d)) return;
-        const fimDoDia = new Date(d);
-        fimDoDia.setHours(23, 59, 59, 999);
-        if (criadoEm > fimDoDia.getTime()) return;
-        const count = (intake[k] && intake[k][m.id]) || 0;
-        const extra = (extras[k] && extras[k][m.id]) || 0;
-        soma += m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
-        diasValidos++;
-      });
-      /* penalidades sofridas nesta semana (poderes registrados no histórico) */
-      let penal = 0;
-      ((historico && historico[m.id]) || []).forEach((e) => {
-        if (!e || e.anulado) return;
-        if (e.t < ini || e.t > fimTs) return;
-        if (e.t < PENALIDADE_DESDE) return; /* poder anterior à regra não conta */
-        if (PENALIDADE[e.tipo]) penal += Math.abs(e.pct || PENALIDADE[e.tipo]);
-      });
-      const mediaPct = diasValidos > 0 ? (soma / diasValidos) * 100 : 0;
-      return {
-        membro: m,
-        criadoEm,
-        desempenho: mediaPct - penal,
-        penal,
-      };
-    })
-    .sort((a, b) => b.desempenho - a.desempenho);
+  const ranking = calcularDesempenho(members, intake, extras, historico, semanaOffset);
 
   const rotuloSemana =
     semanaOffset === 0
@@ -3683,6 +3701,14 @@ function AguaTracker() {
     if (!garrafaSel[memberId] || garrafaSel[memberId] === "padrao") garrafaSel[memberId] = ids[0];
     persistir({ ...dados, garrafas: { ...(dados.garrafas || {}), [memberId]: nova }, garrafaSel });
   };
+
+  /* Ordem dos cards = ranking de desempenho da semana atual: 1º lugar no
+     canto superior esquerdo, depois da esquerda para a direita, de cima
+     para baixo. Atualiza sozinho conforme as posições mudam. */
+  const membrosOrdenados = calcularDesempenho(
+    dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 0
+  ).map((r) => r.membro);
+
   /* Poderes tomados de outro jogador pelo efeito rebote (valem só hoje) */
   const roubos = (dados.roubos && typeof dados.roubos === "object") ? dados.roubos : {};
   const meusRoubos = [];
@@ -5140,7 +5166,7 @@ function AguaTracker() {
       )}
 
       <div className="grade">
-        {dados.members.map((m) => {
+        {membrosOrdenados.map((m) => {
           const c = registrosHoje[m.id] || 0;
           const extraMl = extrasHoje[m.id] || 0;
           const donoDoCartao =
