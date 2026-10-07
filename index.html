@@ -284,14 +284,36 @@ body { margin: 0; }
   width: 100%; max-width: 470px; max-height: 92vh; overflow-y: auto;
   box-shadow: 0 16px 48px rgba(11, 52, 70, 0.3); box-sizing: border-box;
 }
-/* Bastão dourado do Rei da Cactificação */
-.cartao.tem-bastao { overflow: visible; }
+/* Bastão dourado do Rei da Cactificação + moldura dourada do card */
+.cartao.tem-bastao {
+  overflow: visible;
+  border-color: #EBC24A;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07),
+              0 0 0 2px #EBC24A inset,
+              0 0 14px 2px rgba(214, 160, 20, 0.35);
+  transition: box-shadow 0.5s ease, border-color 0.5s ease;
+}
+/* Brilho de conquista: cresce acima do padrão, pulsa sem pausa e volta ao
+   padrão — uma única vez ao assumir o bastão */
+.cartao.rei-conquista { animation: rei-conquista 2.4s ease-in-out 1; }
+@keyframes rei-conquista {
+  0%   { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 2px #EBC24A inset, 0 0 14px 2px rgba(214,160,20,.35); }
+  16%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F6D55C inset, 0 0 34px 11px rgba(240,190,40,.9); }
+  34%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F2CC50 inset, 0 0 24px 6px rgba(240,190,40,.6); }
+  50%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F6D55C inset, 0 0 38px 12px rgba(240,190,40,.95); }
+  66%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F2CC50 inset, 0 0 24px 6px rgba(240,190,40,.6); }
+  82%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F6D55C inset, 0 0 30px 9px rgba(240,190,40,.8); }
+  100% { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 2px #EBC24A inset, 0 0 14px 2px rgba(214,160,20,.35); }
+}
 .bastao-rei {
   position: absolute; left: -20px; top: 50%; width: 60px; height: 150px;
   margin-top: -75px; transform: rotate(-15deg); transform-origin: 50% 90%;
   z-index: 6; pointer-events: none;
   animation: bastao-flutua 3.2s ease-in-out infinite;
+  transition: opacity 0.3s ease;
 }
+/* durante o voo do bastão (overlay), o bastão fixo some para não duplicar */
+body.bastao-voando .bastao-rei { opacity: 0; }
 @keyframes bastao-flutua {
   0%, 100% { transform: rotate(-15deg) translateY(0); }
   50% { transform: rotate(-15deg) translateY(-9px); }
@@ -555,6 +577,8 @@ body { margin: 0; }
   .carta-palco { animation: none; }
   .carta-giro { transition: none; }
   .bastao-rei { animation: none; transform: rotate(-15deg); }
+  .cartao.rei-conquista { animation: none; }
+  .cact-bastao, .cact-cacto { transition: none; }
 }
 
 /* Tempestade de areia */
@@ -862,7 +886,11 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-01.2";
+const APP_VERSION = "2026-10-07.1";
+/* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
+   valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
+   o sorteio de forma justa (sem repetir quem já estava com ela) */
+const CARTA_RESET = "2026-10-05";
 
 /* --- Sino: chaves de controle e alertas para quem recebe --- */
 const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
@@ -2608,7 +2636,7 @@ function GotaNoivo({ idClip }) {
   );
 }
 
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, rei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -2621,7 +2649,7 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
   return (
     <div
       id={`card-${membro.id}`}
-      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""}`}
+      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""} ${conquistaRei && !noivo ? "rei-conquista" : ""}`}
     >
       {rei && !noivo && <BastaoRei />}
       <div className="cartao-topo">
@@ -3158,33 +3186,51 @@ function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquiri
 
 /* Overlay que anima a cactificação: o bastão do Rei sai do card dele,
    aponta para o card da vítima, e um cacto cresce sobre a vítima */
-function AnimacaoCactificacao({ reiId, victimId, onDone }) {
+/* Overlay do bastão. mode "cacto": vai do card do Rei até a vítima, o cacto
+   cresce e o bastão VOLTA de forma fluída. mode "troca": quando alguém
+   ultrapassa o Rei, o bastão desliza do card antigo até o card do novo Rei. */
+function AnimacaoBastao({ fromId, toId, mode, onDone }) {
   const [fase, setFase] = React.useState(0);
-  const reiEl = typeof document !== "undefined" ? document.getElementById("card-" + reiId) : null;
-  const vicEl = typeof document !== "undefined" ? document.getElementById("card-" + victimId) : null;
+  const fromEl = typeof document !== "undefined" ? document.getElementById("card-" + fromId) : null;
+  const toEl = typeof document !== "undefined" ? document.getElementById("card-" + toId) : null;
   React.useEffect(() => {
-    if (!reiEl || !vicEl) { onDone(); return; }
-    const t1 = setTimeout(() => setFase(1), 60);
-    const t2 = setTimeout(() => setFase(2), 850);
-    const t3 = setTimeout(() => onDone(), 2200);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    if (!fromEl || !toEl) { onDone(); return; }
+    document.body.classList.add("bastao-voando");
+    const timers = [];
+    timers.push(setTimeout(() => setFase(1), 60));
+    if (mode === "cacto") {
+      timers.push(setTimeout(() => setFase(2), 850));   /* cacto cresce */
+      timers.push(setTimeout(() => setFase(3), 1700));  /* bastão volta */
+      timers.push(setTimeout(() => onDone(), 2500));
+    } else {
+      timers.push(setTimeout(() => setFase(2), 900));   /* assenta no novo card */
+      timers.push(setTimeout(() => onDone(), 1250));
+    }
+    return () => { timers.forEach(clearTimeout); document.body.classList.remove("bastao-voando"); };
   }, []);
-  if (!reiEl || !vicEl) return null;
-  const r = reiEl.getBoundingClientRect();
-  const v = vicEl.getBoundingClientRect();
-  const bastaoStyle = fase >= 1
-    ? { left: (v.left + v.width * 0.16) + "px", top: (v.top + v.height * 0.30) + "px", transform: "rotate(72deg)" }
-    : { left: (r.left - 12) + "px", top: (r.top + r.height / 2 - 82) + "px", transform: "rotate(-15deg)" };
+  if (!fromEl || !toEl) return null;
+  const f = fromEl.getBoundingClientRect();
+  const t = toEl.getBoundingClientRect();
+  const restAt = (c) => ({ left: (c.left - 12) + "px", top: (c.top + c.height / 2 - 82) + "px", transform: "rotate(-15deg)" });
+  const aimAt = (c) => ({ left: (c.left + c.width * 0.16) + "px", top: (c.top + c.height * 0.30) + "px", transform: "rotate(72deg)" });
+  let bastaoStyle;
+  if (mode === "cacto") {
+    /* fase 1/2 mira na vítima; fase 0/3 em repouso no card do Rei (ida e volta) */
+    bastaoStyle = (fase === 1 || fase === 2) ? aimAt(t) : restAt(f);
+  } else {
+    /* troca: desliza até o repouso do novo card */
+    bastaoStyle = fase >= 1 ? restAt(t) : restAt(f);
+  }
   const cactoStyle = {
-    left: (v.left + v.width / 2 - 30) + "px",
-    top: (v.top + v.height / 2 - 42) + "px",
-    opacity: fase >= 2 ? 1 : 0,
-    transform: fase >= 2 ? "scale(1)" : "scale(0.2)",
+    left: (t.left + t.width / 2 - 30) + "px",
+    top: (t.top + t.height / 2 - 42) + "px",
+    opacity: (mode === "cacto" && fase === 2) ? 1 : 0,
+    transform: (mode === "cacto" && fase >= 2) ? "scale(1)" : "scale(0.2)",
   };
   return (
     <div className="cact-overlay">
       <div className="cact-bastao" style={bastaoStyle} dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />
-      <div className="cact-cacto" style={cactoStyle}><Cacto tamanho={60} /></div>
+      {mode === "cacto" && <div className="cact-cacto" style={cactoStyle}><Cacto tamanho={60} /></div>}
     </div>
   );
 }
@@ -3223,7 +3269,8 @@ function AguaTracker() {
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
   const [trocaGarrafa, setTrocaGarrafa] = useState(null); // membro com o alternador de garrafa aberto
   const [escolhaGarrafa, setEscolhaGarrafa] = useState(null); // { membroId } — janela de escolha de garrafa
-  const [animCacto, setAnimCacto] = useState(null); // { reiId, victimId, t } — animação de cactificação do Rei
+  const [animCacto, setAnimCacto] = useState(null); // { fromId, toId, mode, t } — overlay do bastão
+  const [reiConquista, setReiConquista] = useState(null); // id do card que acabou de assumir o bastão (brilho da moldura)
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
   const [posseExtra, setPosseExtra] = useState(lerPosseExtra); // cartões reivindicados por PIN neste dispositivo
@@ -3429,13 +3476,17 @@ function AguaTracker() {
     }
   }, [dados, posseExtra]);
 
-  /* Animação da cactificação do Rei: roda uma vez por dispositivo, no 1º
-     acesso após uma cactificação feita pelo Rei atual */
+  /* Animações do bastão (uma vez por dispositivo):
+     - TROCA: quando o Rei muda (alguém ultrapassa), o bastão desliza do card
+       antigo até o novo e a moldura dourada brilha no novo card;
+     - CACTO: quando o Rei atual cactifica alguém, o bastão vai até a vítima,
+       o cacto cresce e o bastão volta de forma fluída. */
   useEffect(() => {
     if (!dados || animCacto) return;
     const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
     const reiM = dados.members.find((m) => mapa[m.id] && mapa[m.id].conjunto.has("rei-da-cactificacao"));
-    if (!reiM) return;
+    const reiIdAtual = reiM ? reiM.id : null;
+    /* cactificação mais recente */
     let best = null;
     Object.keys(dados.historico || {}).forEach((vid) => {
       (dados.historico[vid] || []).forEach((e) => {
@@ -3444,18 +3495,53 @@ function AguaTracker() {
         }
       });
     });
-    if (!best) return;
-    let seen = 0;
-    try { seen = Number(localStorage.getItem("agua-cact-anim-seen") || 0); } catch {}
-    if (best.t <= seen) return;
+    let reiSeen = null;
+    try { reiSeen = localStorage.getItem("agua-rei-seen"); } catch {}
+    let cactSeen = 0;
+    try { cactSeen = Number(localStorage.getItem("agua-cact-anim-seen") || 0); } catch {}
+    const marcar = (k, v) => { try { localStorage.setItem(k, String(v)); } catch {} };
+
+    /* Primeira vez neste dispositivo: só registra o estado atual, sem animar */
+    if (reiSeen === null) {
+      marcar("agua-rei-seen", reiIdAtual || "");
+      marcar("agua-cact-anim-seen", best ? best.t : 0);
+      return;
+    }
+
+    /* TROCA de Rei (ultrapassagem) */
+    if (
+      reiIdAtual && reiIdAtual !== reiSeen &&
+      dados.members.some((m) => m.id === reiSeen) &&
+      document.getElementById("card-" + reiSeen) &&
+      document.getElementById("card-" + reiIdAtual)
+    ) {
+      marcar("agua-rei-seen", reiIdAtual);
+      if (best) marcar("agua-cact-anim-seen", best.t); /* evita disparar o cacto do mesmo evento */
+      setReiConquista(reiIdAtual);
+      setAnimCacto({ fromId: reiSeen, toId: reiIdAtual, mode: "troca", t: Date.now() });
+      return;
+    }
+    /* Rei mudou mas não deu para animar (card ausente / sem Rei) */
+    if (reiIdAtual !== reiSeen) marcar("agua-rei-seen", reiIdAtual || "");
+
+    /* CACTO normal do Rei atual */
+    if (!reiM || !best) return;
+    if (best.t <= cactSeen) return;
     const feitaPeloRei = nomeNormalizado(best.por) === nomeNormalizado(reiM.name);
     const vitimaExiste = dados.members.some((m) => m.id === best.vid) && best.vid !== reiM.id;
     if (feitaPeloRei && vitimaExiste) {
-      setAnimCacto({ reiId: reiM.id, victimId: best.vid, t: best.t });
+      setAnimCacto({ fromId: reiM.id, toId: best.vid, mode: "cacto", t: best.t });
     } else {
-      try { localStorage.setItem("agua-cact-anim-seen", String(best.t)); } catch {}
+      marcar("agua-cact-anim-seen", best.t);
     }
   }, [dados, animCacto]);
+
+  /* Brilho da conquista do bastão dura uma única passada (~2,4 s) */
+  useEffect(() => {
+    if (!reiConquista) return;
+    const t = setTimeout(() => setReiConquista(null), 2500);
+    return () => clearTimeout(t);
+  }, [reiConquista]);
 
   /* Arraste suave dos cards ao reordenar por desempenho (técnica FLIP):
      mede a posição de layout de cada card, e quando ela muda entre renders,
@@ -3630,6 +3716,23 @@ function AguaTracker() {
        telas de carregamento/erro, então não pode depender de variáveis
        criadas mais abaixo no componente */
     const diaHoje = hoje();
+    /* Reset único por publicação: tira a carta de quem estava preso com
+       ela e refaz o sorteio na hora, sem recair na mesma pessoa */
+    if (dados.cartaResetVersao !== CARTA_RESET) {
+      const novo = structuredClone(dados);
+      const anterior =
+        (novo.cartaOferta && novo.cartaOferta.paraId) ||
+        (novo.carta && novo.carta.paraId) ||
+        null;
+      delete novo.cartaOferta;
+      delete novo.carta;
+      novo.ultimaCartaPara = anterior; /* não cai de novo em quem já tinha */
+      novo.proximaCarta = 0; /* força um novo sorteio imediato */
+      novo.cartaResetVersao = CARTA_RESET;
+      persistir(novo);
+      return;
+    }
+
     const ofertaViva =
       dados.cartaOferta &&
       dados.cartaOferta.dia === diaHoje &&
@@ -3648,9 +3751,19 @@ function AguaTracker() {
         agora - Number((novo.ultimo && novo.ultimo[m.id]) || 0) <
         24 * 60 * 60 * 1000
     );
-    if (ativos.length === 0) return;
-    const sorteado = ativos[Math.floor(Math.random() * ativos.length)];
+    /* A carta é uma mecânica social: só vale a pena com 2+ pessoas ativas.
+       Com só uma pessoa ativa, a carta cairia sempre nela — então não sorteia */
+    if (ativos.length < 2) return;
+    /* Trava anti-repetição: não entrega a carta de novo para quem acabou
+       de recebê-la, desde que haja outro elegível */
+    let elegiveis = ativos;
+    if (novo.ultimaCartaPara) {
+      const semUltimo = ativos.filter((m) => m.id !== novo.ultimaCartaPara);
+      if (semUltimo.length > 0) elegiveis = semUltimo;
+    }
+    const sorteado = elegiveis[Math.floor(Math.random() * elegiveis.length)];
     novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
+    novo.ultimaCartaPara = sorteado.id;
     novo.proximaCarta = agora + (1 + Math.random() * 44) * 60 * 1000;
     persistir(novo);
   }, [dados]);
@@ -5246,6 +5359,7 @@ function AguaTracker() {
               garrafasDono={garrafasDe(m.id)}
               onTrocarGarrafa={setTrocaGarrafa}
               rei={!!(conquistas[m.id] && conquistas[m.id].conjunto.has("rei-da-cactificacao"))}
+              conquistaRei={reiConquista === m.id}
               podeEditar={m.ownerId === meuDispositivo || posseExtra.includes(m.id)}
               mostrarReivindicar={!tenhoCartao && !donoDoCartao && !!m.pinHash}
               onEditar={abrirEdicao}
@@ -6128,11 +6242,14 @@ function AguaTracker() {
       })()}
 
       {animCacto && (
-        <AnimacaoCactificacao
-          reiId={animCacto.reiId}
-          victimId={animCacto.victimId}
+        <AnimacaoBastao
+          fromId={animCacto.fromId}
+          toId={animCacto.toId}
+          mode={animCacto.mode}
           onDone={() => {
-            try { localStorage.setItem("agua-cact-anim-seen", String(animCacto.t)); } catch {}
+            if (animCacto.mode === "cacto") {
+              try { localStorage.setItem("agua-cact-anim-seen", String(animCacto.t)); } catch {}
+            }
             setAnimCacto(null);
           }}
         />
