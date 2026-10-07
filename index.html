@@ -280,10 +280,29 @@ body { margin: 0; }
   z-index: 70; padding: 20px; box-sizing: border-box;
 }
 .modal-sino {
+  position: relative;
   background: #FFFFFF; border-radius: 16px; padding: 20px;
   width: 100%; max-width: 470px; max-height: 92vh; overflow-y: auto;
   box-shadow: 0 16px 48px rgba(11, 52, 70, 0.3); box-sizing: border-box;
 }
+.modal-x {
+  position: absolute; top: 10px; right: 10px; width: 30px; height: 30px;
+  border: none; background: #F0F5F8; color: #6a8391; border-radius: 50%;
+  font-size: 20px; line-height: 1; cursor: pointer; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-x:hover { background: #E3EEF3; color: #0B3446; }
+/* botão de abrir a janela de garrafas (com selinho de crédito pendente) */
+.btn-garrafas { position: relative; }
+.garrafa-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px;
+  padding: 0 3px; background: #0F8BB0; color: #fff; border-radius: 999px;
+  font-size: 10px; font-weight: 800; line-height: 15px; text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+/* modo "só ver": garrafas que ainda não tenho ficam visíveis, porém neutras */
+.garrafa-opt.sover { cursor: default; }
+.garrafa-opt.sover:hover { border-color: #E3EEF3; }
 /* Bastão dourado do Rei da Cactificação + moldura dourada do card */
 .cartao.tem-bastao {
   overflow: visible;
@@ -886,7 +905,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-07.2";
+const APP_VERSION = "2026-10-07.3";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2636,7 +2655,7 @@ function GotaNoivo({ idClip }) {
   );
 }
 
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -2684,6 +2703,21 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
           </p>
         </div>
         <div className="topo-acoes">
+          {dono && !noivo && onEscolherGarrafa && (
+            <button
+              className="sino btn-garrafas"
+              title={creditoGarrafa > 0 ? "Você tem garrafa(s) para escolher!" : "Ver minhas garrafas"}
+              aria-label={`Ver as garrafas de ${membro.name}`}
+              onClick={() => onEscolherGarrafa(membro)}
+            >
+              <svg width="15" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 2h4" />
+                <path d="M10 2v3.2c0 .5-.2 1-.6 1.4L8 8c-.6.6-1 1.5-1 2.4V19a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-8.6c0-.9-.4-1.8-1-2.4l-1.4-1.4c-.4-.4-.6-.9-.6-1.4V2" />
+                <path d="M7 12.5h10" />
+              </svg>
+              {creditoGarrafa > 0 && <span className="garrafa-badge">{creditoGarrafa}</span>}
+            </button>
+          )}
           {dono && !noivo && garrafasDono.length >= 2 && onTrocarGarrafa && (
             <button
               className="sino"
@@ -3112,8 +3146,13 @@ function ModalTrocaGarrafa({ membro, donas, atual, onEscolher, onFechar }) {
 /* Janela de escolha de garrafa (prêmio de conquista de +1 garrafa) */
 function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquirir, onFechar }) {
   const [sel, setSel] = React.useState([]);
+  /* "tinha crédito ao abrir": separa a comemoração (acabei de pegar) do modo
+     consulta (abri a janela só para ver, sem garrafa disponível para pegar) */
+  const [tinhaCredito] = React.useState(creditos > 0);
+  const acabou = creditos <= 0;
+  const soVer = acabou && !tinhaCredito; /* aberto manualmente, nada a pegar */
   const clique = (id) => {
-    if (donas.includes(id)) return;
+    if (acabou || donas.includes(id)) return; /* no modo consulta nada é selecionável */
     setSel((prev) => {
       const i = prev.indexOf(id);
       if (i >= 0) return prev.filter((x) => x !== id);
@@ -3125,11 +3164,21 @@ function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquiri
   const conqs = conquistasIds
     .map((cid) => CONQUISTAS.find((c) => c.id === cid))
     .filter(Boolean);
-  const acabou = creditos <= 0;
+  const titulo = soVer
+    ? "Minhas garrafas"
+    : acabou
+    ? "Garrafa(s) adquirida(s)! 🎉"
+    : (creditos > 1 ? `Você desbloqueou +${creditos} garrafas! 🎉` : "Você desbloqueou +1 garrafa! 🎉");
+  const subtitulo = soVer
+    ? "Você não tem nenhuma garrafa para escolher agora. Conquiste um prêmio de +1 garrafa para desbloquear as que faltam. Troque a garrafa ativa pelo ícone ⇄ no seu card."
+    : acabou
+    ? "Troque sua garrafa pelo ícone ⇄ no seu card quando quiser."
+    : (creditos > 1 ? "Escolha quais garrafas quer pegar." : "Escolha sua nova garrafa entre as que você ainda não tem.");
   return (
     <div className="modal-fundo" onClick={acabou ? onFechar : undefined}>
       <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
-        {!acabou && (
+        <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={onFechar}>×</button>
+        {!acabou && conqs.length > 0 && (
           <div className="escolha-conqs">
             {conqs.map((c) => (
               <span key={c.id} className="escolha-conq">
@@ -3138,14 +3187,8 @@ function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquiri
             ))}
           </div>
         )}
-        <h2 className="nome" style={{ marginTop: 10 }}>
-          {acabou ? "Garrafa(s) adquirida(s)! 🎉" : (creditos > 1 ? `Você desbloqueou +${creditos} garrafas! 🎉` : "Você desbloqueou +1 garrafa! 🎉")}
-        </h2>
-        <p className="sub">
-          {acabou
-            ? "Troque sua garrafa pelo ícone ⇄ no seu card quando quiser."
-            : (creditos > 1 ? "Escolha quais garrafas quer pegar." : "Escolha sua nova garrafa entre as que você ainda não tem.")}
-        </p>
+        <h2 className="nome" style={{ marginTop: 10 }}>{titulo}</h2>
+        <p className="sub">{subtitulo}</p>
         {!acabou && (
           <p className="escolha-contador">
             Você pode escolher <b>{creditos}</b> · selecionadas <b>{sel.length}/{creditos}</b>
@@ -3157,7 +3200,7 @@ function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquiri
             return (
               <button
                 key={g.id}
-                className={`garrafa-opt ${adq ? "adq" : ""} ${sel.includes(g.id) ? "sel" : ""}`}
+                className={`garrafa-opt ${adq ? "adq" : ""} ${sel.includes(g.id) ? "sel" : ""} ${soVer ? "sover" : ""}`}
                 onClick={() => clique(g.id)}
               >
                 <span className="opt-selo">✓ Adquirida</span>
@@ -5358,6 +5401,8 @@ function AguaTracker() {
               garrafaId={garrafaSelDe(m.id)}
               garrafasDono={garrafasDe(m.id)}
               onTrocarGarrafa={setTrocaGarrafa}
+              creditoGarrafa={creditosGarrafaDe(m.id)}
+              onEscolherGarrafa={(mm) => setEscolhaGarrafa({ membroId: mm.id, manual: true })}
               rei={!!(conquistas[m.id] && conquistas[m.id].conjunto.has("rei-da-cactificacao"))}
               conquistaRei={reiConquista === m.id}
               podeEditar={m.ownerId === meuDispositivo || posseExtra.includes(m.id)}
