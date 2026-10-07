@@ -362,14 +362,22 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   background: #0F8BB0; color: #fff; font-size: 13px; font-weight: 800;
   display: none; align-items: center; justify-content: center;
 }
+/* a "em uso" (ativa) mostra o ✓; a selecionada para adquirir também */
 .garrafa-opt.sel .opt-check { display: flex; }
-.garrafa-opt.adq { opacity: 0.5; cursor: default; filter: grayscale(0.3); }
-.garrafa-opt.adq:hover { border-color: #E3EEF3; }
+/* garrafa que já tenho: cheia, clicável (toque = usar no card), com selo */
+.garrafa-opt.tenho { }
+.garrafa-opt.tenho .opt-nome { color: #0B3446; }
+/* indisponível (não tenho e sem crédito): visível, porém sem destaque */
+.garrafa-opt.sover { opacity: 0.45; cursor: default; filter: grayscale(0.35); }
+.garrafa-opt.sover:hover { border-color: #E3EEF3; }
+.garrafa-opt.sover .opt-nome { color: #6a8391; }
 .garrafa-opt .opt-selo {
   display: none; position: absolute; top: 6px; left: 6px; font-size: 9px; font-weight: 800;
   color: #0FA36B; background: #E5F7EE; border: 1px solid #BDE9D2; border-radius: 99px; padding: 2px 7px;
 }
-.garrafa-opt.adq .opt-selo { display: block; } .garrafa-opt.adq .opt-nome { color: #6a8391; }
+/* selo "✓ Adquirida" nas que tenho; selo "Em uso" (azul) na ativa */
+.garrafa-opt.tenho .opt-selo { display: block; }
+.garrafa-opt.ativa .opt-selo { color: #0F8BB0; background: #EAF6FA; border-color: #BDE2EE; }
 .escolha-conqs { display: flex; flex-direction: column; gap: 6px; }
 .escolha-conq {
   display: flex; align-items: center; gap: 8px; width: max-content; font-size: 12px;
@@ -905,7 +913,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-07.3";
+const APP_VERSION = "2026-10-07.4";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2718,19 +2726,6 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
               {creditoGarrafa > 0 && <span className="garrafa-badge">{creditoGarrafa}</span>}
             </button>
           )}
-          {dono && !noivo && garrafasDono.length >= 2 && onTrocarGarrafa && (
-            <button
-              className="sino"
-              title="Trocar de garrafa"
-              aria-label={`Trocar a garrafa de ${membro.name}`}
-              onClick={() => onTrocarGarrafa(membro)}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 7h13l-3 -3" />
-                <path d="M20 17H7l3 3" />
-              </svg>
-            </button>
-          )}
           {podeEditar && (
             <button
               className="sino"
@@ -3114,45 +3109,24 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
 
 /* ---------- App ---------- */
 /* Alternador: escolher entre as garrafas que o usuário já tem */
-function ModalTrocaGarrafa({ membro, donas, atual, onEscolher, onFechar }) {
-  return (
-    <div className="modal-fundo" onClick={onFechar}>
-      <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
-        <h2 className="nome">Trocar garrafa de {membro.name}</h2>
-        <p className="sub">Escolha qual das suas garrafas aparece no card.</p>
-        <div className="garrafa-grid">
-          {donas.map((id) => {
-            const g = GARRAFA_POR_ID[id];
-            if (!g) return null;
-            return (
-              <button
-                key={id}
-                className={`garrafa-opt ${id === atual ? "sel" : ""}`}
-                onClick={() => onEscolher(id)}
-              >
-                <span className="opt-check">✓</span>
-                <div className="opt-bot"><GarrafaSel id={id} pct={0.6} tamanho={72} /></div>
-                <div className="opt-nome">{g.nome}</div>
-              </button>
-            );
-          })}
-        </div>
-        <button className="desfazer fechar-modal" onClick={onFechar}>Fechar</button>
-      </div>
-    </div>
-  );
-}
-
-/* Janela de escolha de garrafa (prêmio de conquista de +1 garrafa) */
-function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquirir, onFechar }) {
+/* Janela única das garrafas: mostra as conquistadas (com selo e com a "em uso"
+   em destaque), permite trocar a garrafa ativa tocando numa que já tem, oferece
+   as novas para adquirir quando há crédito (+1 garrafa) e deixa as indisponíveis
+   visíveis porém sem destaque. Substitui o antigo alternador ⇄ do card. */
+function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, ativa, onAdquirir, onSelecionarAtiva, onFechar }) {
   const [sel, setSel] = React.useState([]);
   /* "tinha crédito ao abrir": separa a comemoração (acabei de pegar) do modo
-     consulta (abri a janela só para ver, sem garrafa disponível para pegar) */
+     consulta (abri a janela só para ver, sem garrafa nova para pegar) */
   const [tinhaCredito] = React.useState(creditos > 0);
   const acabou = creditos <= 0;
   const soVer = acabou && !tinhaCredito; /* aberto manualmente, nada a pegar */
   const clique = (id) => {
-    if (acabou || donas.includes(id)) return; /* no modo consulta nada é selecionável */
+    /* garrafa que já tenho → vira a ativa do card */
+    if (donas.includes(id)) {
+      if (id !== ativa && onSelecionarAtiva) onSelecionarAtiva(id);
+      return;
+    }
+    if (acabou) return; /* indisponível (sem crédito) → sem ação */
     setSel((prev) => {
       const i = prev.indexOf(id);
       if (i >= 0) return prev.filter((x) => x !== id);
@@ -3170,10 +3144,12 @@ function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquiri
     ? "Garrafa(s) adquirida(s)! 🎉"
     : (creditos > 1 ? `Você desbloqueou +${creditos} garrafas! 🎉` : "Você desbloqueou +1 garrafa! 🎉");
   const subtitulo = soVer
-    ? "Você não tem nenhuma garrafa para escolher agora. Conquiste um prêmio de +1 garrafa para desbloquear as que faltam. Troque a garrafa ativa pelo ícone ⇄ no seu card."
+    ? "Toque numa garrafa adquirida para usá-la no seu card. Conquiste um prêmio de +1 garrafa para desbloquear as demais."
     : acabou
-    ? "Troque sua garrafa pelo ícone ⇄ no seu card quando quiser."
-    : (creditos > 1 ? "Escolha quais garrafas quer pegar." : "Escolha sua nova garrafa entre as que você ainda não tem.");
+    ? "Pronto! Toque numa garrafa adquirida para usá-la no seu card."
+    : (creditos > 1
+        ? "Escolha quais garrafas quer pegar. Toque numa que você já tem para usá-la no card."
+        : "Escolha sua nova garrafa. Toque numa que você já tem para usá-la no card.");
   return (
     <div className="modal-fundo" onClick={acabou ? onFechar : undefined}>
       <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
@@ -3196,14 +3172,20 @@ function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, onAdquiri
         )}
         <div className="garrafa-grid">
           {GARRAFAS.map((g) => {
-            const adq = donas.includes(g.id);
+            const tenho = donas.includes(g.id);
+            const ehAtiva = tenho && g.id === ativa;
+            const selecionada = !tenho && sel.includes(g.id);
+            const naoDisp = !tenho && acabou; /* indisponível, sem destaque */
+            const cls = [
+              "garrafa-opt",
+              tenho ? "tenho" : "",
+              ehAtiva ? "ativa sel" : "",
+              selecionada ? "sel" : "",
+              naoDisp ? "sover" : "",
+            ].filter(Boolean).join(" ");
             return (
-              <button
-                key={g.id}
-                className={`garrafa-opt ${adq ? "adq" : ""} ${sel.includes(g.id) ? "sel" : ""} ${soVer ? "sover" : ""}`}
-                onClick={() => clique(g.id)}
-              >
-                <span className="opt-selo">✓ Adquirida</span>
+              <button key={g.id} className={cls} onClick={() => clique(g.id)}>
+                <span className="opt-selo">{ehAtiva ? "Em uso" : "✓ Adquirida"}</span>
                 <span className="opt-check">✓</span>
                 <div className="opt-bot"><GarrafaSel id={g.id} pct={0.6} tamanho={72} /></div>
                 <div className="opt-nome">{g.nome}</div>
@@ -3310,7 +3292,6 @@ function AguaTracker() {
     if (historicoDe) setMesHist(0);
   }, [historicoDe]);
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
-  const [trocaGarrafa, setTrocaGarrafa] = useState(null); // membro com o alternador de garrafa aberto
   const [escolhaGarrafa, setEscolhaGarrafa] = useState(null); // { membroId } — janela de escolha de garrafa
   const [animCacto, setAnimCacto] = useState(null); // { fromId, toId, mode, t } — overlay do bastão
   const [reiConquista, setReiConquista] = useState(null); // id do card que acabou de assumir o bastão (brilho da moldura)
@@ -3888,7 +3869,6 @@ function AguaTracker() {
   };
   const selecionarGarrafa = (memberId, bottleId) => {
     persistir({ ...dados, garrafaSel: { ...(dados.garrafaSel || {}), [memberId]: bottleId } });
-    setTrocaGarrafa(null);
   };
   const adquirirGarrafas = (memberId, ids) => {
     if (!ids || ids.length === 0) return;
@@ -5400,7 +5380,6 @@ function AguaTracker() {
               )}
               garrafaId={garrafaSelDe(m.id)}
               garrafasDono={garrafasDe(m.id)}
-              onTrocarGarrafa={setTrocaGarrafa}
               creditoGarrafa={creditosGarrafaDe(m.id)}
               onEscolherGarrafa={(mm) => setEscolhaGarrafa({ membroId: mm.id, manual: true })}
               rei={!!(conquistas[m.id] && conquistas[m.id].conjunto.has("rei-da-cactificacao"))}
@@ -6300,16 +6279,6 @@ function AguaTracker() {
         />
       )}
 
-      {trocaGarrafa && (
-        <ModalTrocaGarrafa
-          membro={trocaGarrafa}
-          donas={garrafasDe(trocaGarrafa.id)}
-          atual={garrafaSelDe(trocaGarrafa.id)}
-          onEscolher={(id) => selecionarGarrafa(trocaGarrafa.id, id)}
-          onFechar={() => setTrocaGarrafa(null)}
-        />
-      )}
-
       {escolhaGarrafa && (() => {
         const m = dados.members.find((x) => x.id === escolhaGarrafa.membroId);
         if (!m) return null;
@@ -6321,7 +6290,9 @@ function AguaTracker() {
             creditos={creditosGarrafaDe(m.id)}
             conquistasIds={conquistasIds}
             donas={garrafasDe(m.id)}
+            ativa={garrafaSelDe(m.id)}
             onAdquirir={(ids) => adquirirGarrafas(m.id, ids)}
+            onSelecionarAtiva={(id) => selecionarGarrafa(m.id, id)}
             onFechar={() => setEscolhaGarrafa(null)}
           />
         );
