@@ -818,15 +818,15 @@ const fmtTempo = (ms) => {
 /* Frases de provocação exclusivas, destravadas por conquista */
 const FRASES_CONQUISTA = {
   "cachoeira-alarmante": [
-    "50 litros de correnteza. Você ainda é torneira pingando.",
+    "{LITROS} de correnteza. Você ainda é torneira pingando.",
     "Quando eu passo, os rios pedem autógrafo.",
     "Eu corro, você goteja. Cada um no seu ritmo.",
   ],
   "represa-billings": [
-    "200 litros me contemplam. E você aí, de gole em gole.",
+    "{LITROS} me contemplam. E você aí, de gole em gole.",
     "Eu sou basicamente um reservatório público. Você, uma poça.",
     "Tem gente que bebe água. Tem gente que estoca. Adivinha.",
-    "200 litros de calma olhando para a sua pressa de nada.",
+    "{LITROS} de calma olhando para a sua pressa de nada.",
   ],
   "soberano-da-torneira": [
     "Ordem real: hidrate-se, plebeu.",
@@ -844,7 +844,7 @@ const FRASES_CONQUISTA = {
     "Cuidado: alguém aqui tem poderes e você está bem vulnerável.",
   ],
   "dinastia-da-gota": [
-    "Três semanas no trono. Isso já não é ranking, é reinado.",
+    "{SEMANAS} no trono. Isso já não é ranking, é reinado.",
     "Dinastias caem, dizem. A minha só se hidrata.",
     "Meu nome está no ranking. O seu, na poeira.",
     "Você bebe às vezes. Eu bebo há gerações.",
@@ -913,7 +913,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-07.4";
+const APP_VERSION = "2026-10-21.1";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -1363,6 +1363,10 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia, car
       if (seguidas >= 3) c.add("dinastia-da-gota");
       ultimaSemana = p.semana;
     });
+    /* semanas consecutivas em 1º lugar até a última semana FECHADA (a semana
+       em curso não conta — o trono só vale quando a semana fecha). Usado para
+       preencher e liberar as frases de provocação que citam o "trono" */
+    r.semanasTrono = seguidas;
   });
 
   /* Incactificável: de quem nunca foi cactificado. É a única conquista que
@@ -3262,6 +3266,37 @@ function AnimacaoBastao({ fromId, toId, mode, onDone }) {
 
 function AguaTracker() {
   const [dados, setDados] = useState(null);
+  /* nº de gravações (POST) em voo: enquanto > 0, uma sincronização que chegar
+     não pode rebaixar os registros de hoje feitos nesta tela */
+  const pendenteRef = React.useRef(0);
+  /* Aplica uma foto do servidor SEM apagar um registro local ainda não
+     confirmado: para o dia de hoje, o intake/extras nunca cai abaixo do que
+     esta tela já mostra (mesma regra do "maior vence" que o servidor usa).
+     O resto (membros, poderes, conquistas, garrafas…) vem do servidor. */
+  const aplicarServidor = (serverData) => {
+    setDados((local) => {
+      if (!local) return serverData;
+      const d = hoje();
+      const piso = (campo) => {
+        const out = { ...(serverData[campo] || {}) };
+        const loc = (local[campo] && local[campo][d]) || {};
+        const srv = out[d] || {};
+        const linha = { ...srv };
+        Object.keys(loc).forEach((id) => {
+          linha[id] = Math.max(Number(loc[id] || 0), Number(srv[id] || 0));
+        });
+        out[d] = linha;
+        return out;
+      };
+      const merged = { ...serverData, intake: piso("intake"), extras: piso("extras") };
+      /* com gravação em voo, preserva o log de eventos de hoje desta tela
+         (é o que o Desfazer consulta) até o POST confirmar */
+      if (pendenteRef.current > 0 && local.eventos && local.eventos[d]) {
+        merged.eventos = { ...(serverData.eventos || {}), [d]: local.eventos[d] };
+      }
+      return merged;
+    });
+  };
   const [carregando, setCarregando] = useState(true);
   const [erroSalvar, setErroSalvar] = useState(false);
   const [erroConexao, setErroConexao] = useState(false);
@@ -3344,7 +3379,7 @@ function AguaTracker() {
       }
       try {
         const r = await storage.get(KEY);
-        if (r && r.value) setDados(JSON.parse(r.value));
+        if (r && r.value) aplicarServidor(JSON.parse(r.value));
       } catch {}
     };
     const id = setInterval(() => atualizar(false), 30000);
@@ -3797,11 +3832,28 @@ function AguaTracker() {
        estado nem viaja em gravações futuras */
     const { reduzir, ...limpo } = novo;
     setDados(limpo);
+    /* Enquanto há gravação em voo, uma sincronização que chegar (polling ou
+       foco) não pode apagar este registro recém-feito — ver aplicarServidor */
+    pendenteRef.current += 1;
     try {
-      const r = await storage.set(KEY, JSON.stringify(novo));
+      let r = await storage.set(KEY, JSON.stringify(novo));
+      if (!r) {
+        /* a 1ª gravação pode falhar por um soluço de rede; tenta de novo uma
+           vez antes de avisar — é o que evitava o "não registrou na 1ª vez" */
+        await new Promise((res) => setTimeout(res, 800));
+        r = await storage.set(KEY, JSON.stringify(novo));
+      }
       setErroSalvar(!r);
     } catch {
-      setErroSalvar(true);
+      try {
+        await new Promise((res) => setTimeout(res, 800));
+        const r = await storage.set(KEY, JSON.stringify(novo));
+        setErroSalvar(!r);
+      } catch {
+        setErroSalvar(true);
+      }
+    } finally {
+      pendenteRef.current = Math.max(0, pendenteRef.current - 1);
     }
   }, []);
 
@@ -3909,16 +3961,38 @@ function AguaTracker() {
       minhasConquistas.has(p.conquista) ||
       meusRoubos.some((r) => r.poder === p.id)
   );
+  /* Dados variáveis do próprio usuário para as frases com números: litros
+     acumulados e semanas seguidas no 1º lugar (o maior entre os cartões
+     dele). {LITROS} vira "63 litros"; {SEMANAS} vira "3 semanas"/"1 semana". */
+  const meuTotalMl = meusMembros.reduce(
+    (mx, m) => Math.max(mx, (conquistas[m.id] && conquistas[m.id].totalMl) || 0), 0
+  );
+  const meuSemanasTrono = meusMembros.reduce(
+    (mx, m) => Math.max(mx, (conquistas[m.id] && conquistas[m.id].semanasTrono) || 0), 0
+  );
+  const meusLitros = Math.round(meuTotalMl / 1000);
+  /* Resolve os marcadores da frase. Devolve null quando a frase depende de um
+     dado que o usuário ainda não tem (ex.: menos de 1 semana no trono) — e aí
+     ela nem aparece para envio. */
+  const resolverFrase = (txt) => {
+    if (txt.includes("{SEMANAS}") && meuSemanasTrono < 1) return null;
+    return txt
+      .replace(/\{LITROS\}/g, `${meusLitros} litros`)
+      .replace(/\{SEMANAS\}/g, `${meuSemanasTrono} ${meuSemanasTrono === 1 ? "semana" : "semanas"}`);
+  };
+
   /* agrupadas por conquista, para o seletor mostrar de onde cada uma veio */
   const gruposExclusivos = [];
   Object.keys(FRASES_CONQUISTA).forEach((cid) => {
     if (!minhasConquistas.has(cid)) return;
     const cq = CONQUISTAS.find((c) => c.id === cid);
+    const frases = FRASES_CONQUISTA[cid].map(resolverFrase).filter(Boolean);
+    if (frases.length === 0) return; /* nenhuma frase liberada ainda */
     gruposExclusivos.push({
       id: cid,
       nome: cq ? cq.nome : "",
       conquista: cq,
-      frases: FRASES_CONQUISTA[cid],
+      frases,
     });
   });
   const frasesExclusivas = gruposExclusivos.flatMap((g) =>
@@ -4431,10 +4505,9 @@ function AguaTracker() {
 
   /* Segurança (hiponatremia): a janela de 60 min começa a contar no
      PRIMEIRO registro; quando expira, o próximo registro abre uma janela
-     nova. O aviso surge quando o total da janela passa de 1 L E o consumo
-     foi de fato rápido: vários registros na janela, ou um registro único
-     grande feito a menos de 1 h do registro anterior. Um garrafão de
-     1,5 L registrado de uma vez, horas depois do último gole, não alerta */
+     nova. O aviso surge PELO VOLUME: basta o total da janela passar de 1 L,
+     não importa em quantos registros. Dois copos de 180 ml (360 ml) não
+     alertam; 1,1 L — de uma vez ou somado — alerta. */
   const verificarSeguranca = (membroId, ml) => {
     try {
       const chave = `agua-seg-${membroId}`;
@@ -4443,7 +4516,6 @@ function AguaTracker() {
       try {
         ctl = { ...ctl, ...JSON.parse(localStorage.getItem(chave) || "{}") };
       } catch {}
-      const intervaloAnterior = ctl.ultimoTs ? agora - ctl.ultimoTs : Infinity;
       if (!ctl.inicio || agora - ctl.inicio >= 60 * 60 * 1000) {
         ctl = { inicio: agora, ml: 0, n: 0, ultimoTs: ctl.ultimoTs };
       }
@@ -4451,9 +4523,7 @@ function AguaTracker() {
       ctl.n = (ctl.n || 0) + 1;
       ctl.ultimoTs = agora;
       localStorage.setItem(chave, JSON.stringify(ctl));
-      const passouDeUmLitro = ctl.ml > 1000;
-      const consumoRapido = ctl.n >= 2 || intervaloAnterior < 60 * 60 * 1000;
-      if (passouDeUmLitro && consumoRapido) {
+      if (ctl.ml > 1000) {
         const ultimoAviso = Number(localStorage.getItem("agua-seg-aviso") || 0);
         if (agora - ultimoAviso >= 30 * 60 * 1000) {
           localStorage.setItem("agua-seg-aviso", String(agora));
