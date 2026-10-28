@@ -926,7 +926,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-28.6";
+const APP_VERSION = "2026-10-28.7";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2004,12 +2004,16 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
       precisaDesenhar = true;
     };
 
+    /* Tolerância da limpeza: ~2% do volume inicial já conta como limpo. Exigir
+       0 absoluto deixava grãos presos nos cantos segurarem o soterramento para
+       sempre (areia some da tela, mas o status não saía). */
+    const limiarLimpo = volumeInicial * 0.02;
     const medir = () => {
       let soma = 0;
       for (let i = 0; i < COLUNAS; i++) soma += alturas[i];
       const pct = (soma / volumeInicial) * 100;
-      setRestante(soma <= 0.0005 ? 0 : Math.max(1, Math.round(pct)));
-      if (soma <= 0.0005 && !limpou) {
+      setRestante(soma <= limiarLimpo ? 0 : Math.max(1, Math.round(pct)));
+      if (soma <= limiarLimpo && !limpou) {
         limpou = true;
         ctxA.clearRect(0, 0, anim.width, anim.height);
         ctxN.clearRect(0, 0, anim.width, anim.height);
