@@ -926,7 +926,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-28.7";
+const APP_VERSION = "2026-10-28.8";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3344,6 +3344,7 @@ function AguaTracker() {
     if (historicoDe) setMesHist(0);
   }, [historicoDe]);
   const [loginAberto, setLoginAberto] = useState(false); // seletor de cartão para "Entrar" (login por senha)
+  const [confirmarSair, setConfirmarSair] = useState(false); // confirmação antes de sair (logout)
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
   const [escolhaGarrafa, setEscolhaGarrafa] = useState(null); // { membroId } — janela de escolha de garrafa
   const [animCacto, setAnimCacto] = useState(null); // { fromId, toId, mode, t } — overlay do bastão
@@ -4235,6 +4236,7 @@ function AguaTracker() {
     const novo = structuredClone(dados);
     const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
     if (!efs.tempestade) return;
+    if (efs.tempestade.limpo) return; /* já varrido: não reativa */
     efs.tempestade = { ...efs.tempestade, mapa };
     novo.efeitos[id] = efs;
     persistir(novo);
@@ -4897,17 +4899,11 @@ function AguaTracker() {
     if (cartoesParaEntrar.length === 1) return abrirReivindicacao(cartoesParaEntrar[0]);
     setLoginAberto(true);
   };
-  const sair = () => {
-    const nativosSemPin = dados.members.filter(
-      (m) => m.ownerId === meuDispositivo && !m.pinHash
-    );
-    if (nativosSemPin.length > 0) {
-      const nomes = nativosSemPin.map((m) => m.name).join(", ");
-      const ok = window.confirm(
-        `Você criou sem senha: ${nomes}. Sem senha, não há como entrar de novo nesse(s) cartão(ões) depois de sair. Sair mesmo assim?`
-      );
-      if (!ok) return;
-    }
+  /* cartões criados aqui sem senha: avisar que não dá para voltar neles */
+  const nativosSemPin = dados.members.filter(
+    (m) => m.ownerId === meuDispositivo && !m.pinHash
+  );
+  const executarSaida = () => {
     try {
       localStorage.removeItem(POSSE_KEY);
       localStorage.setItem(DEVICE_KEY, `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
@@ -5255,7 +5251,7 @@ function AguaTracker() {
               className="btn-regras-carta"
               title={tenhoCartao ? "Sair deste aparelho" : "Entrar no seu cartão com senha"}
               aria-label={tenhoCartao ? "Sair deste aparelho" : "Entrar no seu cartão com senha"}
-              onClick={tenhoCartao ? sair : abrirLogin}
+              onClick={tenhoCartao ? () => setConfirmarSair(true) : abrirLogin}
             >
               {tenhoCartao ? (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -6227,6 +6223,29 @@ function AguaTracker() {
             <p className="aviso-agua-nota">
               Aviso informativo — não substitui orientação médica.
             </p>
+          </div>
+        </div>
+      )}
+
+      {confirmarSair && (
+        <div className="modal-fundo" onClick={() => setConfirmarSair(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={() => setConfirmarSair(false)}>×</button>
+            <h2 className="nome">Sair deste aparelho?</h2>
+            <p className="sub">
+              Você vai largar o controle dos cartões neste dispositivo e voltar a
+              ser espectador. Para controlar de novo, é só Entrar com a senha.
+            </p>
+            {nativosSemPin.length > 0 && (
+              <p className="aviso" style={{ margin: "12px 0 0" }}>
+                Atenção: {nativosSemPin.map((m) => m.name).join(", ")} {nativosSemPin.length > 1 ? "foram criados" : "foi criado"} sem senha.
+                Sem senha, não há como entrar de novo nesse(s) cartão(ões) depois de sair.
+              </p>
+            )}
+            <button className="beber fechar-modal" style={{ background: "#C0392B" }} onClick={() => { setConfirmarSair(false); executarSaida(); }}>
+              Sair
+            </button>
+            <button className="desfazer fechar-modal" onClick={() => setConfirmarSair(false)}>Cancelar</button>
           </div>
         </div>
       )}
