@@ -548,6 +548,19 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .btn-regras-carta:hover {
   background: #D8EEF6; transform: translateY(-1px);
 }
+/* Botão de login/logout no topo direito do painel */
+.btn-auth {
+  border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0;
+  cursor: pointer; padding: 7px 14px; border-radius: 10px; line-height: 1;
+  font-family: inherit; font-size: 13px; font-weight: 800;
+  display: inline-flex; align-items: center; margin: 0 6px 6px 0; vertical-align: top;
+  box-shadow: 0 2px 6px rgba(15, 139, 176, 0.12);
+  transition: background 0.15s, transform 0.15s;
+}
+.btn-auth:hover { transform: translateY(-1px); }
+.btn-auth.entrar:hover { background: #D8EEF6; }
+.btn-auth.sair { background: #FDECEC; border-color: #F3C3C3; color: #C0392B; }
+.btn-auth.sair:hover { background: #F9DADA; }
 
 /* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
 .carta-palco {
@@ -636,14 +649,6 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   contain: strict; /* garante que a areia jamais escape do cartão */
 }
 .areia-cartao { width: 100%; height: 100%; display: block; }
-/* botão de login da vítima soterrada: precisa ficar ACIMA da areia do cartão
-   (a areia tem pointer-events:none, mas cobre o botão visualmente) */
-.link-extra.soterrado-login {
-  position: relative; z-index: 2; display: inline-block; margin-top: 8px;
-  background: #FFFDF7; color: #8A5A18; font-weight: 800;
-  border: 1.5px solid #C79A55; border-radius: 999px; padding: 7px 14px;
-  box-shadow: 0 2px 8px rgba(120, 85, 20, 0.25);
-}
 
 /* Histórico individual */
 .lista-historico {
@@ -931,7 +936,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-28.2";
+const APP_VERSION = "2026-10-28.3";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2685,7 +2690,7 @@ function GotaNoivo({ idClip }) {
   );
 }
 
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, soterradoLogin = false, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -2920,11 +2925,8 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
         </div>
       )}
       {mostrarReivindicar && (
-        <button
-          className={`link-extra ${soterradoLogin ? "soterrado-login" : ""}`}
-          onClick={() => onReivindicar(membro)}
-        >
-          {soterradoLogin ? "🔑 É meu cartão — entrar para ver" : "🔑 Este cartão é meu"}
+        <button className="link-extra" onClick={() => onReivindicar(membro)}>
+          🔑 Este cartão é meu
         </button>
       )}
     </div>
@@ -3347,6 +3349,7 @@ function AguaTracker() {
   useEffect(() => {
     if (historicoDe) setMesHist(0);
   }, [historicoDe]);
+  const [loginAberto, setLoginAberto] = useState(false); // seletor de cartão para "Entrar" (login por senha)
   const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
   const [escolhaGarrafa, setEscolhaGarrafa] = useState(null); // { membroId } — janela de escolha de garrafa
   const [animCacto, setAnimCacto] = useState(null); // { fromId, toId, mode, t } — overlay do bastão
@@ -4878,6 +4881,42 @@ function AguaTracker() {
     setReivindicando(membro);
   };
 
+  /* Login/Logout no topo do painel.
+     "Entrar": assume um cartão pela senha (vira dono neste aparelho). Se há só
+     um cartão possível, abre direto; se há vários, mostra o seletor.
+     "Sair": larga o controle neste dispositivo — libera os cartões
+     reivindicados por senha e troca a identidade do aparelho, voltando a ser
+     espectador. Avisa antes se há cartão nativo sem senha (não dá para voltar). */
+  const cartoesParaEntrar = dados.members.filter(
+    (m) => m.pinHash && m.ownerId !== meuDispositivo && !posseExtra.includes(m.id)
+  );
+  const abrirLogin = () => {
+    if (cartoesParaEntrar.length === 0) {
+      setToast("Nenhum cartão com senha para entrar neste aparelho.");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (cartoesParaEntrar.length === 1) return abrirReivindicacao(cartoesParaEntrar[0]);
+    setLoginAberto(true);
+  };
+  const sair = () => {
+    const nativosSemPin = dados.members.filter(
+      (m) => m.ownerId === meuDispositivo && !m.pinHash
+    );
+    if (nativosSemPin.length > 0) {
+      const nomes = nativosSemPin.map((m) => m.name).join(", ");
+      const ok = window.confirm(
+        `Você criou sem senha: ${nomes}. Sem senha, não há como entrar de novo nesse(s) cartão(ões) depois de sair. Sair mesmo assim?`
+      );
+      if (!ok) return;
+    }
+    try {
+      localStorage.removeItem(POSSE_KEY);
+      localStorage.setItem(DEVICE_KEY, `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+    } catch {}
+    window.location.reload();
+  };
+
   const confirmarReivindicacao = async () => {
     if (!reivindicando) return;
     const chaveTent = `agua-pin-tent-${reivindicando.id}`;
@@ -5192,6 +5231,15 @@ function AguaTracker() {
           <h1 className="titulo">Hidratação do time</h1>
         </div>
         <div className="resumo">
+          {(tenhoCartao || cartoesParaEntrar.length > 0) && (
+            <button
+              className={`btn-auth ${tenhoCartao ? "sair" : "entrar"}`}
+              onClick={tenhoCartao ? sair : abrirLogin}
+              title={tenhoCartao ? "Sair deste aparelho" : "Entrar no seu cartão com senha"}
+            >
+              {tenhoCartao ? "Sair" : "🔑 Entrar"}
+            </button>
+          )}
           <button
             className="btn-regras-carta"
             title="Regras do desempenho e dos poderes"
@@ -5441,12 +5489,6 @@ function AguaTracker() {
             m.ownerId === meuDispositivo ||
             posseExtra.includes(m.id);
           const bateuMeta = c * m.bottleMl + extraMl >= m.goalMl;
-          /* Vítima soterrada vendo o próprio cartão de um dispositivo que
-             ainda não é reconhecido como dono: só enxerga a areia no cartão,
-             não a tela cheia. Oferece o login (PIN) para ela assumir o cartão
-             aqui e aí ver o soterramento por inteiro. Precisa de PIN gravado. */
-          const souEspectadorSoterrado =
-            !!efeitosDe(m).tempestade && !donoDoCartao && !!m.pinHash;
           return (
             <CartaoMembro
               key={m.id}
@@ -5482,8 +5524,7 @@ function AguaTracker() {
               rei={!!(conquistas[m.id] && conquistas[m.id].conjunto.has("rei-da-cactificacao"))}
               conquistaRei={reiConquista === m.id}
               podeEditar={m.ownerId === meuDispositivo || posseExtra.includes(m.id)}
-              mostrarReivindicar={(!tenhoCartao && !donoDoCartao && !!m.pinHash) || souEspectadorSoterrado}
-              soterradoLogin={souEspectadorSoterrado}
+              mostrarReivindicar={!tenhoCartao && !donoDoCartao && !!m.pinHash}
               onEditar={abrirEdicao}
               onReivindicar={abrirReivindicacao}
               onConquistas={setConquistasDe}
@@ -6175,6 +6216,28 @@ function AguaTracker() {
             <p className="aviso-agua-nota">
               Aviso informativo — não substitui orientação médica.
             </p>
+          </div>
+        </div>
+      )}
+
+      {loginAberto && (
+        <div className="modal-fundo" onClick={() => setLoginAberto(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={() => setLoginAberto(false)}>×</button>
+            <h2 className="nome">🔑 Entrar</h2>
+            <p className="sub">Qual cartão é o seu? Você vai precisar da senha dele.</p>
+            <div className="lista-frases">
+              {cartoesParaEntrar.map((m) => (
+                <button
+                  key={m.id}
+                  className="frase"
+                  onClick={() => { setLoginAberto(false); abrirReivindicacao(m); }}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+            <button className="desfazer fechar-modal" onClick={() => setLoginAberto(false)}>Cancelar</button>
           </div>
         </div>
       )}
