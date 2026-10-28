@@ -926,7 +926,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-28.5";
+const APP_VERSION = "2026-10-28.6";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4238,11 +4238,15 @@ function AguaTracker() {
 
   const limparTempestade = (id) => {
     const novo = structuredClone(dados);
-    const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
+    if (!novo.efeitos) novo.efeitos = {};
+    const efs = normalizarEfeitos(novo.efeitos[id]);
     if (!efs.tempestade) return;
-    delete efs.tempestade;
-    if (Object.keys(efs).length === 0) delete novo.efeitos[id];
-    else novo.efeitos[id] = efs;
+    /* NÃO apagar: a fusão de efeitos no servidor é uma UNIÃO de chaves e não
+       sabe remover — um delete ressuscita na próxima sincronização. Em vez
+       disso marca limpo:true (efeitosDe ignora tempestade limpa). O campo
+       positivo atravessa a união e some para todos. */
+    efs.tempestade = { ...efs.tempestade, limpo: true, mapa: [] };
+    novo.efeitos[id] = efs;
     persistir(novo);
     setToast("⏳ Areia varrida! Você se desenterrou.");
     setTimeout(() => setToast(null), 5000);
