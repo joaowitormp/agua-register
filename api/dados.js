@@ -10,7 +10,7 @@ const CHAVE = "agua:dados";
 const CHAVE_BACKUP = "agua:backup";
 const VAZIO = { members: [], intake: {} };
 /* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-09-30.1-garrafas";
+const API_VERSION = "2026-10-28.1-limpo-pegajoso";
 
 /* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
    o servidor une as entradas já salvas com as recebidas (chave = momento
@@ -64,6 +64,16 @@ const mesclarEfeitos = (antigo, novo, diaHoje) => {
   ]);
   ids.forEach((id) => {
     const merged = { ...((antigo && antigo[id]) || {}), ...((novo && novo[id]) || {}) };
+    /* "limpo" é pegajoso: uma vez varrido, o efeito não volta a ativar. Sem
+       isso, uma gravação de progresso atrasada (com mapa, sem limpo) chegando
+       depois do "limpou" ressuscitava o soterramento já concluído. */
+    ["cacto", "deserto", "tempestade"].forEach((tipo) => {
+      const a = antigo && antigo[id] && antigo[id][tipo];
+      const n = novo && novo[id] && novo[id][tipo];
+      if (merged[tipo] && ((a && a.limpo) || (n && n.limpo))) {
+        merged[tipo] = { ...merged[tipo], limpo: true };
+      }
+    });
     /* mantém só o que é de hoje */
     const limpo = {};
     Object.keys(merged).forEach((tipo) => {
