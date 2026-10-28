@@ -626,6 +626,14 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   contain: strict; /* garante que a areia jamais escape do cartão */
 }
 .areia-cartao { width: 100%; height: 100%; display: block; }
+/* botão de login da vítima soterrada: precisa ficar ACIMA da areia do cartão
+   (a areia tem pointer-events:none, mas cobre o botão visualmente) */
+.link-extra.soterrado-login {
+  position: relative; z-index: 2; display: inline-block; margin-top: 8px;
+  background: #FFFDF7; color: #8A5A18; font-weight: 800;
+  border: 1.5px solid #C79A55; border-radius: 999px; padding: 7px 14px;
+  box-shadow: 0 2px 8px rgba(120, 85, 20, 0.25);
+}
 
 /* Histórico individual */
 .lista-historico {
@@ -913,7 +921,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-21.1";
+const APP_VERSION = "2026-10-28.1";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2667,7 +2675,7 @@ function GotaNoivo({ idClip }) {
   );
 }
 
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, soterradoLogin = false, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -2902,8 +2910,11 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
         </div>
       )}
       {mostrarReivindicar && (
-        <button className="link-extra" onClick={() => onReivindicar(membro)}>
-          🔑 Este cartão é meu
+        <button
+          className={`link-extra ${soterradoLogin ? "soterrado-login" : ""}`}
+          onClick={() => onReivindicar(membro)}
+        >
+          {soterradoLogin ? "🔑 É meu cartão — entrar para ver" : "🔑 Este cartão é meu"}
         </button>
       )}
     </div>
@@ -5420,6 +5431,12 @@ function AguaTracker() {
             m.ownerId === meuDispositivo ||
             posseExtra.includes(m.id);
           const bateuMeta = c * m.bottleMl + extraMl >= m.goalMl;
+          /* Vítima soterrada vendo o próprio cartão de um dispositivo que
+             ainda não é reconhecido como dono: só enxerga a areia no cartão,
+             não a tela cheia. Oferece o login (PIN) para ela assumir o cartão
+             aqui e aí ver o soterramento por inteiro. Precisa de PIN gravado. */
+          const souEspectadorSoterrado =
+            !!efeitosDe(m).tempestade && !donoDoCartao && !!m.pinHash;
           return (
             <CartaoMembro
               key={m.id}
@@ -5455,7 +5472,8 @@ function AguaTracker() {
               rei={!!(conquistas[m.id] && conquistas[m.id].conjunto.has("rei-da-cactificacao"))}
               conquistaRei={reiConquista === m.id}
               podeEditar={m.ownerId === meuDispositivo || posseExtra.includes(m.id)}
-              mostrarReivindicar={!tenhoCartao && !donoDoCartao && !!m.pinHash}
+              mostrarReivindicar={(!tenhoCartao && !donoDoCartao && !!m.pinHash) || souEspectadorSoterrado}
+              soterradoLogin={souEspectadorSoterrado}
               onEditar={abrirEdicao}
               onReivindicar={abrirReivindicacao}
               onConquistas={setConquistasDe}
