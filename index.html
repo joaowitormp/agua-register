@@ -1048,7 +1048,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-30.2-olhos";
+const APP_VERSION = "2026-10-30.3-olhos";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3051,13 +3051,14 @@ function GotaNoivo({ idClip }) {
 }
 
 /* ===================== Olhos animados das garrafas ===================== */
+/* posição/tamanho dos olhos como % da PRÓPRIA garrafa (escalam junto) */
 const EYE_POS = {
-  padrao:   {top:"42%", left:"64%", w:"112px"},
-  esportiva:{top:"38%", left:"58%", w:"92px"},
-  aquario:  {top:"55%", left:"66%", w:"115px"},
-  galao:    {top:"43%", left:"64%", w:"115px"},
-  longneck: {top:"48%", left:"58%", w:"88px"},
-  cacto:    {top:"46%", left:"57%", w:"66px"},
+  padrao:   {top:"42%", left:"64%", w:"48%"},
+  esportiva:{top:"38%", left:"61%", w:"54%"},
+  aquario:  {top:"34%", left:"66%", w:"50%"},
+  galao:    {top:"43%", left:"65%", w:"52%"},
+  longneck: {top:"48%", left:"66%", w:"78%"},
+  cacto:    {top:"46%", left:"57%", w:"28%"},
 };
 const INK="#0B3446", IRIS="#0F8BB0", IRIS2="#41C9E6", SCLERA="#FFFFFF", LID="#DCEAF2";
 const R={cx:124,cy:84,rx:27,ry:41}, L={cx:80,cy:84,rx:27,ry:41};
