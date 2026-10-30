@@ -1048,7 +1048,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-30.3-olhos";
+const APP_VERSION = "2026-10-30.4-olhos";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3118,8 +3118,8 @@ function olhoRindo(e){ /* zoação: olho rindo, arco para cima */
 function brow(d){ return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round"/>`; }
 
 let UID=0;
-function face(cfg){
-  const uid="u"+(UID++);
+function face(cfg, uidOverride){
+  const uid = uidOverride || ("u"+(UID++));
   const er={...R, ...(cfg.size||{})}, el={...L, ...(cfg.size||{})};
   const eye=cfg.eye||{};
   const brows=cfg.brows||[brow(`M61 38 Q84 30 107 38`),brow(`M95 38 Q118 30 141 38`)];
@@ -3173,7 +3173,7 @@ const EXPR=[
     eye:{pr:12,look:"lookCalm 6s ease-in-out infinite"}, blink:"4.5s"},
   {key:"raiva",nome:"Raiva",obs:"recebeu poder (20 min)",
     brows:[bU(`M61 30 L109 48`),bU(`M93 48 L141 30`)],
-    eye:{lid:"angry",pr:10,look:"lookSide 2.4s ease-in-out infinite"}, anim:"shake .4s ease-in-out 25 both"},
+    eye:{lid:"angry",pr:10,look:"lookSide 2.4s ease-in-out infinite"}},
   {key:"seria",nome:"Séria",obs:"após 20min de raiva",
     brows:[bU(`M61 40 L107 39`),bU(`M95 39 L141 40`)],
     eye:{lid:"half",pr:12,look:"lookSerious 7s ease-in-out infinite"}, blink:"6s"},
@@ -3208,16 +3208,19 @@ const EXPR=[
 
 
 const EXPR_BY_KEY = Object.fromEntries(EXPR.map(e => [e.key, e]));
-function OlhosGarrafa({ tipo, expr }) {
-  const cfg = EXPR_BY_KEY[expr] || EXPR_BY_KEY["neutra"];
+function OlhosGarrafa({ tipo, expr, tremor, uid }) {
+  let cfg = EXPR_BY_KEY[expr] || EXPR_BY_KEY["neutra"];
+  /* o tremor da raiva só nos primeiros ~10s (25 ciclos de .4s) e, com uid
+     estável, o re-render não reinicia a animação */
+  if (expr === "raiva" && tremor) cfg = { ...cfg, anim: "shake .4s ease-in-out 25 both" };
   const pos = EYE_POS[tipo] || EYE_POS["padrao"];
   return (
     <div className="olhos-garrafa" style={{ top: pos.top, left: pos.left, width: pos.w }}
-         dangerouslySetInnerHTML={{ __html: face(cfg) }} />
+         dangerouslySetInnerHTML={{ __html: face(cfg, "ol-" + (uid || "x") + "-" + expr) }} />
   );
 }
 
-function CartaoMembro({ membro, expr, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -3356,7 +3359,7 @@ function CartaoMembro({ membro, expr, count, extraMl = 0, dono, mostrarSino, ale
             {noivo ? <GarrafaNoivo /> : (
               <span className="garrafa-olhos">
                 {cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
-                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} />}
+                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} tremor={tremorOlhos} uid={membro.id} />}
               </span>
             )}
           </button>
@@ -3365,7 +3368,7 @@ function CartaoMembro({ membro, expr, count, extraMl = 0, dono, mostrarSino, ale
             {noivo ? <GarrafaNoivo /> : (
               <span className="garrafa-olhos">
                 {cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
-                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} />}
+                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} tremor={tremorOlhos} uid={membro.id} />}
               </span>
             )}
           </div>
@@ -4700,29 +4703,26 @@ function AguaTracker() {
     const tipos = Object.keys(efs);
     const ultimoGole = Number((dados.ultimo && dados.ultimo[m.id]) || 0);
     const goleHoje = ultimoGole > 0 && chaveDe(new Date(ultimoGole)) === dia;
-    /* sob poder: raiva (20min) → séria; se bebeu depois do poder → séria */
+    /* ---- expressão BASE (sem considerar "usou poder") ---- */
+    let key = "neutra", tremor = false;
     if (tipos.length > 0) {
+      /* sob poder: raiva (20min) → séria; bebeu depois do poder → séria */
       const desde = Math.max(...tipos.map((t) => Number(efs[t].desde) || 0));
-      if (goleHoje && ultimoGole > desde) return "seria";
-      return now - desde < 20 * 60 * 1000 ? "raiva" : "seria";
+      if (goleHoje && ultimoGole > desde) key = "seria";
+      else if (now - desde < 20 * 60 * 1000) { key = "raiva"; tremor = now - desde < 12 * 1000; }
+      else key = "seria";
+    } else {
+      const c = registrosHoje[m.id] || 0, ex = extrasHoje[m.id] || 0;
+      if (m.goalMl > 0 && c * m.bottleMl + ex >= m.goalMl) key = "orgulho";       /* meta batida */
+      else if (goleHoje && now - ultimoGole < 5 * 60 * 1000) key = "feliz";        /* bebeu <5min */
+      else if (!goleHoje || now - ultimoGole >= 4 * 3600 * 1000) key = "dormindo"; /* nada hoje / 4h */
+      else if (estaVulneravel(m)) key = "surpresa";                                /* vulnerável */
+      else key = "neutra";
     }
-    /* meta batida → orgulho */
-    const c = registrosHoje[m.id] || 0, ex = extrasHoje[m.id] || 0;
-    if (m.goalMl > 0 && c * m.bottleMl + ex >= m.goalMl) return "orgulho";
-    /* usou poder em alguém → zoação na abertura (se for o evento mais recente) */
+    /* ---- zoação na abertura: sobrepõe por 20s, depois volta ao BASE ---- */
     const usouT = usouPoderQuando(m);
-    if (usouT > 0 && usouT >= ultimoGole) {
-      const dt = now - aberturaRef.current;
-      if (dt < 20 * 1000) return "zoacao";
-      if (dt < 20 * 1000 + 5 * 60 * 1000) return "feliz";
-      return "neutra";
-    }
-    /* bebeu gole → feliz por 5min */
-    if (goleHoje && now - ultimoGole < 5 * 60 * 1000) return "feliz";
-    /* descanso: dormindo (nada hoje / 4h) > surpresa (vulnerável) > neutra */
-    if (!goleHoje || now - ultimoGole >= 4 * 3600 * 1000) return "dormindo";
-    if (estaVulneravel(m)) return "surpresa";
-    return "neutra";
+    if (usouT > 0 && now - aberturaRef.current < 20 * 1000) { key = "zoacao"; tremor = false; }
+    return { key, tremor };
   };
 
   /* Carta Anti-Seca em jogo hoje */
@@ -6160,7 +6160,8 @@ function AguaTracker() {
             <CartaoMembro
               key={m.id}
               membro={m}
-              expr={exprOlhos}
+              expr={exprOlhos.key}
+              tremorOlhos={exprOlhos.tremor}
               count={c}
               extraMl={extraMl}
               dono={donoDoCartao}
