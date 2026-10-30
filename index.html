@@ -849,6 +849,39 @@ canvas.prem-cacos { position: fixed; inset: 0; z-index: 15; pointer-events: none
   transition: background .15s, transform .15s; }
 .prem-btn-continuar:hover { background: #5ad4ed; transform: translateY(-1px); }
 .prem-fim-texto { margin-top: 10px; color: #9fb8c6; font-size: 11.5px; }
+
+/* ===================== Olhos animados das garrafas ===================== */
+  .an{transform-box:fill-box;transform-origin:center;}
+  .pup{transform-box:fill-box;transform-origin:center;}
+  @keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.08)}}
+  @keyframes blinkSlow{0%,86%,100%{transform:scaleY(1)}91%,95%{transform:scaleY(.1)}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  /* piscada: pálpebras sup/inf fecham rápido DENTRO do círculo (sem comprimir o olho) */
+  @keyframes piscaSup{0%,90%,100%{transform:translateY(-112%)}95%,96.5%{transform:translateY(0)}}
+  @keyframes piscaInf{0%,90%,100%{transform:translateY(112%)}95%,96.5%{transform:translateY(0)}}
+  @keyframes laugh{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-3px) rotate(-2deg)}50%{transform:translateY(1px) rotate(0)}75%{transform:translateY(-3px) rotate(2deg)}}
+  @keyframes sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+  @keyframes shake{0%,100%{transform:translate(0,0) rotate(0)}20%{transform:translate(-2px,1px) rotate(-1.5deg)}40%{transform:translate(2px,-1px) rotate(1.5deg)}60%{transform:translate(-1.5px,1px) rotate(-1deg)}80%{transform:translate(1.5px,0) rotate(.8deg)}}
+  @keyframes droop{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+  @keyframes pop{0%,100%{transform:scale(1)}12%{transform:scale(1.1)}24%{transform:scale(1)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes heart{0%,100%{transform:scale(1)}30%{transform:scale(1.18)}60%{transform:scale(.96)}}
+  @keyframes twinkle{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1) rotate(25deg)}}
+  @keyframes zzz{0%{opacity:0;transform:translate(0,0) scale(.6)}25%{opacity:1}100%{opacity:0;transform:translate(14px,-26px) scale(1.1)}}
+  @keyframes tear{0%{opacity:0;transform:translateY(0)}15%{opacity:1}100%{opacity:0;transform:translateY(26px)}}
+  @keyframes wink{0%,66%,100%{transform:scaleY(1)}76%,86%{transform:scaleY(.07)}}
+  /* olhar: segura numa direção, DESLIZA suave para a próxima, segura... */
+  @keyframes lookCalm{0%,16%{transform:translate(0,0)}26%,44%{transform:translate(7px,2px)}54%,72%{transform:translate(-7px,1px)}82%,100%{transform:translate(0,0)}}
+  @keyframes lookBusy{0%,12%{transform:translate(0,1px)}20%,34%{transform:translate(8px,3px)}42%,56%{transform:translate(-1px,-6px)}64%,78%{transform:translate(-8px,2px)}86%,100%{transform:translate(0,1px)}}
+  @keyframes lookDown{0%,18%{transform:translate(0,7px)}28%,46%{transform:translate(7px,6px)}56%,74%{transform:translate(-7px,6px)}84%,100%{transform:translate(0,7px)}}
+  @keyframes lookSide{0%,30%{transform:translate(8px,1px)}50%,80%{transform:translate(-8px,1px)}100%{transform:translate(8px,1px)}}
+  @keyframes lookSerious{0%,24%{transform:translate(0,6px)}36%,54%{transform:translate(7px,4px)}66%,84%{transform:translate(-7px,4px)}96%,100%{transform:translate(0,6px)}}
+  @keyframes lookHappy{0%,18%{transform:translate(0,-2px)}28%,46%{transform:translate(7px,-4px)}56%,74%{transform:translate(-7px,-4px)}84%,100%{transform:translate(0,-2px)}}
+
+
+.garrafa-olhos { position: relative; display: inline-flex; }
+.olhos-garrafa { position: absolute; transform: translate(-50%,-50%); pointer-events: none; z-index: 4; }
+.olhos-garrafa svg { width: 100%; height: auto; display: block; overflow: visible; }
 </style>
 </head>
 <body>
@@ -1015,7 +1048,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-30.1-premiacao";
+const APP_VERSION = "2026-10-30.2-olhos";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3017,7 +3050,173 @@ function GotaNoivo({ idClip }) {
   );
 }
 
-function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+/* ===================== Olhos animados das garrafas ===================== */
+const EYE_POS = {
+  padrao:   {top:"42%", left:"64%", w:"112px"},
+  esportiva:{top:"38%", left:"58%", w:"92px"},
+  aquario:  {top:"55%", left:"66%", w:"115px"},
+  galao:    {top:"43%", left:"64%", w:"115px"},
+  longneck: {top:"48%", left:"58%", w:"88px"},
+  cacto:    {top:"46%", left:"57%", w:"66px"},
+};
+const INK="#0B3446", IRIS="#0F8BB0", IRIS2="#41C9E6", SCLERA="#FFFFFF", LID="#DCEAF2";
+const R={cx:124,cy:84,rx:27,ry:41}, L={cx:80,cy:84,rx:27,ry:41};
+
+function lidShape(e,tipo){
+  if(tipo==="half"||tipo==="tired"){
+    const ly=tipo==="tired"?e.cy+4:e.cy-6;
+    return `<path d="M${e.cx-e.rx-2} ${e.cy-e.ry-2} H${e.cx+e.rx+2} V${ly} H${e.cx-e.rx-2} Z" fill="${LID}"/><path d="M${e.cx-e.rx} ${ly} H${e.cx+e.rx}" stroke="${INK}" stroke-width="5" stroke-linecap="round" fill="none"/>`;
+  }
+  if(tipo==="angry"){
+    const inner=e.cx<100?{x:e.cx+e.rx,y:e.cy+8}:{x:e.cx-e.rx,y:e.cy+8};
+    const outer=e.cx<100?{x:e.cx-e.rx,y:e.cy-14}:{x:e.cx+e.rx,y:e.cy-14};
+    return `<path d="M${e.cx} ${e.cy-e.ry-6} L${outer.x} ${outer.y-20} L${outer.x} ${outer.y} L${inner.x} ${inner.y} L${inner.x} ${e.cy-e.ry-6} Z" fill="${LID}"/><path d="M${outer.x} ${outer.y} L${inner.x} ${inner.y}" stroke="${INK}" stroke-width="5.5" stroke-linecap="round" fill="none"/>`;
+  }
+  if(tipo==="sad"){
+    const inner=e.cx<100?{x:e.cx+e.rx,y:e.cy-10}:{x:e.cx-e.rx,y:e.cy-10};
+    const outer=e.cx<100?{x:e.cx-e.rx,y:e.cy+4}:{x:e.cx+e.rx,y:e.cy+4};
+    return `<path d="M${outer.x} ${outer.y-24} L${outer.x} ${outer.y} L${inner.x} ${inner.y} L${inner.x} ${inner.y-24} Z" fill="${LID}"/><path d="M${outer.x} ${outer.y} L${inner.x} ${inner.y}" stroke="${INK}" stroke-width="5" stroke-linecap="round" fill="none"/>`;
+  }
+  if(tipo==="smile"){
+    return `<path d="M${e.cx-e.rx-2} ${e.cy+e.ry+2} H${e.cx+e.rx+2} V${e.cy+3} Q${e.cx} ${e.cy-9} ${e.cx-e.rx-2} ${e.cy+3} Z" fill="${LID}"/><path d="M${e.cx-e.rx} ${e.cy+3} Q${e.cx} ${e.cy-9} ${e.cx+e.rx} ${e.cy+3}" stroke="${INK}" stroke-width="5" stroke-linecap="round" fill="none"/>`;
+  }
+  return "";
+}
+
+function olho(e,o,uid){
+  const dx=o.dx||0, dy=o.dy||0, pr=o.pr||12, cid=`c-${uid}-${o.side}`;
+  const px=e.cx+dx, py=e.cy+dy;
+  let nucleo;
+  if(o.pupil==="heart") nucleo=`<g class="an" style="animation:heart 1s ease-in-out infinite"><path d="M${px} ${py+6} C ${px-10} ${py-6}, ${px-13} ${py+2}, ${px} ${py+10} C ${px+13} ${py+2}, ${px+10} ${py-6}, ${px} ${py+6} Z" fill="#E4574C"/></g>`;
+  else if(o.pupil==="spiral") nucleo=`<g class="an" style="animation:spin 2.2s linear infinite"><path d="M${px} ${py} m0,-2 a2,2 0 1,1 -4,2 a5,5 0 1,1 9,0 a8,8 0 1,1 -15,0 a11,11 0 1,1 20,0" fill="none" stroke="${IRIS}" stroke-width="3" stroke-linecap="round"/></g>`;
+  else if(o.pupil==="dollar") nucleo=`<circle cx="${px}" cy="${py}" r="${pr+1}" fill="#1F7A3D"/><text x="${px}" y="${py+6}" text-anchor="middle" font-family="Sora" font-size="18" font-weight="800" fill="#EAFBEF">$</text>`;
+  else nucleo=`<circle cx="${px}" cy="${py}" r="${pr}" fill="${INK}"/><circle cx="${px}" cy="${py}" r="${pr*0.5}" fill="${IRIS}"/><circle cx="${px-pr*0.4}" cy="${py-pr*0.45}" r="${pr*0.28}" fill="#fff"/>`;
+  const lookAnim=(o.look&&!o.pupil)?` style="animation:${o.look}"`:"";
+  if(o.lid==="crescent"){ /* felicidade: lua crescente invertida, sem pálpebra inferior */
+    const d=`M${e.cx-e.rx} ${e.cy-1} C${e.cx-e.rx*0.55} ${e.cy-e.ry} ${e.cx+e.rx*0.55} ${e.cy-e.ry} ${e.cx+e.rx} ${e.cy-1} Q${e.cx} ${e.cy-4} ${e.cx-e.rx} ${e.cy-1} Z`;
+    return `<path d="${d}" fill="${SCLERA}"/><clipPath id="cr-${cid}"><path d="${d}"/></clipPath><g clip-path="url(#cr-${cid})"><g class="pup"${lookAnim}>${nucleo}</g></g><path d="${d}" fill="none" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>`;
+  }
+  /* pálpebras da piscada: fecham dentro do círculo, não comprimem o olho */
+  let lids="";
+  if(o.blink && !o.pupil){
+    const w=e.rx*2+8, x0=e.cx-e.rx-4;
+    const temPalpebraSup=["half","angry","sad","tired"].includes(o.lid); /* já tem pálpebra superior */
+    const sup = temPalpebraSup ? "" : `<g class="an lid-sup" style="animation:piscaSup ${o.blink} infinite"><rect x="${x0}" y="${e.cy-e.ry-4}" width="${w}" height="${e.ry+4}" fill="${LID}"/><rect x="${x0}" y="${e.cy-1}" width="${w}" height="3.5" fill="${INK}"/></g>`;
+    lids = sup + `<g class="an lid-inf" style="animation:piscaInf ${o.blink} infinite"><rect x="${x0}" y="${e.cy-1}" width="${w}" height="${e.ry+5}" fill="${LID}"/><rect x="${x0}" y="${e.cy-1}" width="${w}" height="3.5" fill="${INK}"/></g>`;
+  }
+  return `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${SCLERA}"/>
+    <g clip-path="url(#${cid})"><g class="pup"${lookAnim}>${nucleo}</g>${lidShape(e,o.lid)}${lids}</g>
+    <ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="none" stroke="${INK}" stroke-width="4"/>`;
+}
+function olhoFechado(e){
+  return `<path d="M${e.cx-e.rx} ${e.cy-2} Q${e.cx} ${e.cy+22} ${e.cx+e.rx} ${e.cy-2}" fill="none" stroke="${INK}" stroke-width="5.5" stroke-linecap="round"/><path d="M${e.cx-e.rx+4} ${e.cy+8} l-6 7 M${e.cx} ${e.cy+14} l0 9 M${e.cx+e.rx-4} ${e.cy+8} l6 7" stroke="${INK}" stroke-width="3" stroke-linecap="round" fill="none" opacity=".6"/>`;
+}
+function olhoRindo(e){ /* zoação: olho rindo, arco para cima */
+  return `<path d="M${e.cx-e.rx+2} ${e.cy+5} Q${e.cx} ${e.cy-20} ${e.cx+e.rx-2} ${e.cy+5}" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>`;
+}
+function brow(d){ return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round"/>`; }
+
+let UID=0;
+function face(cfg){
+  const uid="u"+(UID++);
+  const er={...R, ...(cfg.size||{})}, el={...L, ...(cfg.size||{})};
+  const eye=cfg.eye||{};
+  const brows=cfg.brows||[brow(`M61 38 Q84 30 107 38`),brow(`M95 38 Q118 30 141 38`)];
+  const winkL=cfg.winkLeft?`style="animation:wink 3.4s ease-in-out infinite"`:"";
+  let eyeR, eyeL;
+  if(cfg.closed){ eyeR=olhoFechado(er); eyeL=olhoFechado(el); }
+  else if(cfg.rindo){ eyeR=olhoRindo(er); eyeL=olhoRindo(el); }
+  else { eyeR=olho(er,{...eye,side:"r",blink:cfg.blink},uid); eyeL=cfg.winkLeft?olhoFechado(el):olho(el,{...eye,side:"l",blink:cfg.blink},uid); }
+  let extra="";
+  if(cfg.tear) extra+=`<path class="an" style="animation:tear 2.4s ease-in infinite" d="M${el.cx+8} ${el.cy+26} q-5 7 0 11 q5 -4 0 -11 Z" fill="${IRIS2}"/>`;
+  if(cfg.zzz) extra+=`<text class="an" style="animation:zzz 2.6s ease-in infinite" x="146" y="48" font-family="Sora" font-size="18" font-weight="800" fill="${IRIS}">z</text><text class="an" style="animation:zzz 2.6s ease-in infinite .6s" x="146" y="48" font-family="Sora" font-size="23" font-weight="800" fill="${IRIS}">z</text><text class="an" style="animation:zzz 2.6s ease-in infinite 1.2s" x="146" y="48" font-family="Sora" font-size="29" font-weight="800" fill="${IRIS}">z</text>`;
+  if(cfg.kk) extra+=`<text class="an" style="animation:zzz 1.6s ease-in infinite" x="146" y="50" font-family="Sora" font-size="17" font-weight="800" fill="#E4574C">k</text><text class="an" style="animation:zzz 1.6s ease-in infinite .4s" x="146" y="50" font-family="Sora" font-size="22" font-weight="800" fill="#E4574C">k</text><text class="an" style="animation:zzz 1.6s ease-in infinite .8s" x="146" y="50" font-family="Sora" font-size="27" font-weight="800" fill="#E4574C">k</text>`;
+  if(cfg.sparkle){ const sx=148, sy=52;
+    extra+=`<path class="an" style="animation:twinkle 1.8s ease-in-out infinite;transform-origin:${sx}px ${sy}px" d="M${sx} ${sy-8} Q${sx} ${sy} ${sx+8} ${sy} Q${sx} ${sy} ${sx} ${sy+8} Q${sx} ${sy} ${sx-8} ${sy} Q${sx} ${sy} ${sx} ${sy-8} Z" fill="#F6C945"/>`
+      +`<path class="an" style="animation:twinkle 1.8s ease-in-out infinite .9s;transform-origin:${sx-14}px ${sy+16}px" d="M${sx-14} ${sy+11} Q${sx-14} ${sy+16} ${sx-9} ${sy+16} Q${sx-14} ${sy+16} ${sx-14} ${sy+21} Q${sx-14} ${sy+16} ${sx-19} ${sy+16} Q${sx-14} ${sy+16} ${sx-14} ${sy+11} Z" fill="#F6C945"/>`; }
+  const outer=cfg.anim?` style="animation:${cfg.anim}"`:"";
+  /* o olho ESQUERDO fica na frente; o DIREITO não invade a área do esquerdo:
+     recortamos o direito com uma máscara (folga de 5px) e cortamos cada
+     sobrancelha na linha do meio para não cruzarem. */
+  const mid=((el.cx)+(er.cx))/2;
+  /* olhos redondos: o direito ENCOSTA no esquerdo (folga 0). dormindo/feliz/zoação
+     são arcos finos: recorta só um pouco, deixando leve sobreposição. */
+  const arcEyes = cfg.closed || cfg.rindo || (eye.lid==="crescent");
+  const gap = arcEyes ? -2 : 0;
+  const tol = arcEyes ? 3 : 1; /* tolerância do corte das sobrancelhas */
+  const maskDef = `<mask id="mk-${uid}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="20" y="-40" width="180" height="240"><rect x="20" y="-40" width="180" height="240" fill="#fff"/><ellipse cx="${el.cx}" cy="${el.cy}" rx="${el.rx+gap}" ry="${el.ry+gap}" fill="#000"/></mask>`;
+  return `<svg viewBox="52 12 102 120" aria-hidden="true"><defs>
+    <clipPath id="c-${uid}-r"><ellipse cx="${er.cx}" cy="${er.cy}" rx="${er.rx}" ry="${er.ry}"/></clipPath>
+    <clipPath id="c-${uid}-l"><ellipse cx="${el.cx}" cy="${el.cy}" rx="${el.rx}" ry="${el.ry}"/></clipPath>
+    <clipPath id="bl-${uid}"><rect x="20" y="-20" width="${mid-20+tol}" height="200"/></clipPath>
+    <clipPath id="br-${uid}"><rect x="${mid-tol}" y="-20" width="180" height="200"/></clipPath>
+    ${maskDef}</defs>
+    <g class="an"${outer}>
+      <g clip-path="url(#bl-${uid})">${brows[0]||""}</g>
+      <g clip-path="url(#br-${uid})">${brows[1]||""}</g>
+      <g mask="url(#mk-${uid})">${eyeR}</g>
+      ${eyeL}
+      ${extra}</g></svg>`;
+}
+
+const bU=(s)=>brow(s);
+/* mapeadas = gatilho no app; extras = opcionais */
+const EXPR=[
+  {key:"dormindo",nome:"Dormindo",obs:"sem beber / +4h sem beber",
+    closed:true, zzz:true,
+    brows:[bU(`M61 40 Q84 36 107 40`),bU(`M95 40 Q118 36 141 40`)], anim:"droop 3.4s ease-in-out infinite"},
+  {key:"feliz",nome:"Feliz",obs:"bebeu gole / saiu de poder",
+    brows:[bU(`M61 28 Q84 18 107 28`),bU(`M95 28 Q118 18 141 28`)],
+    size:{ry:54}, eye:{lid:"crescent",dy:-16,pr:11,look:"lookHappy 5s ease-in-out infinite"}, anim:"bob 2s ease-in-out infinite"},
+  {key:"neutra",nome:"Neutra",obs:"20min sem gole / bebeu sob poder",
+    eye:{pr:12,look:"lookCalm 6s ease-in-out infinite"}, blink:"4.5s"},
+  {key:"raiva",nome:"Raiva",obs:"recebeu poder (20 min)",
+    brows:[bU(`M61 30 L109 48`),bU(`M93 48 L141 30`)],
+    eye:{lid:"angry",pr:10,look:"lookSide 2.4s ease-in-out infinite"}, anim:"shake .4s ease-in-out 25 both"},
+  {key:"seria",nome:"Séria",obs:"após 20min de raiva",
+    brows:[bU(`M61 40 L107 39`),bU(`M95 39 L141 40`)],
+    eye:{lid:"half",pr:12,look:"lookSerious 7s ease-in-out infinite"}, blink:"6s"},
+  {key:"surpresa",nome:"Surpresa",obs:"vulnerável a poder",
+    brows:[bU(`M61 26 Q84 16 107 26`),bU(`M95 26 Q118 16 141 26`)],
+    size:{ry:47}, eye:{pr:9,look:"lookBusy 3.5s ease-in-out infinite"}},
+  {key:"zoacao",nome:"Zoação",obs:"usou poder em alguém",
+    brows:[bU(`M63 34 L104 47`),bU(`M98 47 L139 34`)],
+    rindo:true, kk:true, anim:"laugh .6s ease-in-out infinite"},
+  /* --- extras opcionais --- */
+  {key:"triste",nome:"Tristeza",obs:"extra",
+    brows:[bU(`M61 46 L107 36`),bU(`M95 36 L141 46`)],
+    eye:{lid:"sad",dy:5,pr:11,look:"lookDown 5.5s ease-in-out infinite"}, tear:true, anim:"droop 3s ease-in-out infinite", blink:"7s"},
+  {key:"apaixonada",nome:"Apaixonada",obs:"extra",
+    brows:[bU(`M61 30 Q84 22 107 30`),bU(`M95 30 Q118 22 141 30`)],
+    eye:{pupil:"heart"}, anim:"sway 2.4s ease-in-out infinite"},
+  {key:"tonta",nome:"Tonta",obs:"extra",
+    eye:{pupil:"spiral"}, anim:"sway 1.8s ease-in-out infinite"},
+  {key:"desconfiada",nome:"Desconfiada",obs:"extra",
+    brows:[bU(`M61 42 L107 40`),bU(`M95 30 Q118 24 141 32`)],
+    eye:{lid:"half",pr:11,look:"lookSide 4.2s ease-in-out infinite"}, blink:"6s"},
+  {key:"piscando",nome:"Piscando",obs:"extra",
+    brows:[bU(`M61 34 Q84 26 107 34`),bU(`M95 32 Q118 24 141 32`)],
+    eye:{dy:-2,look:"lookCalm 5s ease-in-out infinite"}, winkLeft:true},
+  {key:"cifrao",nome:"Cifrão",obs:"extra (ganhou garrafa)",
+    brows:[bU(`M61 30 Q84 22 107 30`),bU(`M95 30 Q118 22 141 30`)],
+    eye:{pupil:"dollar"}, anim:"pop 2s ease-in-out infinite"},
+  {key:"orgulho",nome:"Orgulho",obs:"1º lugar / meta batida",
+    brows:[bU(`M61 30 Q84 23 107 29`),bU(`M95 29 Q118 23 141 30`)],
+    eye:{lid:"half",dy:4,pr:11,look:"lookSerious 7s ease-in-out infinite"}, sparkle:true, blink:"6s", anim:"sway 3.4s ease-in-out infinite"},
+];
+
+
+const EXPR_BY_KEY = Object.fromEntries(EXPR.map(e => [e.key, e]));
+function OlhosGarrafa({ tipo, expr }) {
+  const cfg = EXPR_BY_KEY[expr] || EXPR_BY_KEY["neutra"];
+  const pos = EYE_POS[tipo] || EYE_POS["padrao"];
+  return (
+    <div className="olhos-garrafa" style={{ top: pos.top, left: pos.left, width: pos.w }}
+         dangerouslySetInnerHTML={{ __html: face(cfg) }} />
+  );
+}
+
+function CartaoMembro({ membro, expr, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -3153,11 +3352,21 @@ function CartaoMembro({ membro, count, extraMl = 0, dono, mostrarSino, alertando
             title="Registrar 1 garrafa"
             aria-label={`Registrar uma garrafa de ${fmt(membro.bottleMl)} para ${membro.name}`}
           >
-            {noivo ? <GarrafaNoivo /> : cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
+            {noivo ? <GarrafaNoivo /> : (
+              <span className="garrafa-olhos">
+                {cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
+                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} />}
+              </span>
+            )}
           </button>
         ) : (
           <div className="garrafa-fixa" title="Somente quem criou esta garrafa pode registrar">
-            {noivo ? <GarrafaNoivo /> : cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
+            {noivo ? <GarrafaNoivo /> : (
+              <span className="garrafa-olhos">
+                {cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
+                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} />}
+              </span>
+            )}
           </div>
         )}
         <div className="numeros">
@@ -3684,6 +3893,9 @@ function AguaTracker() {
   const [reiConquista, setReiConquista] = useState(null); // id do card que acabou de assumir o bastão (brilho da moldura)
   const [premiacao, setPremiacao] = useState(null); // { podio, perdedores } — overlay semanal (seg-qua)
   const premiacaoChecada = React.useRef(false); // garante checagem única por sessão
+  const [tickExpr, setTickExpr] = useState(0); // relógio que reavalia as expressões dos olhos
+  const aberturaRef = React.useRef(Date.now()); // âncora da zoação "na abertura do painel"
+  useEffect(() => { const id = setInterval(() => setTickExpr((t) => t + 1), 20000); return () => clearInterval(id); }, []);
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
   const [posseExtra, setPosseExtra] = useState(lerPosseExtra); // cartões reivindicados por PIN neste dispositivo
@@ -4450,6 +4662,66 @@ function AguaTracker() {
     /* Muralha de Água: +30 min de tolerância enquanto a conquista estiver ativa */
     if (conquistas[alvo.id] && conquistas[alvo.id].conjunto.has("muralha-de-agua")) h += 0.5;
     return h;
+  };
+
+  /* ===== Expressão dos olhos da garrafa (máquina de estados) =====
+     Regra: o ÚLTIMO evento vence, respeitando os timers combinados.
+     feliz 5min · raiva 20min→séria · bebeu sob poder=séria · usou poder=
+     zoação(20s)→feliz(5min)→neutra na abertura · surpresa=vulnerável ·
+     dormindo=sem beber hoje/4h · orgulho=meta batida · neutra=resto. */
+  const usouPoderQuando = (m) => {
+    const nomeM = nomeNormalizado(m.name);
+    let t = 0;
+    dados.members.forEach((v) => {
+      ((dados.historico && dados.historico[v.id]) || []).forEach((e) => {
+        if (!e || e.anulado) return;
+        if (!["cacto", "deserto", "tempestade"].includes(e.tipo)) return;
+        if (nomeNormalizado(e.por || "") !== nomeM) return;
+        if (chaveDe(new Date(Number(e.t) || 0)) !== dia) return;
+        if (Number(e.t) > t) t = Number(e.t);
+      });
+    });
+    return t;
+  };
+  const estaVulneravel = (m) => {
+    const seco = tempoSeco(m);
+    if (seco === null) return false;
+    const c = registrosHoje[m.id] || 0, e = extrasHoje[m.id] || 0;
+    const pct = m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+    if (pct >= 1) return false;
+    if (Object.keys(efeitosDe(m)).length > 0) return false;
+    if (nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento()) return false;
+    return seco >= horasExigidas("cacto", m) * 3600000;
+  };
+  const expressaoDe = (m) => {
+    const now = Date.now();
+    const efs = efeitosDe(m);
+    const tipos = Object.keys(efs);
+    const ultimoGole = Number((dados.ultimo && dados.ultimo[m.id]) || 0);
+    const goleHoje = ultimoGole > 0 && chaveDe(new Date(ultimoGole)) === dia;
+    /* sob poder: raiva (20min) → séria; se bebeu depois do poder → séria */
+    if (tipos.length > 0) {
+      const desde = Math.max(...tipos.map((t) => Number(efs[t].desde) || 0));
+      if (goleHoje && ultimoGole > desde) return "seria";
+      return now - desde < 20 * 60 * 1000 ? "raiva" : "seria";
+    }
+    /* meta batida → orgulho */
+    const c = registrosHoje[m.id] || 0, ex = extrasHoje[m.id] || 0;
+    if (m.goalMl > 0 && c * m.bottleMl + ex >= m.goalMl) return "orgulho";
+    /* usou poder em alguém → zoação na abertura (se for o evento mais recente) */
+    const usouT = usouPoderQuando(m);
+    if (usouT > 0 && usouT >= ultimoGole) {
+      const dt = now - aberturaRef.current;
+      if (dt < 20 * 1000) return "zoacao";
+      if (dt < 20 * 1000 + 5 * 60 * 1000) return "feliz";
+      return "neutra";
+    }
+    /* bebeu gole → feliz por 5min */
+    if (goleHoje && now - ultimoGole < 5 * 60 * 1000) return "feliz";
+    /* descanso: dormindo (nada hoje / 4h) > surpresa (vulnerável) > neutra */
+    if (!goleHoje || now - ultimoGole >= 4 * 3600 * 1000) return "dormindo";
+    if (estaVulneravel(m)) return "surpresa";
+    return "neutra";
   };
 
   /* Carta Anti-Seca em jogo hoje */
@@ -5882,10 +6154,12 @@ function AguaTracker() {
             m.ownerId === meuDispositivo ||
             posseExtra.includes(m.id);
           const bateuMeta = c * m.bottleMl + extraMl >= m.goalMl;
+          const exprOlhos = expressaoDe(m);
           return (
             <CartaoMembro
               key={m.id}
               membro={m}
+              expr={exprOlhos}
               count={c}
               extraMl={extraMl}
               dono={donoDoCartao}
