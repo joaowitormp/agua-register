@@ -760,13 +760,102 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   .barra-fill, .garrafa-btn, .sino { transition: none; }
   .cartao.alertando, .banner-alerta, .dica-agua, .comemoracao-emoji { animation: none; }
 }
+
+/* ===================== Premiação do pódio (overlay semanal) ===================== */
+.prem-cena { position: fixed; inset: 0; overflow: hidden; z-index: 9990;
+  background: radial-gradient(120% 95% at 50% 44%, #0e2c40 0%, #061826 46%, #020a11 86%);
+  font-family: "Sora", system-ui, sans-serif; color-scheme: dark; }
+.prem-vinheta { position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(75% 75% at 50% 46%, rgba(0,0,0,0) 46%, rgba(0,0,0,0.5) 100%); }
+.prem-luz { position: fixed; left: 50%; top: 55%; width: 165vmax; height: 165vmax; z-index: 0;
+  transform: translate(-50%,-50%) scale(.6); pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(255,252,236,.95) 0%, rgba(255,216,112,.62) 9%, rgba(248,197,74,.28) 20%, rgba(243,176,40,.08) 34%, rgba(243,176,40,0) 48%);
+  transition: opacity .8s ease; mix-blend-mode: screen; }
+.prem-luz.on { opacity: 1; animation: prem-pulsaLuz 5.5s ease-in-out infinite; }
+@keyframes prem-pulsaLuz { 0%,100%{transform:translate(-50%,-50%) scale(1); opacity:.9;} 50%{transform:translate(-50%,-50%) scale(1.035); opacity:1;} }
+.prem-luz.on.intenso { animation: prem-pulsaIntenso 0.85s ease-in-out infinite; }
+@keyframes prem-pulsaIntenso { 0%,100%{transform:translate(-50%,-50%) scale(.96); opacity:.62;} 50%{transform:translate(-50%,-50%) scale(1.14); opacity:1;} }
+.prem-raios { position: fixed; left: 50%; top: 55%; width: 165vmax; height: 165vmax; z-index: 0;
+  transform: translate(-50%,-50%); pointer-events: none; opacity: 0; transition: opacity .8s ease; mix-blend-mode: screen; }
+.prem-raios.on { opacity: .4; }
+.prem-areia-chao { position: absolute; left: -50%; width: 200%; bottom: -57%; height: 100%; z-index: 3; pointer-events: none; }
+.prem-areia-canvas { display: block; width: 100%; height: 100%; }
+.prem-palco { position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  transform-origin: 50% 50%; transition: transform 3.6s cubic-bezier(.55,.03,.25,1); }
+.prem-fase-perto .prem-palco { transform: scale(1); }
+.prem-fase-afasta .prem-palco, .prem-fase-bastao .prem-palco, .prem-fase-treme .prem-palco,
+.prem-fase-quebra .prem-palco, .prem-fase-final .prem-palco { transform: scale(0.72); }
+.prem-mundo { position: relative; width: 100%; height: 100%; }
+.prem-podio { position: absolute; left: 50%; bottom: 2%; transform: translateX(-50%);
+  display: flex; align-items: flex-end; justify-content: center; z-index: 2; }
+.prem-vaga { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; position: relative; }
+.prem-vaga .prem-nome { font-weight: 800; letter-spacing: -.3px; margin: 2px 0 0; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+.prem-vaga.prem-p1 .prem-nome { font-size: 24px; color: #FFE9A6; }
+.prem-vaga.prem-p2 .prem-nome, .prem-vaga.prem-p3 .prem-nome { font-size: 17px; color: #e7f3fa; }
+.prem-vaga.prem-p2, .prem-vaga.prem-p3 { opacity: 0; transform: scale(1.75); transform-origin: 50% 85%;
+  transition: opacity 5.4s ease, transform 3.6s cubic-bezier(.33,.1,.2,1); }
+.prem-cena:not(.prem-fase-perto) .prem-vaga.prem-p2, .prem-cena:not(.prem-fase-perto) .prem-vaga.prem-p3 { opacity: 1; transform: scale(1); }
+.prem-garrafa-wrap { position: relative; display: flex; align-items: flex-end; justify-content: center; }
+.prem-medalha { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%) scale(.2);
+  opacity: 0; transform-origin: 50% 50%; transition: transform .6s cubic-bezier(.3,1.5,.5,1), opacity .4s ease; z-index: 5; }
+.prem-medalha.posta { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+.prem-bloco { width: 190px; border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, #2a5f7d, #16394e); border: 1px solid #3f7696; border-bottom: none;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.12); display: flex; align-items: flex-start; justify-content: center;
+  color: #cfe8f4; font-weight: 800; font-size: 28px; padding-top: 8px; }
+.prem-p1 .prem-bloco { height: 232px; background: linear-gradient(180deg,#8a6a1f,#5c4310); border-color:#C8971F; color:#FFE9A6; }
+.prem-p2 .prem-bloco { height: 186px; } .prem-p3 .prem-bloco { height: 156px; }
+.prem-p1 { z-index: 3; margin: 0 -6px; } .prem-p2, .prem-p3 { z-index: 2; }
+.prem-bastao { position: absolute; left: 60%; bottom: 150px; width: 46px; height: 132px; z-index: 6;
+  transform-origin: 45% 96%; transform: rotate(40deg) translate(2px,8px); opacity: 0;
+  transition: transform 1s cubic-bezier(.3,1.3,.4,1), opacity .5s ease;
+  filter: drop-shadow(0 0 12px rgba(246,201,69,.85)); }
+.prem-bastao.visivel { opacity: 1; }
+.prem-bastao.erguido { transform: rotate(4deg) translate(8px,-205px); }
+.prem-fileira { position: absolute; left: 0; right: 0; bottom: -8%; z-index: 10;
+  display: flex; justify-content: center; align-items: flex-end; gap: 16px; flex-wrap: nowrap;
+  transform: translateY(145%); transform-origin: 50% 100%;
+  transition: transform 3s cubic-bezier(.33,.08,.25,1); }
+@media (max-width: 640px) {
+  .prem-fileira { flex-wrap: wrap-reverse; gap: 10px 10px; padding: 0 8px; }
+}
+.prem-cena.prem-perd-on .prem-fileira { transform: translateY(0); }
+.prem-perdedor { position: relative; transform-origin: 50% 100%; }
+.prem-perdedor .prem-rotulo { text-align: center; font-size: 10px; color: #0B3446; margin-top: 1px; font-weight: 800; white-space: nowrap; text-shadow: 0 1px 0 rgba(255,246,214,.5); }
+.prem-treme { animation: prem-treme 0.1s linear infinite; }
+@keyframes prem-treme { 0%{transform:translate(0,0) rotate(0)} 25%{transform:translate(-3px,1px) rotate(-1.8deg)}
+  50%{transform:translate(3px,-1px) rotate(1.6deg)} 75%{transform:translate(-1px,2px) rotate(-1deg)} 100%{transform:translate(1px,0) rotate(.7deg)} }
+.prem-estilhacada { opacity: 0 !important; }
+.prem-flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 20; }
+.prem-flash.on { animation: prem-flashQuebra .18s ease; }
+@keyframes prem-flashQuebra { 0%{opacity:0} 30%{opacity:.45} 100%{opacity:0} }
+canvas.prem-cacos { position: fixed; inset: 0; z-index: 15; pointer-events: none; }
+.prem-titulo { position: absolute; top: 5%; left: 0; right: 0; text-align: center; z-index: 6;
+  color: #FFE9A6; font-weight: 800; font-size: 20px; letter-spacing: .5px; opacity: 0;
+  text-shadow: 0 2px 16px rgba(0,0,0,.7); transition: opacity .6s ease; }
+.prem-cena:not(.prem-fase-perto) .prem-titulo { opacity: 1; }
+.prem-titulo small { display:block; font-weight:600; font-size:12px; color:#bfe0f0; letter-spacing:2px; }
+.prem-fim { position: fixed; left: 0; right: 0; bottom: 22px; text-align: center; z-index: 30;
+  opacity: 0; transition: opacity .6s ease; pointer-events: none; }
+.prem-fase-final .prem-fim { opacity: 1; pointer-events: auto; }
+.prem-fim-ctrl { display: inline-flex; align-items: center; gap: 12px; }
+.prem-btn-repetir { width: 46px; height: 46px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.35);
+  background: rgba(255,255,255,.08); color: #eaf6fa; font-size: 22px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; transition: background .15s, transform .15s; }
+.prem-btn-repetir:hover { background: rgba(255,255,255,.18); transform: rotate(-40deg); }
+.prem-btn-continuar { background: #41C9E6; color: #063543; border: none; font-family: inherit; font-weight: 800;
+  font-size: 15px; padding: 13px 34px; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 20px rgba(65,201,230,.35);
+  transition: background .15s, transform .15s; }
+.prem-btn-continuar:hover { background: #5ad4ed; transform: translateY(-1px); }
+.prem-fim-texto { margin-top: 10px; color: #9fb8c6; font-size: 11.5px; }
 </style>
 </head>
 <body>
 <div id="root"></div>
 
 <script type="text/babel" data-presets="react">
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 /* Dados centrais: salvos no Vercel Blob através da API /api/dados,
    compartilhados entre todos os dispositivos que abrirem o site */
@@ -926,7 +1015,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-28.8";
+const APP_VERSION = "2026-10-30.1-premiacao";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2662,6 +2751,250 @@ function BastaoRei() {
   return <div className="bastao-rei" aria-hidden="true" dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />;
 }
 
+/* ===================== Premiação do pódio (semanal) =====================
+   Overlay em tela cheia exibido de segunda a quarta (ver gating no App),
+   comemorando o ranking da semana ANTERIOR fechada. Classes com prefixo
+   "prem-" para não colidir com o CSS do app. Reaproveita GarrafaSel e
+   BASTAO_SVG já definidos acima. */
+function Medalha({ lugar, w = 42 }) {
+  const c = {
+    1: { disco: "#F6C945", aro: "#9C6B12", fita1: "#E6B800", fita2: "#B7841C", txt: "#6b4a08" },
+    2: { disco: "#DDE3E8", aro: "#8A939D", fita1: "#C3CBD3", fita2: "#9AA3AD", txt: "#5c636b" },
+    3: { disco: "#E09A54", aro: "#9C6224", fita1: "#CE8745", fita2: "#9C6224", txt: "#5e3a16" },
+  }[lugar] || {};
+  return (
+    <svg viewBox="0 0 64 86" width={w} height={w * 86 / 64} aria-hidden="true" style={{ filter: "drop-shadow(0 3px 5px rgba(0,0,0,.45))" }}>
+      <path d="M20 0 L34 40 L26 46 L12 6 Z" fill={c.fita2} />
+      <path d="M44 0 L30 40 L38 46 L52 6 Z" fill={c.fita1} />
+      <circle cx="32" cy="60" r="22" fill={c.disco} stroke={c.aro} strokeWidth="3.5" />
+      <circle cx="32" cy="60" r="15.5" fill="none" stroke={c.aro} strokeWidth="1.6" opacity=".55" />
+      <text x="32" y="69" textAnchor="middle" fontFamily="Sora, sans-serif" fontSize="24" fontWeight="800" fill={c.txt}>{lugar}º</text>
+    </svg>
+  );
+}
+
+function premRaiosSVG() {
+  let r = `<svg viewBox="-100 -100 200 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">`;
+  const N = 20;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2; const x1 = Math.cos(a) * 5, y1 = Math.sin(a) * 5, x2 = Math.cos(a) * 99, y2 = Math.sin(a) * 99;
+    const nx = -Math.sin(a), ny = Math.cos(a);
+    r += `<polygon points="${x1 + nx * 3},${y1 + ny * 3} ${x2 + nx * 8},${y2 + ny * 8} ${x2 - nx * 8},${y2 - ny * 8} ${x1 - nx * 3},${y1 - ny * 3}" fill="rgba(255,206,92,.92)"/>`;
+  }
+  r += `</svg>`; return r;
+}
+
+function AreiaChao() {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const c = ref.current; if (!c) return;
+    const W = 1600, H = 560; c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+    const base = 170;
+    const bumps = 9, seg = W / bumps;
+    const crest = [];
+    for (let i = 0; i <= bumps; i++) crest.push(base + Math.sin(i * 1.25) * 30 + Math.sin(i * 2.7 + 1) * 13);
+    const topo = new Path2D(); topo.moveTo(0, crest[0]);
+    const cheio = new Path2D(); cheio.moveTo(0, H); cheio.lineTo(0, crest[0]);
+    for (let i = 0; i < bumps; i++) {
+      const x0 = i * seg, x1 = (i + 1) * seg, ctrlY = Math.min(crest[i], crest[i + 1]) - 24;
+      topo.quadraticCurveTo(x0 + seg / 2, ctrlY, x1, crest[i + 1]);
+      cheio.quadraticCurveTo(x0 + seg / 2, ctrlY, x1, crest[i + 1]);
+    }
+    cheio.lineTo(W, H); cheio.closePath();
+    ctx.save(); ctx.clip(cheio);
+    const g = ctx.createLinearGradient(0, base - 70, 0, H);
+    g.addColorStop(0, "#E9CE9F"); g.addColorStop(.5, "#DCBB8A"); g.addColorStop(1, "#CBA470");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    for (let i = 0, n = Math.round(W * H / 9000); i < n; i++) {
+      const x = Math.random() * W, y = base - 50 + Math.random() * (H - base + 50), r = 18 + Math.random() * 60, tom = 198 + Math.round(Math.random() * 40);
+      ctx.globalAlpha = .05 + Math.random() * .09; ctx.fillStyle = `rgb(${tom},${tom - 28},${tom - 74})`;
+      ctx.beginPath(); ctx.ellipse(x, y, r, r * (.4 + Math.random() * .6), Math.random() * 3.14, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0, n = Math.round(W * H / 34); i < n; i++) {
+      const x = Math.random() * W, y = base - 50 + Math.random() * (H - base + 50), s = .5 + Math.random() * 1.7;
+      ctx.fillStyle = Math.random() < .5 ? `rgba(120,86,38,${.16 + Math.random() * .3})` : `rgba(255,246,214,${.2 + Math.random() * .45})`;
+      ctx.fillRect(x, y, s, s);
+    }
+    ctx.lineWidth = 2;
+    for (let r = 0; r < 5; r++) {
+      const yy = base + 30 + r * 30; ctx.strokeStyle = `rgba(150,112,58,.14)`; ctx.beginPath();
+      for (let x = 0; x <= W; x += 10) { const y = yy + Math.sin(x * 0.016 + r * 1.3) * 7; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke();
+    }
+    ctx.restore();
+    ctx.strokeStyle = "rgba(255,246,214,.55)"; ctx.lineWidth = 3; ctx.stroke(topo);
+  }, []);
+  return <canvas ref={ref} className="prem-areia-canvas" aria-hidden="true" />;
+}
+
+const PREM_MEDAL_TOP = { padrao: "42%", esportiva: "40%", galao: "42%", aquario: "54%", longneck: "56%" };
+
+function Premiacao({ podio, perdedores, onRepeat, onContinuar }) {
+  const [fase, setFase] = useState("perto");
+  const [medalhas, setMedalhas] = useState(false);
+  const [perdOn, setPerdOn] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const [quebradas, setQuebradas] = useState([]);
+  const cacosRef = useRef(null);
+  const perdRefs = useRef([]);
+  const timers = useRef([]);
+  const raiosRef = useRef(null);
+  const faseRef = useRef("perto");
+  const tremeT0 = useRef(0);
+  const temBastao = !!(podio.p1 && podio.p1.bastao);
+
+  const limpar = () => { timers.current.forEach((t) => (t._raf ? t.cancel() : clearTimeout(t))); timers.current = []; };
+  const T = (fn, ms) => timers.current.push(setTimeout(fn, ms));
+
+  useEffect(() => {
+    limpar();
+    setFase("perto"); setMedalhas(false); setPerdOn(false); setQuebradas([]);
+    T(() => setMedalhas(true), 800);
+    T(() => setFase("afasta"), 1400);
+    T(() => setPerdOn(true), 2600);
+    T(() => { tremeT0.current = Date.now(); setFase("treme"); }, 7200);
+    T(() => setFase("bastao"), 8500);
+    T(() => quebrarPerdedores(), 9800);
+    T(() => setFase("final"), 12000);
+    return limpar;
+  }, []);
+
+  const quebrarPerdedores = () => {
+    setFase("quebra");
+    const canvas = cacosRef.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    let cacos = [];
+    const estilhacar = (el, i) => {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setFlash(true); T(() => setFlash(false), 180);
+      setQuebradas((prev) => (prev.includes(i) ? prev : [...prev, i]));
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const cores = ["#41C9E6", "#0F8BB0", "#8ad7ea", "#EAF6FA", "#0B3446"];
+      for (let k = 0; k < 44; k++) {
+        const ang = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 9;
+        cacos.push({ x: cx + (Math.random() - .5) * r.width * 0.6, y: cy + (Math.random() - .5) * r.height * 0.6,
+          vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 4, s: 4 + Math.random() * 9,
+          rot: Math.random() * 6.28, vr: (Math.random() - .5) * .5, vida: 1, cor: cores[(Math.random() * cores.length) | 0] });
+      }
+    };
+    perdRefs.current.forEach((el, i) => T(() => estilhacar(el, i), i * 120));
+    let raf;
+    const loop = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      cacos.forEach((p) => {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.45; p.vx *= 0.99; p.rot += p.vr; p.vida -= 0.012; if (p.vida <= 0) return;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.max(0, p.vida);
+        ctx.fillStyle = p.cor; ctx.strokeStyle = "rgba(11,52,70,.6)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, -p.s); ctx.lineTo(p.s * 0.9, p.s * 0.6); ctx.lineTo(-p.s * 0.8, p.s * 0.7); ctx.closePath();
+        ctx.fill(); ctx.stroke(); ctx.restore();
+      });
+      cacos = cacos.filter((p) => p.vida > 0 && p.y < canvas.height + 60);
+      if (cacos.length > 0) raf = requestAnimationFrame(loop); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    raf = requestAnimationFrame(loop);
+    timers.current.push({ _raf: true, cancel: () => cancelAnimationFrame(raf) });
+  };
+
+  faseRef.current = fase;
+  useEffect(() => {
+    let ang = 0, speed = 0.07, raf;
+    const alvo = () => {
+      const f = faseRef.current;
+      if (f === "treme" || f === "bastao") {
+        const prog = Math.min(1, (Date.now() - tremeT0.current) / 2600);
+        return 0.12 + prog * 0.75;
+      }
+      if (f === "quebra" || f === "final") return 0.05;
+      return 0.07;
+    };
+    const loop = () => {
+      speed += (alvo() - speed) * 0.03;
+      ang = (ang + speed) % 360;
+      if (raiosRef.current) raiosRef.current.style.transform = `translate(-50%,-50%) rotate(${ang}deg)`;
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const luzOn = temBastao && fase !== "perto";
+
+  const Vaga = ({ lugar, dados, cls, tamanho }) => (
+    <div className={`prem-vaga ${cls}`}>
+      <div className="prem-garrafa-wrap">
+        <div className={`prem-medalha ${medalhas ? "posta" : ""}`} style={{ top: PREM_MEDAL_TOP[dados.garrafa] || "42%" }}><Medalha lugar={lugar} w={Math.round(tamanho * 0.52)} /></div>
+        <GarrafaSel id={dados.garrafa} pct={1} tamanho={tamanho} />
+      </div>
+      <p className="prem-nome">{dados.nome}</p>
+      <div className="prem-bloco">{lugar}º</div>
+    </div>
+  );
+
+  return (
+    <div className={`prem-cena prem-fase-${fase} ${perdOn ? "prem-perd-on" : ""}`}>
+      {temBastao && <>
+        <div ref={raiosRef} className={`prem-raios ${luzOn ? "on" : ""}`} dangerouslySetInnerHTML={{ __html: premRaiosSVG() }} />
+        <div className={`prem-luz ${luzOn ? "on" : ""} ${(fase === "treme" || fase === "bastao") ? "intenso" : ""}`} />
+      </>}
+      <div className="prem-titulo"><small>CAMPEÃO DA SEMANA</small>{podio.p1.nome}</div>
+
+      <div className="prem-palco">
+        <div className="prem-mundo">
+          <div className="prem-podio">
+            {podio.p2 && <Vaga lugar={2} dados={podio.p2} cls="prem-p2" tamanho={84} />}
+            <div className="prem-vaga prem-p1">
+              <div className="prem-garrafa-wrap" style={{ zIndex: 3 }}>
+                <div className={`prem-medalha ${medalhas ? "posta" : ""}`} style={{ top: PREM_MEDAL_TOP[podio.p1.garrafa] || "42%" }}><Medalha lugar={1} w={Math.round(108 * 0.52)} /></div>
+                <GarrafaSel id={podio.p1.garrafa} pct={1} tamanho={108} />
+              </div>
+              {temBastao &&
+                <div className={`prem-bastao ${fase !== "perto" ? "visivel" : ""} ${(fase === "bastao" || fase === "quebra" || fase === "final") ? "erguido" : ""}`}
+                     dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />}
+              <div className="prem-bloco">1º</div>
+            </div>
+            {podio.p3 && <Vaga lugar={3} dados={podio.p3} cls="prem-p3" tamanho={84} />}
+          </div>
+
+          <div className="prem-areia-chao"><AreiaChao /></div>
+
+          <div className="prem-fileira">
+            {perdedores.map((p, i) => (
+              <div key={i}
+                   className={`prem-perdedor ${(fase === "treme" || fase === "bastao") && !quebradas.includes(i) ? "prem-treme" : ""} ${quebradas.includes(i) ? "prem-estilhacada" : ""}`}
+                   ref={(el) => (perdRefs.current[i] = el)} style={{ animationDelay: (i * 0.03) + "s" }}>
+                <GarrafaSel id={p.garrafa} pct={0.5} tamanho={86} />
+                <div className="prem-rotulo">{4 + i}º · {p.nome}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="prem-vinheta" />
+      <canvas className="prem-cacos" ref={cacosRef} />
+      <div className={`prem-flash ${flash ? "on" : ""}`} />
+
+      <div className="prem-fim">
+        <div className="prem-fim-ctrl">
+          <button className="prem-btn-repetir" onClick={onRepeat} title="Repetir animação" aria-label="Repetir animação">↺</button>
+          <button className="prem-btn-continuar" onClick={onContinuar}>Continuar</button>
+        </div>
+        <div className="prem-fim-texto">↺ repete a animação · “Continuar” abre o painel</div>
+      </div>
+    </div>
+  );
+}
+
+/* Repetir remonta a animação (volta ao enquadramento inicial, sem zoom) */
+function PremiacaoOverlay({ podio, perdedores, onContinuar }) {
+  const [k, setK] = useState(0);
+  return <Premiacao key={k} podio={podio} perdedores={perdedores} onRepeat={() => setK((x) => x + 1)} onContinuar={onContinuar} />;
+}
+
 /* Gota do ranking com gravata — noivo na semana do casamento */
 function GotaNoivo({ idClip }) {
   return (
@@ -3349,6 +3682,8 @@ function AguaTracker() {
   const [escolhaGarrafa, setEscolhaGarrafa] = useState(null); // { membroId } — janela de escolha de garrafa
   const [animCacto, setAnimCacto] = useState(null); // { fromId, toId, mode, t } — overlay do bastão
   const [reiConquista, setReiConquista] = useState(null); // id do card que acabou de assumir o bastão (brilho da moldura)
+  const [premiacao, setPremiacao] = useState(null); // { podio, perdedores } — overlay semanal (seg-qua)
+  const premiacaoChecada = React.useRef(false); // garante checagem única por sessão
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
   const [posseExtra, setPosseExtra] = useState(lerPosseExtra); // cartões reivindicados por PIN neste dispositivo
@@ -3875,6 +4210,50 @@ function AguaTracker() {
       pendenteRef.current = Math.max(0, pendenteRef.current - 1);
     }
   }, []);
+
+  /* ---- Premiação semanal do pódio ----
+     Exibida para cada usuário a partir de segunda 00h00 (hora local), na
+     primeira vez que o painel abrir dentro da janela, até quarta 23h59.
+     Comemora o ranking da semana ANTERIOR fechada (seg-sex). Uma vez por
+     usuário/semana (marcada ao exibir). Sem opção de pular. */
+  useEffect(() => {
+    if (!dados || carregando || premiacaoChecada.current) return;
+    premiacaoChecada.current = true;
+    try {
+      const agora = new Date();
+      const dow = agora.getDay(); // 0=Dom .. 6=Sáb
+      if (dow < 1 || dow > 3) return; // janela: segunda(1) a quarta(3)
+      const seg = new Date(agora);
+      seg.setDate(agora.getDate() - ((dow + 6) % 7)); // segunda desta semana
+      const chaveDia = (d) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const weekId = chaveDia(seg);
+      const chaveVista = `agua-premiacao-${weekId}`;
+      if (localStorage.getItem(chaveVista)) return;
+      /* ranking da semana anterior fechada (offset 1 = seg-sex passados) */
+      const rank = calcularDesempenho(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 1);
+      /* participantes = quem registrou água na semana premiada */
+      const segPassada = new Date(seg); segPassada.setDate(seg.getDate() - 7);
+      const diasPassados = [];
+      for (let i = 0; i < 5; i++) { const d = new Date(segPassada); d.setDate(segPassada.getDate() + i); diasPassados.push(chaveDia(d)); }
+      const participou = (id) => diasPassados.some((k) =>
+        ((dados.intake[k] || {})[id] || 0) > 0 || (((dados.extras || {})[k] || {})[id] || 0) > 0);
+      const participantes = rank.filter((r) => participou(r.membro.id));
+      if (participantes.length < 1) { localStorage.setItem(chaveVista, "1"); return; }
+      const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
+      const gsel = (id) => (dados.garrafaSel && dados.garrafaSel[id]) || "padrao";
+      const campeao = participantes[0].membro;
+      const temBastao = !!(conquistas[campeao.id] && conquistas[campeao.id].conjunto.has("rei-da-cactificacao"));
+      const podio = {
+        p1: { nome: campeao.name, garrafa: gsel(campeao.id), bastao: temBastao },
+        p2: participantes[1] ? { nome: participantes[1].membro.name, garrafa: gsel(participantes[1].membro.id) } : null,
+        p3: participantes[2] ? { nome: participantes[2].membro.name, garrafa: gsel(participantes[2].membro.id) } : null,
+      };
+      const perdedores = participantes.slice(3).map((r) => ({ nome: r.membro.name, garrafa: gsel(r.membro.id) }));
+      localStorage.setItem(chaveVista, "1"); // marca ao exibir: uma vez por usuário/semana
+      setPremiacao({ podio, perdedores });
+    } catch (e) { /* best-effort: nunca bloqueia o painel */ }
+  }, [dados, carregando]);
 
   if (carregando) {
     return (
@@ -5219,6 +5598,13 @@ function AguaTracker() {
 
   return (
     <div className={`app ${meusPoderes.length > 0 ? "com-poderes" : ""}`}>
+      {premiacao && (
+        <PremiacaoOverlay
+          podio={premiacao.podio}
+          perdedores={premiacao.perdedores}
+          onContinuar={() => setPremiacao(null)}
+        />
+      )}
       <header className="cabecalho">
         <div>
           <p className="data-dia">{dataLonga()}</p>
