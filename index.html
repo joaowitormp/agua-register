@@ -1074,7 +1074,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-03.2-olhos-ultimo-ausencias";
+const APP_VERSION = "2026-11-03.3-surpresa-vence-dormindo";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4854,8 +4854,8 @@ function AguaTracker() {
       const c = registrosHoje[m.id] || 0, ex = extrasHoje[m.id] || 0;
       if (m.goalMl > 0 && c * m.bottleMl + ex >= m.goalMl) key = "orgulho";       /* meta batida */
       else if (goleHoje && now - ultimoGole < 5 * 60 * 1000) key = "feliz";        /* bebeu <5min */
+      else if (estaVulneravel(m)) key = "surpresa";                                /* vulnerável: surpresa vence o dormindo */
       else if (!goleHoje || now - ultimoGole >= 4 * 3600 * 1000) key = "dormindo"; /* nada hoje / 4h */
-      else if (estaVulneravel(m)) key = "surpresa";                                /* vulnerável */
       else key = "neutra";
     }
     /* ---- zoação na abertura: sobrepõe por 20s, depois volta ao BASE ---- */
