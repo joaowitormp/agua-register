@@ -700,6 +700,30 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .cal-num { font-size: 10px; color: #6B8A99; }
 .cal-vazio { display: inline-block; width: 22px; height: 24px; }
 .cal-traco { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; color: #C5D6DE; font-weight: 700; }
+.cal-icone { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; }
+/* Painel admin de folgas & feriados */
+.admin-barra { display: flex; justify-content: flex-end; margin: 10px 0 -2px; }
+.btn-admin-ausencias { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; color: #0F8BB0; background: #EAF6FA; border: 1px solid #CDE7F0; border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.btn-admin-ausencias:hover { background: #DCEFF6; }
+.aus-navdia { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 14px; }
+.aus-navdia button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #D4E6EE; background: #fff; color: #0F8BB0; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.aus-navdia button:hover { background: #EAF6FA; }
+.aus-dia-rotulo { font-weight: 700; color: #0B3446; font-size: 15px; min-width: 160px; text-align: center; }
+.aus-dia-rotulo span { display: block; font-size: 12px; font-weight: 500; color: #7FA3B4; }
+.aus-nota { background: #F3FAFD; border: 1px solid #DCEBF2; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #4B7A8E; line-height: 1.5; }
+.aus-feriado-linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #FFF7E8; border: 1px solid #F3E2BE; border-radius: 10px; margin-bottom: 14px; }
+.aus-feriado-linha .rot { font-weight: 700; color: #0B3446; font-size: 14px; }
+.aus-feriado-linha .sub2 { font-size: 11.5px; color: #B08A3A; }
+.aus-switch { position: relative; width: 44px; height: 26px; border-radius: 999px; border: none; background: #CFE0E8; cursor: pointer; flex: none; transition: background .15s; }
+.aus-switch.on { background: #0FA36B; }
+.aus-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+.aus-switch.on::after { left: 21px; }
+.aus-titulo-sec { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #7FA3B4; margin: 4px 0 8px; }
+.aus-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.aus-chip { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px; border: 1px solid #D4E6EE; background: #fff; color: #0B3446; font-size: 13px; font-weight: 600; cursor: pointer; }
+.aus-chip.on { background: #E7F3F8; border-color: #41C9E6; color: #0F8BB0; }
+.aus-chip .ponto { width: 10px; height: 10px; border-radius: 50%; background: #D4E6EE; }
+.aus-chip.on .ponto { background: #3E8FB0; }
 .toast {
   position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
   width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
@@ -750,6 +774,8 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .pct { font-size: 10px; color: #4B7A8E; }
 .pct.ok { color: #0FA36B; font-weight: 700; }
 .sem-dado { color: #C9E4EE; font-size: 12px; }
+.fer-label { font-size: 9px; font-weight: 700; color: #C99A2E; white-space: nowrap; line-height: 1; }
+.fer-label.folga { color: #3E8FB0; }
 
 .rodape {
   max-width: 1240px; margin: 28px auto 0; text-align: center;
@@ -1048,7 +1074,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-03.1-premiacao-todos";
+const APP_VERSION = "2026-11-03.2-olhos-ultimo-ausencias";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -1311,6 +1337,9 @@ const FERIADOS_MOVEIS = [
    ativos só na semana de 21 a 25/09/2026 */
 const GIPHY_KEY = "gqiuTgoyJTDO3mlc695hEuDiI7pb0cjT";
 const NOIVO_NOME = "renan";
+/* Admin das ausências (folgas e feriados manuais): só este usuário vê e usa
+   o painel "Folgas & feriados". Comparado via nomeNormalizado. */
+const ADMIN_NOME = "joao witor";
 const CASAMENTO_INICIO = "2026-09-21";
 const CASAMENTO_FIM = "2026-09-25";
 const ehSemanaCasamento = () => {
@@ -1585,9 +1614,12 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia, car
 /* Desempenho da semana por membro (média do % diário nos dias úteis válidos,
    menos as penalidades dos poderes sofridos). Retorna a lista ordenada do
    maior para o menor — usada no ranking E na ordem dos cards. */
-function calcularDesempenho(members, intake, extras, historico, semanaOffset) {
+function calcularDesempenho(members, intake, extras, historico, semanaOffset, ausencias) {
   extras = extras || {};
   historico = historico || {};
+  ausencias = ausencias || {};
+  const feriadosManuais = ausencias.feriados || [];
+  const folgasPorDia = ausencias.folgas || {};
   const agora = new Date();
   const segunda = new Date(agora);
   segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7) - (semanaOffset || 0) * 7);
@@ -1613,6 +1645,8 @@ function calcularDesempenho(members, intake, extras, historico, semanaOffset) {
         const k = chave(d);
         if (k > chaveHoje) return;
         if (!ehDiaUtil(d)) return;
+        if (feriadosManuais.includes(k)) return;              /* feriado marcado: ninguém conta */
+        if ((folgasPorDia[k] || []).includes(m.id)) return;   /* folga do membro: não conta p/ ele */
         const fimDoDia = new Date(d);
         fimDoDia.setHours(23, 59, 59, 999);
         if (criadoEm > fimDoDia.getTime()) return;
@@ -2521,7 +2555,9 @@ function GraficoMensal({ membro, intake, extras, metas, offset }) {
 
 /* Calendário do mês com uma gota por dia representando a % da meta batida.
    offset 0 = mês atual, 1 = mês anterior (limite máximo) */
-function CalendarioGotas({ membro, intake, extras, metas, offset }) {
+function CalendarioGotas({ membro, intake, extras, metas, offset, ausencias = {} }) {
+  const feriadosManuais = ausencias.feriados || [];
+  const folgasDia = (k) => (ausencias.folgas && ausencias.folgas[k]) || [];
   const hoje = new Date();
   const ref = new Date(hoje.getFullYear(), hoje.getMonth() - offset, 1);
   const ano = ref.getFullYear();
@@ -2537,6 +2573,8 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
     const k = `${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
     const d = new Date(ano, mes, dia);
     const util = ehDiaUtil(d); /* fim de semana e feriado: só traço */
+    const feriado = ehFeriado(d) || feriadosManuais.includes(k);
+    const folga = !feriado && folgasDia(k).includes(membro.id);
     const count = (intake[k] && intake[k][membro.id]) || 0;
     const extra = (extras[k] && extras[k][membro.id]) || 0;
     const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
@@ -2545,7 +2583,7 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
     const casamento =
       nomeNormalizado(membro.name) === NOIVO_NOME &&
       k >= CASAMENTO_INICIO && k <= CASAMENTO_FIM;
-    celulas.push({ dia, pct, futuro, util, casamento, hoje: k === chaveHojeStr });
+    celulas.push({ dia, pct, futuro, util, feriado, folga, casamento, hoje: k === chaveHojeStr });
   }
 
   return (
@@ -2559,11 +2597,15 @@ function CalendarioGotas({ membro, intake, extras, metas, offset }) {
           c === null ? (
             <span key={`v${i}`} />
           ) : (
-            <span key={c.dia} className={`cal-dia ${c.hoje ? "cal-hoje" : ""}`} title={c.futuro || !c.util ? "" : `${Math.round(c.pct*100)}% da meta`}>
+            <span key={c.dia} className={`cal-dia ${c.hoje ? "cal-hoje" : ""}`} title={c.feriado ? "Feriado" : c.folga ? "Folga" : c.futuro || !c.util ? "" : `${Math.round(c.pct*100)}% da meta`}>
               {c.futuro ? (
                 <span className="cal-vazio" />
               ) : c.casamento ? (
                 <GotaNoivo idClip={`caln-${membro.id}-${c.dia}-${offset}`} />
+              ) : c.feriado ? (
+                <span className="cal-icone"><IconeFeriado size={16} /></span>
+              ) : c.folga ? (
+                <span className="cal-icone"><IconeFolga size={17} uid={`cal-${membro.id}-${c.dia}-${offset}`} /></span>
               ) : !c.util ? (
                 <span className="cal-traco">–</span>
               ) : (
@@ -3506,7 +3548,50 @@ function GotaDia({ pct, idClip }) {
   );
 }
 
-function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHistorico }) {
+/* Ícone de FERIADO (dia de trégua para todos) — calendário com estrela.
+   Entra no lugar da gota/traço quando o dia é feriado (nacional ou marcado
+   manualmente pelo admin). */
+function IconeFeriado({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="3" fill="#EAF6FA" stroke="#0F8BB0" strokeWidth="1.8" />
+      <path d="M3 9 H21" stroke="#0F8BB0" strokeWidth="1.8" />
+      <line x1="8" y1="2.5" x2="8" y2="6" stroke="#0F8BB0" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="16" y1="2.5" x2="16" y2="6" stroke="#0F8BB0" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 11.3 l1.25 2.63 2.85 .3 -2.15 1.95 .62 2.82 -2.57 -1.43 -2.57 1.43 .62 -2.82 -2.15 -1.95 2.85 -.3 z" fill="#F6B93B" />
+    </svg>
+  );
+}
+
+/* Ícone de FOLGA (dia de descanso individual, marcado pelo admin) —
+   a gotinha "de férias", de óculos escuros. Óculos ampliados para ler
+   bem no tamanho da célula. */
+function IconeFolga({ size = 24, uid = "x" }) {
+  const g = "fg-" + uid;
+  const forma = "M13 3 C13 3 6 12 6 17 a7 7 0 0 0 14 0 C20 12 13 3 13 3 Z";
+  return (
+    <svg width={size} height={size * 28 / 26} viewBox="0 0 26 28" aria-hidden="true">
+      <defs>
+        <clipPath id={g}><path d={forma} /></clipPath>
+        <linearGradient id={g + "-l"} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#8ad7ea" />
+          <stop offset="1" stopColor="#41C9E6" />
+        </linearGradient>
+      </defs>
+      <g clipPath={`url(#${g})`}>
+        <rect x="0" y="0" width="26" height="28" fill={`url(#${g}-l)`} />
+      </g>
+      <path d={forma} fill="none" stroke="#0B3446" strokeWidth="1.6" />
+      <g>
+        <rect x="7.2" y="14.4" width="5.1" height="3.9" rx="1.6" fill="#0B3446" />
+        <rect x="13.7" y="14.4" width="5.1" height="3.9" rx="1.6" fill="#0B3446" />
+        <path d="M12.3 15.9 h1.4" stroke="#0B3446" strokeWidth="1.5" />
+      </g>
+    </svg>
+  );
+}
+
+function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHistorico, ausencias = {} }) {
   const [semanaOffset, setSemanaOffset] = useState(0); // 0 = atual, 1 = passada
   if (members.length === 0) return null;
   /* Semana fixa: segunda a sexta; offset recua semanas inteiras */
@@ -3532,7 +3617,9 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
   fimSemana.setHours(23, 59, 59, 999);
   const fimTs = fimSemana.getTime();
 
-  const ranking = calcularDesempenho(members, intake, extras, historico, semanaOffset);
+  const ranking = calcularDesempenho(members, intake, extras, historico, semanaOffset, ausencias);
+  const folgasSemana = ausencias.folgas || {};
+  const feriadosManuais = ausencias.feriados || [];
 
   const rotuloSemana =
     semanaOffset === 0
@@ -3619,26 +3706,31 @@ function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHist
                     fimDoDia.setHours(23, 59, 59, 999);
                     const antesDeExistir = criadoEm > fimDoDia.getTime();
                     const futuro = k > chaveHoje;
-                    const feriado = k === "2026-09-07"; /* 7/9: sem gota */
+                    const feriado = ehFeriado(d) || feriadosManuais.includes(k);
+                    const folga = !feriado && (folgasSemana[k] || []).includes(m.id);
                     const count = (intake[k] && intake[k][m.id]) || 0;
                     const extra = (extras[k] && extras[k][m.id]) || 0;
                     const pct =
                       m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
                     return (
                       <td key={k} className={k === chaveHoje ? "col-hoje" : ""}>
-                        {antesDeExistir || futuro || feriado ? (
+                        {antesDeExistir || futuro ? (
                           <span
                             className="sem-dado"
-                            title={
-                              feriado
-                                ? "Feriado — não conta"
-                                : futuro
-                                ? "Ainda não chegou"
-                                : "A garrafa ainda não existia"
-                            }
+                            title={futuro ? "Ainda não chegou" : "A garrafa ainda não existia"}
                           >
                             –
                           </span>
+                        ) : feriado ? (
+                          <div className="celula-dia" title="Feriado — não conta">
+                            <IconeFeriado size={22} />
+                            <span className="fer-label">Feriado</span>
+                          </div>
+                        ) : folga ? (
+                          <div className="celula-dia" title="Folga — não conta">
+                            <IconeFolga size={22} uid={`${m.id}-${k}`} />
+                            <span className="fer-label folga">Folga</span>
+                          </div>
                         ) : (
                           <div className="celula-dia">
                             {nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento() ? (
@@ -3851,7 +3943,16 @@ function AguaTracker() {
         out[d] = linha;
         return out;
       };
-      const merged = { ...serverData, intake: piso("intake"), extras: piso("extras") };
+      /* "ultimo" (horário do último gole) é monotônico — só cresce. Um poll
+         que chegue antes do POST persistir não pode rebaixá-lo, senão a
+         expressão dos olhos pisca feliz→dormindo→feliz e o relógio de seca
+         dos poderes "rejuvenesce". Mesmo piso de "maior vence". */
+      const ultimoFloor = { ...(serverData.ultimo || {}) };
+      const ultimoLoc = local.ultimo || {};
+      Object.keys(ultimoLoc).forEach((id) => {
+        ultimoFloor[id] = Math.max(Number(ultimoLoc[id] || 0), Number(ultimoFloor[id] || 0));
+      });
+      const merged = { ...serverData, intake: piso("intake"), extras: piso("extras"), ultimo: ultimoFloor };
       /* com gravação em voo, preserva o log de eventos de hoje desta tela
          (é o que o Desfazer consulta) até o POST confirmar */
       if (pendenteRef.current > 0 && local.eventos && local.eventos[d]) {
@@ -3899,6 +4000,8 @@ function AguaTracker() {
   const premiacaoChecada = React.useRef(false); // garante checagem única por sessão
   const [tickExpr, setTickExpr] = useState(0); // relógio que reavalia as expressões dos olhos
   const aberturaRef = React.useRef(Date.now()); // âncora da zoação "na abertura do painel"
+  const [ausenciasAberto, setAusenciasAberto] = useState(false); // painel admin de folgas/feriados
+  const [ausenciaDia, setAusenciaDia] = useState(() => chaveDe(new Date())); // dia escolhido no painel (YYYY-MM-DD)
   useEffect(() => { const id = setInterval(() => setTickExpr((t) => t + 1), 20000); return () => clearInterval(id); }, []);
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
@@ -4447,7 +4550,7 @@ function AguaTracker() {
       const chaveVista = `agua-premiacao-${weekId}`;
       if (localStorage.getItem(chaveVista)) return;
       /* ranking da semana anterior fechada (offset 1 = seg-sex passados) */
-      const rank = calcularDesempenho(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 1);
+      const rank = calcularDesempenho(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 1, dados.ausencias || {});
       /* TODOS os membros entram na premiação (mesmo quem não registrou na
          semana), ordenados pelo desempenho — assim aparecem todos os
          usuários, não só quem bebeu água na semana premiada */
@@ -4500,6 +4603,8 @@ function AguaTracker() {
     (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
   );
   const tenhoCartao = meusMembros.length > 0;
+  /* Admin das ausências: este dispositivo é dono/entrou no cartão do admin */
+  const souAdmin = meusMembros.some((m) => nomeNormalizado(m.name) === ADMIN_NOME);
 
   const totalHoje = dados.members.reduce(
     (soma, m) =>
@@ -4545,8 +4650,45 @@ function AguaTracker() {
      canto superior esquerdo, depois da esquerda para a direita, de cima
      para baixo. Atualiza sozinho conforme as posições mudam. */
   const membrosOrdenados = calcularDesempenho(
-    dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 0
+    dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 0, dados.ausencias || {}
   ).map((r) => r.membro);
+
+  /* ---- Admin: folgas (por membro) e feriados (todos) ----
+     Guarda um documento carimbado em dados.ausencias:
+       { at, folgas: { "YYYY-MM-DD": [membroId...] }, feriados: ["YYYY-MM-DD"] }
+     O servidor funde por "maior at": uma aba antiga que só ecoa o valor nunca
+     apaga uma edição mais nova (ver mesclarAusencias em api/dados.js). */
+  const escreverAusencias = (mut) => {
+    const novo = structuredClone(dados);
+    const base =
+      novo.ausencias && typeof novo.ausencias === "object"
+        ? novo.ausencias
+        : { folgas: {}, feriados: [] };
+    const prox = {
+      folgas: { ...(base.folgas || {}) },
+      feriados: [...(base.feriados || [])],
+    };
+    mut(prox);
+    prox.at = Date.now();
+    novo.ausencias = prox;
+    persistir(novo);
+  };
+  const alternarFolga = (dia, membroId) => {
+    escreverAusencias((a) => {
+      const lista = new Set(a.folgas[dia] || []);
+      if (lista.has(membroId)) lista.delete(membroId);
+      else lista.add(membroId);
+      if (lista.size) a.folgas[dia] = [...lista];
+      else delete a.folgas[dia];
+    });
+  };
+  const alternarFeriado = (dia) => {
+    escreverAusencias((a) => {
+      const i = a.feriados.indexOf(dia);
+      if (i >= 0) a.feriados.splice(i, 1);
+      else a.feriados.push(dia);
+    });
+  };
 
   /* Poderes tomados de outro jogador pelo efeito rebote (valem só hoje) */
   const roubos = (dados.roubos && typeof dados.roubos === "object") ? dados.roubos : {};
@@ -7064,6 +7206,7 @@ function AguaTracker() {
                 extras={dados.extras || {}}
                 metas={dados.metas || {}}
                 offset={mesHist}
+                ausencias={dados.ausencias || {}}
               />
 
               <p className="sub sub-registros">Registros — do mais recente ao mais antigo (até 100).</p>
@@ -7200,13 +7343,97 @@ function AguaTracker() {
         </div>
       )}
 
+      {souAdmin && (
+        <div className="admin-barra">
+          <button
+            className="btn-admin-ausencias"
+            onClick={() => { setAusenciaDia(chaveDe(new Date())); setAusenciasAberto(true); }}
+          >
+            🏖️ Folgas &amp; feriados
+          </button>
+        </div>
+      )}
+
       <HistoricoSemanal
         members={dados.members}
         intake={dados.intake}
         extras={dados.extras || {}}
         historico={dados.historico || {}}
         onHistorico={setHistoricoDe}
+        ausencias={dados.ausencias || {}}
       />
+
+      {souAdmin && ausenciasAberto && (() => {
+        const diaDate = new Date(ausenciaDia + "T12:00:00");
+        const deslocar = (delta) => { const d = new Date(diaDate); d.setDate(d.getDate() + delta); setAusenciaDia(chaveDe(d)); };
+        const nomeDiaSemana = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"][diaDate.getDay()];
+        const dataFmt = `${String(diaDate.getDate()).padStart(2,"0")}/${String(diaDate.getMonth()+1).padStart(2,"0")}/${diaDate.getFullYear()}`;
+        const fimDeSemana = diaDate.getDay() === 0 || diaDate.getDay() === 6;
+        const feriadoNacional = ehFeriado(diaDate);
+        const aus = dados.ausencias || {};
+        const feriadoManual = (aus.feriados || []).includes(ausenciaDia);
+        const folgasHoje = (aus.folgas && aus.folgas[ausenciaDia]) || [];
+        return (
+          <div className="modal-fundo" onClick={() => setAusenciasAberto(false)}>
+            <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={() => setAusenciasAberto(false)}>×</button>
+              <h2 className="bloco-titulo" style={{ marginTop: 0 }}>🏖️ Folgas &amp; feriados</h2>
+              <p className="sub" style={{ marginTop: 2 }}>
+                Marque quem está de folga ou um feriado que o calendário não pegou. Dias marcados não contam no ranking e aparecem com selo no lugar da gota.
+              </p>
+
+              <div className="aus-navdia">
+                <button onClick={() => deslocar(-1)} aria-label="Dia anterior">‹</button>
+                <div className="aus-dia-rotulo">{nomeDiaSemana}<span>{dataFmt}</span></div>
+                <button onClick={() => deslocar(1)} aria-label="Próximo dia">›</button>
+              </div>
+
+              {fimDeSemana ? (
+                <div className="aus-nota">Fim de semana já não conta no ranking — não há o que marcar aqui.</div>
+              ) : feriadoNacional ? (
+                <div className="aus-nota">Feriado nacional (automático) — este dia já não conta para ninguém.</div>
+              ) : (
+                <>
+                  <div className="aus-feriado-linha">
+                    <div>
+                      <div className="rot">Feriado (todos)</div>
+                      <div className="sub2">O dia inteiro não conta para ninguém</div>
+                    </div>
+                    <button
+                      className={`aus-switch ${feriadoManual ? "on" : ""}`}
+                      aria-pressed={feriadoManual}
+                      aria-label="Marcar o dia como feriado"
+                      onClick={() => alternarFeriado(ausenciaDia)}
+                    />
+                  </div>
+                  {feriadoManual ? (
+                    <div className="aus-nota">Dia marcado como feriado — todo mundo fica de folga.</div>
+                  ) : (
+                    <>
+                      <div className="aus-titulo-sec">Quem está de folga</div>
+                      <div className="aus-chips">
+                        {dados.members.map((m) => {
+                          const on = folgasHoje.includes(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              className={`aus-chip ${on ? "on" : ""}`}
+                              aria-pressed={on}
+                              onClick={() => alternarFolga(ausenciaDia, m.id)}
+                            >
+                              <span className="ponto" />{m.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       <footer className="rodape">
         Os registros são salvos automaticamente e compartilhados entre todos os
