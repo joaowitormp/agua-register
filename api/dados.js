@@ -10,7 +10,7 @@ const CHAVE = "agua:dados";
 const CHAVE_BACKUP = "agua:backup";
 const VAZIO = { members: [], intake: {} };
 /* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-10-28.1-limpo-pegajoso";
+const API_VERSION = "2026-11-03.1-ausencias";
 
 /* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
    o servidor une as entradas já salvas com as recebidas (chave = momento
@@ -86,6 +86,19 @@ const mesclarEfeitos = (antigo, novo, diaHoje) => {
     if (Object.keys(limpo).length > 0) res[id] = limpo;
   });
   return res;
+};
+
+/* Ausências (folgas por membro e feriados manuais): documento carimbado.
+   Vence quem gravou por último (maior "at"). Uma aba que só ecoa o valor
+   antigo (at menor, ou sem o campo) nunca sobrescreve uma edição mais nova
+   do admin — e, como é o documento inteiro que vence, remover uma folga
+   também se propaga. */
+const mesclarAusencias = (antigo, novo) => {
+  if (!novo) return antigo;
+  if (!antigo) return novo;
+  const a = Number(antigo.at || 0);
+  const n = Number(novo.at || 0);
+  return n >= a ? novo : antigo;
 };
 
 const mesclarMetas = (antigo, novo) => {
@@ -247,6 +260,8 @@ export default async function handler(req, res) {
         corpo.garrafas = mesclarGarrafas(atual.garrafas, corpo.garrafas);
         corpo.garrafaSel = mesclarGarrafaSel(atual.garrafaSel, corpo.garrafaSel);
         corpo.cartadas = mesclarCartadas(atual.cartadas, corpo.cartadas);
+        /* folgas e feriados manuais: o carimbo mais novo vence */
+        corpo.ausencias = mesclarAusencias(atual.ausencias, corpo.ausencias);
       }
 
       delete corpo.reduzir; /* campo auxiliar de gravação, não persiste */
