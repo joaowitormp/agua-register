@@ -1048,7 +1048,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-10-30.4-olhos";
+const APP_VERSION = "2026-11-03.1-premiacao-todos";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4448,13 +4448,10 @@ function AguaTracker() {
       if (localStorage.getItem(chaveVista)) return;
       /* ranking da semana anterior fechada (offset 1 = seg-sex passados) */
       const rank = calcularDesempenho(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 1);
-      /* participantes = quem registrou água na semana premiada */
-      const segPassada = new Date(seg); segPassada.setDate(seg.getDate() - 7);
-      const diasPassados = [];
-      for (let i = 0; i < 5; i++) { const d = new Date(segPassada); d.setDate(segPassada.getDate() + i); diasPassados.push(chaveDia(d)); }
-      const participou = (id) => diasPassados.some((k) =>
-        ((dados.intake[k] || {})[id] || 0) > 0 || (((dados.extras || {})[k] || {})[id] || 0) > 0);
-      const participantes = rank.filter((r) => participou(r.membro.id));
+      /* TODOS os membros entram na premiação (mesmo quem não registrou na
+         semana), ordenados pelo desempenho — assim aparecem todos os
+         usuários, não só quem bebeu água na semana premiada */
+      const participantes = rank;
       if (participantes.length < 1) { localStorage.setItem(chaveVista, "1"); return; }
       const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
       const gsel = (id) => (dados.garrafaSel && dados.garrafaSel[id]) || "padrao";
