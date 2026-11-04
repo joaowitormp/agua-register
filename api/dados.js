@@ -67,7 +67,7 @@ const mesclarEfeitos = (antigo, novo, diaHoje) => {
     /* "limpo" é pegajoso: uma vez varrido, o efeito não volta a ativar. Sem
        isso, uma gravação de progresso atrasada (com mapa, sem limpo) chegando
        depois do "limpou" ressuscitava o soterramento já concluído. */
-    ["cacto", "deserto", "tempestade"].forEach((tipo) => {
+    ["cacto", "deserto", "tempestade", "tormenta"].forEach((tipo) => {
       const a = antigo && antigo[id] && antigo[id][tipo];
       const n = novo && novo[id] && novo[id][tipo];
       if (merged[tipo] && ((a && a.limpo) || (n && n.limpo))) {
