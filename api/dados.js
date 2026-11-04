@@ -1,279 +1,7939 @@
-import { Redis } from "@upstash/redis";
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hidratação do time</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap');
 
-/* Aceita as variáveis criadas pelo marketplace (Upstash) ou pelo Vercel KV */
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
-});
+body { margin: 0; }
+.app, .tela-carregando {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #EAF6FA 0%, #F5FBFD 40%, #FFFFFF 100%);
+  font-family: 'Sora', system-ui, sans-serif;
+  color: #0B3446;
+  padding: 28px 20px 48px;
+  box-sizing: border-box;
+}
+.tela-carregando { display: flex; align-items: center; justify-content: center; }
+.erro-conexao {
+  background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 16px;
+  padding: 28px; max-width: 420px; text-align: center;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07);
+}
+.erro-conexao .titulo { font-size: 22px; }
+.erro-conexao .sub { margin: 10px 0 18px; }
+.erro-conexao .beber { width: 100%; }
 
-const CHAVE = "agua:dados";
-const CHAVE_BACKUP = "agua:backup";
-const VAZIO = { members: [], intake: {} };
-/* Carimbo do código da API em execução — conferível em /api/dados?versao=1 */
-const API_VERSION = "2026-11-03.1-ausencias";
+.cabecalho {
+  max-width: 1240px; margin: 0 auto 24px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 16px; flex-wrap: wrap;
+}
+.data-dia { margin: 0; font-size: 13px; text-transform: capitalize; color: #4B7A8E; }
+.titulo { margin: 2px 0 0; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+.resumo { text-align: right; }
+.resumo-num { margin: 0; font-size: 26px; font-weight: 800; color: #0F8BB0; }
+.resumo-label { margin: 0; font-size: 12px; color: #4B7A8E; }
 
-/* Fusão do histórico: em vez de aceitar a sobrescrita cega do documento,
-   o servidor une as entradas já salvas com as recebidas (chave = momento
-   + tipo). Uma aba desatualizada não consegue mais apagar registros que
-   outras pessoas fizeram. Entradas anuladas (Desfazer) prevalecem */
-const mesclarHistorico = (antigo, novo) => {
-  const resultado = {};
-  const ids = new Set([
-    ...Object.keys(antigo || {}),
-    ...Object.keys(novo || {}),
-  ]);
-  ids.forEach((id) => {
-    const mapa = new Map();
-    [
-      ...((antigo && antigo[id]) || []),
-      ...((novo && novo[id]) || []),
-    ].forEach((e) => {
-      if (!e || typeof e.t !== "number") return;
-      const chave = `${e.t}-${e.tipo || ""}`;
-      const existente = mapa.get(chave);
-      if (!existente || e.anulado) mapa.set(chave, { ...existente, ...e });
+.dica-agua {
+  max-width: 1240px; margin: 0 auto 20px; padding: 12px 16px;
+  background: #FFFFFF; border: 1px solid #C9E7F2; border-left: 4px solid #0F8BB0;
+  border-radius: 12px; font-size: 13.5px; color: #0B3446;
+  display: flex; gap: 10px; align-items: center; box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.08);
+  animation: surgir-dica 0.6s ease both;
+}
+.dica-icone { font-size: 17px; line-height: 1; }
+@keyframes surgir-dica {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.aviso {
+  max-width: 1240px; margin: 0 auto 16px; padding: 10px 14px;
+  background: #FFF3E8; border: 1px solid #E8B98A; border-radius: 10px;
+  font-size: 13px; color: #7A4B12;
+}
+
+.vazio {
+  max-width: 1240px; margin: 0 auto 20px; padding: 28px;
+  background: #FFFFFF; border: 1px dashed #B7D9E4; border-radius: 16px;
+  display: flex; align-items: center; gap: 18px; color: #4B7A8E; font-size: 14px;
+}
+
+.grade {
+  max-width: 1240px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.cartao {
+  background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 16px;
+  padding: 18px; box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07);
+  display: flex; flex-direction: column;
+  position: relative; /* âncora da camada de areia do soterramento */
+}
+.cartao-topo { display: flex; justify-content: space-between; align-items: flex-start; }
+.nome { margin: 0; font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+.nome-linha { display: flex; align-items: center; gap: 5px; }
+.btn-historico {
+  border: none; background: transparent; color: #9FBFCC; cursor: pointer;
+  padding: 3px 4px; border-radius: 6px; line-height: 1; display: inline-flex;
+  flex-shrink: 0;
+}
+.btn-historico:hover { color: #0F8BB0; background: #EAF6FA; }
+.sub { margin: 3px 0 0; font-size: 12px; color: #4B7A8E; }
+
+.remover {
+  border: none; background: transparent; color: #9FBFCC; font-size: 20px;
+  cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 8px;
+}
+.remover:hover { background: #FDECEC; color: #C0392B; }
+.topo-acoes { display: flex; align-items: center; gap: 2px; }
+.sino {
+  border: none; background: transparent; color: #0F8BB0; cursor: pointer;
+  padding: 4px 6px; border-radius: 8px; line-height: 1;
+  transition: transform 0.12s ease;
+}
+.sino:hover { background: #EAF6FA; transform: rotate(14deg); }
+.remover-confirma { font-size: 12px; color: #7A4B12; display: flex; gap: 6px; align-items: center; }
+.mini {
+  border: 1px solid #D8ECF3; background: #FFFFFF; border-radius: 8px;
+  font-size: 12px; padding: 2px 8px; cursor: pointer; font-family: inherit;
+}
+.mini.sim { background: #FDECEC; border-color: #E8A9A2; color: #C0392B; }
+
+.cartao-meio { display: flex; align-items: center; gap: 16px; margin: 12px 0 6px; }
+.garrafa-btn {
+  border: none; background: transparent; cursor: pointer; padding: 4px;
+  border-radius: 12px; transition: transform 0.12s ease;
+}
+.garrafa-btn:hover { transform: scale(1.05); }
+.garrafa-btn:active { transform: scale(0.96); }
+.garrafa-btn:focus-visible, .beber:focus-visible, .desfazer:focus-visible,
+.adicionar:focus-visible, .preset:focus-visible {
+  outline: 3px solid #41C9E6; outline-offset: 2px;
+}
+
+.garrafa-fixa { padding: 4px; opacity: 0.9; }
+
+.numeros { flex: 1; }
+.bebido { margin: 0; font-size: 26px; font-weight: 800; color: #0F8BB0; }
+.de-meta { margin: 0; font-size: 13px; color: #4B7A8E; }
+.status { margin: 8px 0 0; font-size: 13px; color: #0B3446; }
+.status.ok { color: #0FA36B; font-weight: 600; }
+
+.barra {
+  height: 8px; background: #E4F2F7; border-radius: 99px; overflow: hidden;
+  margin: 8px 0 14px;
+}
+.barra-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #41C9E6, #0F8BB0);
+  transition: width 0.35s ease;
+}
+
+.cartao-acoes { display: flex; gap: 8px; }
+.beber {
+  flex: 1; border: none; border-radius: 12px; padding: 12px 10px;
+  background: #0F8BB0; color: #FFFFFF; font-family: inherit;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.beber:hover { background: #0B7292; }
+.beber:disabled { background: #B7D6E1; cursor: default; }
+.beber-texto { display: block; }
+.beber-ml {
+  display: block; margin-top: 2px;
+  font-size: 11px; font-weight: 400; opacity: 0.85;
+}
+.desfazer {
+  border: 1px solid #D8ECF3; border-radius: 12px; padding: 12px 14px;
+  background: #FFFFFF; color: #4B7A8E; font-family: inherit;
+  font-size: 13px; cursor: pointer;
+}
+.desfazer:disabled { opacity: 0.4; cursor: default; }
+.registros { margin: 10px 0 0; font-size: 12px; color: #9FBFCC; text-align: center; }
+.link-extra {
+  border: none; background: transparent; color: #9FBFCC; font-family: inherit;
+  font-size: 11px; cursor: pointer; margin: 4px auto 0; display: block;
+  text-decoration: underline; text-underline-offset: 2px; padding: 2px 6px;
+}
+.link-extra:hover { color: #0F8BB0; }
+.conquistas-linha {
+  border: none; background: transparent; padding: 0; margin: 8px 0 0;
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  cursor: pointer; border-radius: 8px;
+}
+.circulo-conquista {
+  width: 20px; height: 20px; border-radius: 50%; background: #DDF0F7;
+  color: #0F8BB0; display: inline-flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.conquistas-linha:hover .circulo-conquista { background: #C9E7F2; }
+.circulo-conquista.mais {
+  background: transparent; border: 1.5px dashed #9ECFDF; color: #4B7A8E;
+  box-sizing: border-box;
+}
+.modal-circulo { width: 26px; height: 26px; }
+.modal-circulo.trancada { background: #EEF3F6; color: #9FBFCC; }
+.lista-conquistas { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.conquista {
+  display: flex; gap: 10px; align-items: center; padding: 8px 10px;
+  border-radius: 10px; background: #F7FBFD; border: 1px solid #E4F2F7;
+}
+.conquista.bloqueada { opacity: 0.6; }
+.conquista.ok { border-color: #BFE7D6; background: #F2FBF7; }
+.conquista.ok .circulo-conquista { background: #D2F0E2; color: #0FA36B; }
+.conquista-texto { display: flex; flex-direction: column; font-size: 13px; color: #0B3446; }
+.conquista-texto span { font-size: 12px; color: #4B7A8E; }
+.zerar-extra {
+  border: none; background: transparent; color: #C0392B; font-family: inherit;
+  font-size: 12px; cursor: pointer; margin: 12px 0 0; padding: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+
+.adicionar {
+  border: 2px dashed #9ECFDF; background: rgba(255,255,255,0.6);
+  color: #0F8BB0; font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; display: flex; flex-direction: column; border-radius: 16px;
+  align-items: center; justify-content: center; gap: 6px; min-height: 220px;
+}
+.adicionar:hover { background: #FFFFFF; border-color: #0F8BB0; }
+.mais { font-size: 34px; font-weight: 400; line-height: 1; }
+
+.form .campo {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 12px; font-weight: 600; color: #4B7A8E; margin-top: 12px;
+}
+.form input {
+  border: 1px solid #C9E4EE; border-radius: 10px; padding: 10px 12px;
+  font-family: inherit; font-size: 14px; color: #0B3446;
+}
+.form input:focus { outline: 2px solid #41C9E6; border-color: transparent; }
+.campo-senha { position: relative; display: flex; }
+.campo-senha input { flex: 1; width: 100%; padding-right: 42px; box-sizing: border-box; }
+.olho {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  border: none; background: transparent; color: #9FBFCC; cursor: pointer;
+  padding: 4px 6px; border-radius: 8px; line-height: 1; display: inline-flex;
+}
+.olho:hover { color: #0F8BB0; background: #EAF6FA; }
+.presets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.preset {
+  border: 1px solid #C9E4EE; background: #FFFFFF; border-radius: 99px;
+  padding: 5px 12px; font-family: inherit; font-size: 12px; cursor: pointer;
+  color: #4B7A8E;
+}
+.preset.ativo { background: #0F8BB0; border-color: #0F8BB0; color: #FFFFFF; font-weight: 600; }
+.calculo-linha { display: flex; gap: 8px; }
+.calculo-linha input { flex: 1; min-width: 0; }
+.calcular {
+  border: 1px solid #0F8BB0; background: #FFFFFF; color: #0F8BB0;
+  border-radius: 10px; padding: 0 16px; font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.calcular:hover { background: #EAF6FA; }
+.dica { margin: 8px 0 0; font-size: 11px; color: #9FBFCC; }
+.form .cartao-acoes { margin-top: 16px; }
+
+.pilha-alertas {
+  position: fixed; top: 16px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 40px);
+  display: flex; flex-direction: column; gap: 8px; z-index: 60;
+  max-height: 60vh; overflow-y: auto; padding: 2px;
+}
+.banner-alerta {
+  display: flex; align-items: center; gap: 12px; box-sizing: border-box;
+  background: #FFFFFF; color: #0B3446; padding: 12px 14px 12px 18px;
+  border: 1px solid #E2ECF2; border-left: 5px solid #0B3446;
+  border-radius: 14px; font-size: 14px; font-weight: 600;
+  box-shadow: 0 6px 18px rgba(11, 52, 70, 0.12);
+  animation: chacoalhar 0.6s ease 2;
+}
+.banner-hora { font-size: 11px; font-weight: 400; color: #9FBFCC; white-space: nowrap; }
+.fechar-alerta {
+  border: none; background: #EEF5F9; color: #4B7A8E;
+  width: 26px; height: 26px; border-radius: 8px; font-size: 16px;
+  line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.fechar-alerta:hover { background: #DCEAF2; color: #0B3446; }
+/* barra "fechar todas" quando há mais de um aviso */
+.limpar-alertas {
+  align-self: flex-end; border: 1px solid #D8ECF3; background: #FFFFFF;
+  color: #4B7A8E; border-radius: 99px; padding: 5px 13px;
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(11, 52, 70, 0.1);
+}
+.limpar-alertas:hover { background: #EAF6FA; color: #0B3446; }
+.fechar-alerta:hover { background: rgba(255, 255, 255, 0.25); }
+
+.modal-fundo {
+  position: fixed; inset: 0; background: rgba(11, 52, 70, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 70; padding: 20px; box-sizing: border-box;
+}
+.modal-sino {
+  position: relative;
+  background: #FFFFFF; border-radius: 16px; padding: 20px;
+  width: 100%; max-width: 470px; max-height: 92vh; overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(11, 52, 70, 0.3); box-sizing: border-box;
+}
+.modal-x {
+  position: absolute; top: 10px; right: 10px; width: 30px; height: 30px;
+  border: none; background: #F0F5F8; color: #6a8391; border-radius: 50%;
+  font-size: 20px; line-height: 1; cursor: pointer; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-x:hover { background: #E3EEF3; color: #0B3446; }
+/* botão de abrir a janela de garrafas (com selinho de crédito pendente) */
+.btn-garrafas { position: relative; }
+.garrafa-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px;
+  padding: 0 3px; background: #0F8BB0; color: #fff; border-radius: 999px;
+  font-size: 10px; font-weight: 800; line-height: 15px; text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+/* modo "só ver": garrafas que ainda não tenho ficam visíveis, porém neutras */
+.garrafa-opt.sover { cursor: default; }
+.garrafa-opt.sover:hover { border-color: #E3EEF3; }
+/* Bastão dourado do Rei da Cactificação + moldura dourada do card */
+.cartao.tem-bastao {
+  overflow: visible;
+  border-color: #EBC24A;
+  /* moldura padrão: só a borda dourada, sem brilho forte */
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07),
+              0 0 0 2px #EBC24A inset;
+  transition: box-shadow 0.5s ease, border-color 0.5s ease;
+}
+/* Brilho forte APENAS na transferência do bastão: cresce acima do padrão,
+   pulsa sem pausa e volta à moldura padrão — uma única vez */
+.cartao.rei-conquista { animation: rei-conquista 2.4s ease-in-out 1; }
+@keyframes rei-conquista {
+  0%   { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 2px #EBC24A inset; }
+  16%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F6D55C inset, 0 0 34px 11px rgba(240,190,40,.9); }
+  34%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F2CC50 inset, 0 0 24px 6px rgba(240,190,40,.6); }
+  50%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F6D55C inset, 0 0 38px 12px rgba(240,190,40,.95); }
+  66%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F2CC50 inset, 0 0 24px 6px rgba(240,190,40,.6); }
+  82%  { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 3px #F6D55C inset, 0 0 30px 9px rgba(240,190,40,.8); }
+  100% { box-shadow: 0 4px 14px rgba(15,139,176,.07), 0 0 0 2px #EBC24A inset; }
+}
+.bastao-rei {
+  position: absolute; left: -20px; top: 50%; width: 60px; height: 150px;
+  margin-top: -75px; transform: rotate(-15deg); transform-origin: 50% 90%;
+  z-index: 6; pointer-events: none;
+  animation: bastao-flutua 3.2s ease-in-out infinite;
+  transition: opacity 0.3s ease;
+}
+/* durante o voo do bastão (overlay), o bastão fixo some para não duplicar */
+body.bastao-voando .bastao-rei { opacity: 0; }
+@keyframes bastao-flutua {
+  0%, 100% { transform: rotate(-15deg) translateY(0); }
+  50% { transform: rotate(-15deg) translateY(-9px); }
+}
+@media (max-width: 520px) { .bastao-rei { left: -14px; width: 48px; height: 120px; margin-top: -60px; } }
+/* arraste suave dos cards ao reordenar por desempenho (FLIP via JS) */
+.grade > .cartao { will-change: transform; }
+
+/* Animação de cactificação do Rei (overlay que percorre a tela) */
+.cact-overlay { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.cact-bastao { position: fixed; width: 66px; height: 165px; transform-origin: 50% 90%; transition: transform 0.7s cubic-bezier(.5,0,.4,1), left 0.7s cubic-bezier(.5,0,.4,1), top 0.7s cubic-bezier(.5,0,.4,1); }
+.cact-cacto { position: fixed; transition: transform 0.5s cubic-bezier(.2,1.4,.4,1), opacity 0.4s ease; transform-origin: bottom center; }
+
+/* Janela de escolha / alternador de garrafa */
+.garrafa-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.garrafa-opt {
+  position: relative; border: 2px solid #E3EEF3; background: #FFFFFF; border-radius: 14px;
+  padding: 12px 6px 8px; cursor: pointer; font-family: inherit; display: flex;
+  flex-direction: column; align-items: center; gap: 6px; transition: all 0.15s ease;
+}
+.garrafa-opt:hover { border-color: #9ECFDF; }
+.garrafa-opt .opt-bot { height: 116px; display: flex; align-items: flex-end; justify-content: center; }
+.garrafa-opt .opt-nome { font-size: 12px; font-weight: 700; color: #0B3446; }
+.garrafa-opt.sel { border-color: #0F8BB0; background: #F0FAFD; box-shadow: 0 6px 16px rgba(15,139,176,0.16); }
+.garrafa-opt .opt-check {
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%;
+  background: #0F8BB0; color: #fff; font-size: 13px; font-weight: 800;
+  display: none; align-items: center; justify-content: center;
+}
+/* a "em uso" (ativa) mostra o ✓; a selecionada para adquirir também */
+.garrafa-opt.sel .opt-check { display: flex; }
+/* garrafa que já tenho: cheia, clicável (toque = usar no card), com selo */
+.garrafa-opt.tenho { }
+.garrafa-opt.tenho .opt-nome { color: #0B3446; }
+/* indisponível (não tenho e sem crédito): visível, porém sem destaque */
+.garrafa-opt.sover { opacity: 0.45; cursor: default; filter: grayscale(0.35); }
+.garrafa-opt.sover:hover { border-color: #E3EEF3; }
+.garrafa-opt.sover .opt-nome { color: #6a8391; }
+.garrafa-opt .opt-selo {
+  display: none; position: absolute; top: 6px; left: 6px; font-size: 9px; font-weight: 800;
+  color: #0FA36B; background: #E5F7EE; border: 1px solid #BDE9D2; border-radius: 99px; padding: 2px 7px;
+}
+/* selo "✓ Adquirida" nas que tenho; selo "Em uso" (azul) na ativa */
+.garrafa-opt.tenho .opt-selo { display: block; }
+.garrafa-opt.ativa .opt-selo { color: #0F8BB0; background: #EAF6FA; border-color: #BDE2EE; }
+.escolha-conqs { display: flex; flex-direction: column; gap: 6px; }
+.escolha-conq {
+  display: flex; align-items: center; gap: 8px; width: max-content; font-size: 12px;
+  font-weight: 600; color: #0F8BB0; background: #EAF6FA; border-radius: 99px; padding: 5px 10px;
+}
+.escolha-contador { font-size: 12px; color: #4B7A8E; font-weight: 600; margin: 12px 0 0; }
+.escolha-contador b { color: #0F8BB0; }
+.lista-frases { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.frase {
+  border: 1px solid #C9E4EE; background: #F7FBFD; border-radius: 10px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px; color: #0B3446;
+  cursor: pointer; text-align: left; transition: background 0.12s ease;
+}
+.frase:hover { background: #EAF6FA; border-color: #0F8BB0; }
+.fechar-modal { width: 100%; margin-top: 12px; }
+.aviso-agua-topo { display: flex; align-items: center; gap: 10px; }
+.aviso-agua-icone { font-size: 24px; line-height: 1; }
+.aviso-agua-texto { margin: 10px 0 0; font-size: 13.5px; line-height: 1.6; color: #0B3446; }
+.aviso-agua-texto.secundario { color: #4B7A8E; }
+.caixa-atencao {
+  margin-top: 12px; padding: 10px 12px; background: #FFF3E8;
+  border: 1px solid #E8B98A; border-radius: 10px; font-size: 12.5px;
+  color: #7A4B12; line-height: 1.5;
+}
+.aviso-agua-botao { width: 100%; margin-top: 14px; }
+.aviso-agua-nota { margin: 8px 0 0; font-size: 11px; text-align: center; color: #9FBFCC; }
+.comemoracao { text-align: center; }
+.comemoracao .lista-conquistas { text-align: left; }
+.comemoracao-emoji {
+  margin: 0 0 6px; font-size: 44px; line-height: 1;
+  animation: pular-trofeu 0.7s ease;
+}
+@keyframes pular-trofeu {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* --- Poderes --- */
+.barra-poderes {
+  position: fixed; bottom: 14px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 24px);
+  display: flex; gap: 8px; z-index: 55; box-sizing: border-box;
+  background: #FFFFFF; border: 1px solid #E4D3A8; border-radius: 99px;
+  padding: 8px 10px; box-shadow: 0 8px 24px rgba(11, 52, 70, 0.18);
+  overflow-x: auto;
+}
+.poder {
+  border: 1px solid #D9B87C; background: #FDF6E3; color: #7A5A10;
+  border-radius: 99px; padding: 8px 14px; font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.poder:hover { background: #F7EAC8; }
+.poder.massa { border-color: #9FD3E4; background: #EAF6FA; color: #0B5A73; }
+.poder.massa:hover { background: #D8EEF6; }
+.app.com-poderes { padding-bottom: 130px; }
+.lista-alvos { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.alvo {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border: 1px solid #E4F2F7; border-radius: 10px; background: #F7FBFD;
+}
+.alvo.inelegivel { opacity: 0.75; }
+.alvo-nome { font-size: 13px; font-weight: 600; color: #0B3446; }
+.alvo-motivo { font-size: 11.5px; color: #7A4B12; text-align: right; }
+.mini-aplicar {
+  border: none; background: #0F8BB0; color: #FFFFFF; border-radius: 8px;
+  padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; flex-shrink: 0;
+}
+.mini-aplicar:hover:not(:disabled) { background: #0B7292; }
+.mini-aplicar:disabled { background: #C7D8E0; cursor: not-allowed; opacity: 0.7; }
+.poder-novo { background: #F2FBF7; border: 1px solid #BFE7D6; }
+.regras-poder { text-align: left; margin-top: 10px; }
+.regras-poder-nome { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #0B3446; }
+.regras-poder-linha { margin: 0 0 3px; font-size: 12.5px; line-height: 1.5; color: #4B7A8E; }
+.link-regras { margin: 6px 0 0; display: inline-block; font-size: 12px; }
+.recompensa { font-size: 11px; color: #B8860B; margin-top: 2px; }
+.efeito-badge { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: #7A4B12; }
+.exclusivas-titulo { margin-top: 14px; }
+.frase-livre { margin-bottom: 6px; }
+.frase-livre-linha { display: flex; gap: 8px; }
+.frase-livre-linha input {
+  flex: 1; border: 1px solid #D8ECF3; border-radius: 10px; padding: 9px 11px;
+  font-family: inherit; font-size: 13px; color: #0B3446; box-sizing: border-box;
+}
+.frase-livre-linha input:focus { outline: 2px solid #41C9E6; border-color: transparent; }
+.frase-livre-conta { margin: 3px 2px 0; font-size: 11px; color: #9FBFCC; text-align: right; }
+.frase-livre-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.frase-livre-titulo { margin: 0; }
+.alt-modo { border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0; border-radius: 8px; padding: 3px 10px; font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px; }
+.alt-modo:hover { background: #D8EEF6; }
+.gif-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px; min-height: 90px; }
+.gif-aviso { grid-column: 1 / -1; text-align: center; margin: 16px 0; }
+.gif-item { width: 100%; height: 74px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+.gif-item:hover { border-color: #0F8BB0; }
+.gif-confirma { margin-top: 8px; display: flex; gap: 12px; align-items: flex-start; }
+.gif-confirma img { width: 130px; border-radius: 10px; display: block; }
+.gif-confirma-acoes { display: flex; flex-direction: column; gap: 8px; }
+.gif-fonte { text-align: left; color: #C5D6DE; }
+.banner-gif-bloco { display: flex; flex-direction: column; gap: 6px; }
+.banner-gif-nome { font-size: 13px; }
+.banner-gif { max-width: 200px; width: 100%; border-radius: 8px; display: block; }
+.grupo-conquista {
+  display: flex; align-items: center; gap: 6px;
+  margin: 12px 0 5px; font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.4px; color: #B8860B;
+}
+.grupo-icone {
+  display: inline-flex; width: 18px; height: 18px; border-radius: 50%;
+  align-items: center; justify-content: center;
+  background: #FDF3DC; color: #B8860B;
+}
+.frase.exclusiva { border-color: #D9B87C; background: #FDF8EE; }
+.frase.exclusiva:hover { background: #F7EAC8; border-color: #B8860B; }
+
+/* Cartão desertificado: imagem de deserto cobrindo o cartão inteiro
+   (bordas arredondadas preservadas), com véu claro para legibilidade.
+   Se deserto.jpg não estiver no repositório, cai no fundo de areia */
+.cartao.desertico {
+  background-color: #E3C285;
+  background-image:
+    linear-gradient(rgba(248, 236, 205, 0.55), rgba(240, 219, 170, 0.6)),
+    url("deserto.jpg"),
+    linear-gradient(180deg, #F2DFAE 0%, #E3C285 100%);
+  background-size: cover, cover, cover;
+  background-position: center, center, center;
+  border-color: #C79A55;
+}
+.cartao.desertico .nome, .cartao.desertico .status { color: #4A2F10; }
+.cartao.desertico .sub, .cartao.desertico .de-meta, .cartao.desertico .registros,
+.cartao.desertico .link-extra, .cartao.desertico .pct { color: #7A5A28; }
+.cartao.desertico .bebido { color: #8A5A1B; }
+.cartao.desertico .barra { background: rgba(120, 78, 25, 0.18); }
+.cartao.desertico .circulo-conquista { background: rgba(255, 255, 255, 0.55); }
+
+
+/* Banners especiais */
+.banner-alerta.anuncio-cacto,
+.banner-alerta.anuncio-deserto,
+.banner-alerta.anuncio-tempestade { border-left-color: #0FA36B; }
+.banner-alerta.carta-aviso { border-left-color: #6C5CE7; } /* aviso da carta */
+.banner-alerta.casamento { border-left-color: #E8B004; background: #FFFBF0; }
+.badge-casamento { color: #8A6D1A !important; background: #FFF6DA; border: 1px solid #F2D680; border-radius: 8px; padding: 4px 8px; display: inline-block; }
+.cartao.noivo { border-color: #F2D680; }
+.sino-noivo { color: #E8B004 !important; }
+.frase-casamento { border-color: #F2D680; background: #FFFBF0; }
+.frase-casamento:hover:not(:disabled) { background: #FFF6DA; border-color: #E8B004; }
+.frase-casamento { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.frase-bloqueada { opacity: 0.55; cursor: not-allowed; }
+.frase-texto { }
+.frase-status { font-size: 10.5px; font-weight: 700; }
+.frase-status.enviada { color: #0FA36B; }
+.frase-status.espera { color: #B5540A; }
+.historico-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.semana-nav { display: inline-flex; align-items: center; gap: 8px; }
+.semana-seta { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #D8ECF3; background: #FFFFFF; color: #0F8BB0; font-size: 16px; line-height: 1; cursor: pointer; }
+.semana-seta:hover:not(:disabled) { background: #EAF6FA; }
+.semana-seta:disabled { opacity: 0.35; cursor: not-allowed; }
+.semana-label { font-size: 12px; font-weight: 600; color: #4B7A8E; min-width: 96px; text-align: center; }
+
+.btn-regras-carta {
+  border: 1px solid #C9E7F2; background: #EAF6FA; color: #0F8BB0;
+  cursor: pointer; padding: 7px; border-radius: 10px; line-height: 1;
+  display: inline-flex; margin: 0 6px 6px 0;
+  box-shadow: 0 2px 6px rgba(15, 139, 176, 0.12);
+  transition: background 0.15s, transform 0.15s;
+}
+.btn-regras-carta:hover {
+  background: #D8EEF6; transform: translateY(-1px);
+}
+
+/* Carta Anti-Seca: discreta, canto inferior, quase se confundindo com o fundo */
+.carta-palco {
+  position: fixed; right: 20px; bottom: 20px; z-index: 60;
+  width: 215px; height: 301px; cursor: pointer;
+  perspective: 1100px; animation: carta-encantada 6s ease-in-out infinite;
+}
+.carta-giro {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.75s cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+.carta-giro.virada { transform: rotateY(180deg); }
+.carta-face {
+  position: absolute; inset: 0; box-sizing: border-box; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: left; border-radius: 16px; padding: 16px 15px 34px;
+  font-family: inherit; line-height: 1.5;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.carta-frente {
+  background: rgba(255, 255, 255, 0.62); color: #7C93A0;
+  border: 1px dashed #CFE0E8; font-size: 13.5px;
+  opacity: 0.72; transition: opacity 0.25s;
+}
+.carta-palco:hover .carta-frente { opacity: 1; }
+.carta-verso {
+  background: rgba(255, 252, 240, 0.97); color: #6B5A38;
+  border: 1px solid #E4D3A8; font-size: 12.5px;
+  transform: rotateY(180deg);
+}
+/* gota opaca ao fundo da carta fechada */
+.carta-gota {
+  position: absolute; right: -18px; bottom: -14px; width: 150px; height: 150px;
+  fill: rgba(15, 139, 176, 0.09); pointer-events: none;
+}
+.carta-conteudo {
+  display: flex; flex-direction: column; gap: 8px; width: 100%;
+  position: relative; z-index: 1;
+}
+.carta-conteudo strong { font-size: 15px; }
+.carta-cta { color: #0F8BB0; font-weight: 600; margin-top: 2px; }
+.carta-contador {
+  position: absolute; left: 15px; right: 15px; bottom: 12px;
+  font-size: 11.5px; letter-spacing: 0.2px; opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes carta-encantada {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  35% { transform: translateY(-6px) rotate(0.7deg); }
+  70% { transform: translateY(-2px) rotate(-0.3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .carta-palco { animation: none; }
+  .carta-giro { transition: none; }
+  .bastao-rei { animation: none; transform: rotate(-15deg); }
+  .cartao.rei-conquista { animation: none; }
+  .cact-bastao, .cact-cacto { transition: none; }
+}
+
+/* Tempestade de areia */
+.tempestade { position: fixed; inset: 0; z-index: 90; }
+.tempestade-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+.tempestade-topo { z-index: 91; cursor: grab; touch-action: none; }
+.tempestade-topo:active { cursor: grabbing; }
+.tempestade-medidor {
+  position: fixed; z-index: 92; left: 50%; bottom: 22px; transform: translateX(-50%);
+  color: #4A2F10; font-size: 20px; font-weight: 800; letter-spacing: 0.2px;
+  pointer-events: none; white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 245, 220, 0.85), 0 0 14px rgba(255, 245, 220, 0.9);
+}
+/* ===== Poder Tempestade (tormenta): cena contida no card (observador) e fullscreen (vítima) ===== */
+.cartao.tormentado .nome { color: #FFFFFF; position: relative; z-index: 4; }
+.palco-camada { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; z-index: 3; pointer-events: none; }
+.tormenta-cena { position: fixed; inset: 0; z-index: 90; overflow: hidden; }
+.mp-palco { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, #143040, #0a1a26); }
+.palco-camada .mp-palco { border-radius: 16px; }
+.mp-dark { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(10,22,30,.25), rgba(6,20,30,.5)); }
+.mp-raios { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.mp-raios svg { width: 100%; height: 100%; overflow: visible; }
+.mp-raio-ln { fill: none; stroke: #e6f4ff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(200,235,255,1)); opacity: 0; vector-effect: non-scaling-stroke; animation: raioFlash 6s linear infinite; }
+.mp-nuvens { position: absolute; top: -8px; left: -16%; width: 132%; height: 42px; z-index: 5; }
+.mp-nuv { position: absolute; inset: 0; } .mp-nuv svg { width: 100%; height: 100%; display: block; }
+.mp-nb { animation: mpDriftA 5s ease-in-out infinite alternate; }
+.mp-nm { animation: mpDriftB 7s ease-in-out infinite alternate-reverse; }
+.mp-nf { animation: mpDriftC 4s ease-in-out infinite alternate; }
+.mp-chuva { position: absolute; inset: 0; z-index: 4; }
+.mp-pingo { position: absolute; top: -12px; width: 1.5px; background: linear-gradient(#e2f2fa, rgba(226,242,250,0)); border-radius: 2px; animation: csCai linear infinite; }
+.mp-mar { position: absolute; left: 0; width: 100%; bottom: 0; background-size: 240% 240%; -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x; }
+.mp-back { height: 30%; z-index: 1; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 72px 100%; mask-size: 72px 100%; background-image: linear-gradient(120deg, #0E3D52, #082736, #0E3D52); animation: flowB 5s linear infinite, mSlB 5.5s linear infinite; }
+.mp-f1 { height: 26%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 58px 100%; mask-size: 58px 100%; background-image: linear-gradient(60deg, #15536E, #1E6E92, #0B3A52); animation: flowB 3.6s linear infinite, mSlF1 4.4s linear infinite; }
+.mp-f2 { height: 34%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 64px 100%; mask-size: 64px 100%; background-image: linear-gradient(95deg, #0B3A52, #06202E, #0B3A52); opacity: .94; transform-origin: bottom; animation: flowC 4.8s linear infinite, mSlF2 5s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.mp-flash { position: absolute; inset: 0; z-index: 6; background: radial-gradient(70% 45% at 50% 0, rgba(255,255,255,.9), transparent 72%); mix-blend-mode: screen; opacity: 0; animation: csFlash 5s linear infinite; }
+.mp-card { position: absolute; left: 21%; width: 58%; bottom: 17%; z-index: 2; animation: mpSway 9s linear infinite; }
+.mp-bob { animation: mpBob 3.2s ease-in-out infinite; }
+.mp-rock { animation: mpRock 5.2s ease-in-out infinite; transform-origin: center bottom; }
+.mp-mini { background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 9px; padding: 7px 8px; box-shadow: 0 10px 20px rgba(0,0,0,.45); }
+.mp-head { display: flex; justify-content: space-between; align-items: center; }
+.mp-head b { font-size: 10px; font-weight: 800; color: #15303d; }
+.mp-ic { font-size: 7px; color: #6a8595; letter-spacing: 1px; }
+.mp-sub { font-size: 6.5px; color: #3e5e6e; margin: 1px 0 4px; }
+.mp-corpo { display: flex; gap: 6px; align-items: center; }
+.mp-dir { flex: 1; min-width: 0; }
+.mp-vol { font-size: 13px; font-weight: 800; color: #0e6f8e; line-height: 1; }
+.mp-meta { font-size: 6.5px; color: #3e5e6e; margin-top: 1px; }
+.mp-barra { height: 4px; border-radius: 999px; background: #E4F2F7; overflow: hidden; margin: 5px 0; } .mp-barra i { display: block; height: 100%; background: linear-gradient(90deg, #41C9E6, #0F8BB0); }
+.mp-adder { display: flex; gap: 4px; }
+.mp-bt { flex: 1; font-size: 7.5px; font-weight: 700; color: #fff; background: #0F8BB0; border-radius: 5px; padding: 4px; text-align: center; }
+.mp-bt2 { font-size: 7.5px; font-weight: 600; color: #486576; background: #eef4f6; border: 1px solid #cfe0e6; border-radius: 5px; padding: 4px 7px; text-align: center; }
+/* fullscreen (vítima): card maior + ajuda + medidor */
+.tormenta-cena .mp-nuvens { height: 8vh; }
+.tormenta-cena .mp-card { width: min(92vw, 360px); left: calc(50% - min(46vw, 180px)); bottom: 27%; animation: mpSwayFull 9s linear infinite; }
+.tormenta-cena .cartao-flutuante { width: 100%; margin: 0; box-sizing: border-box; }
+/* na tela cheia, só o card é interativo — as ondas/chuva/nuvens não bloqueiam o clique */
+.mp-palco > *:not(.mp-card) { pointer-events: none; }
+/* ondas mais largas (comprimento de onda maior) na tela cheia da vítima */
+.tormenta-cena .mp-back { -webkit-mask-size: 185px 100%; mask-size: 185px 100%; animation: flowB 5s linear infinite, mSlBfull 6.6s linear infinite; }
+.tormenta-cena .mp-f1 { -webkit-mask-size: 150px 100%; mask-size: 150px 100%; animation: flowB 3.6s linear infinite, mSlF1full 5.4s linear infinite; }
+.tormenta-cena .mp-f2 { -webkit-mask-size: 168px 100%; mask-size: 168px 100%; animation: flowC 4.8s linear infinite, mSlF2full 6s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+@keyframes mSlBfull { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -185px 0; mask-position: -185px 0; } }
+@keyframes mSlF1full { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 150px 0; mask-position: 150px 0; } }
+@keyframes mSlF2full { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -168px 0; mask-position: -168px 0; } }
+/* varredura da tela cheia: o card sai INTEIRO pela direita antes de voltar pela esquerda */
+@keyframes mpSwayFull { 0% { transform: translateX(0); animation-timing-function: ease-in-out; } 12% { transform: translateX(13%); } 26% { transform: translateX(-13%); animation-timing-function: ease-in-out; } 40% { transform: translateX(10%); } 52% { transform: translateX(-8%); animation-timing-function: cubic-bezier(.5,0,.9,.4); } 63.9% { transform: translateX(118vw); } 64% { transform: translateX(118vw); } 64.01% { transform: translateX(-118vw); animation-timing-function: cubic-bezier(.1,.5,.4,1); } 82% { transform: translateX(-6%); } 100% { transform: translateX(0); } }
+.tormenta-cena .mp-mini { border-radius: 16px; padding: 14px 16px; }
+.tormenta-cena .mp-head b { font-size: 17px; } .tormenta-cena .mp-ic { font-size: 13px; }
+.tormenta-cena .mp-sub { font-size: 11px; margin: 2px 0 8px; }
+.tormenta-cena .mp-vol { font-size: 24px; } .tormenta-cena .mp-meta { font-size: 11px; }
+.tormenta-cena .mp-barra { height: 7px; margin: 9px 0; }
+.tormenta-cena .mp-bt { font-size: 13px; padding: 9px; border-radius: 9px; } .tormenta-cena .mp-bt2 { font-size: 13px; padding: 9px 14px; border-radius: 9px; }
+.tc-ajuda { position: fixed; right: 16px; bottom: 14px; z-index: 95; width: 34px; height: 34px; border-radius: 50%; background: rgba(15,139,176,.24); border: 1px solid rgba(65,201,230,.5); color: #7fcfe6; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 17px; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.55); }
+.tc-pop { position: fixed; right: 16px; bottom: 58px; z-index: 95; width: 258px; background: rgba(9,16,23,.97); border: 1px solid rgba(65,201,230,.32); border-radius: 14px; padding: 14px 16px; box-shadow: 0 16px 40px rgba(0,0,0,.65); color: #d3e2ea; }
+.tc-pop h4 { margin: 0 0 7px; font-size: 13.5px; font-weight: 800; color: #7fcfe6; }
+.tc-pop p { margin: 0 0 8px; font-size: 12px; line-height: 1.5; } .tc-pop p:last-child { margin: 0; }
+.tc-pop .saida { font-weight: 700; color: #8fe0b4; }
+.tc-medidor { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 94; font-size: 14px; font-weight: 800; color: #cfe6ef; background: rgba(9,20,28,.82); border: 1px solid rgba(65,201,230,.3); border-radius: 999px; padding: 8px 16px; pointer-events: none; }
+@keyframes csCai { 0% { transform: translate(0,-14px) rotate(20deg); } 100% { transform: translate(-34px,270px) rotate(20deg); } }
+@keyframes csFlash { 0%,7%,9%,100% { opacity: 0; } 8% { opacity: .9; } 8.6% { opacity: .2; } 30%,30.6% { opacity: 0; } 30.3% { opacity: .8; } }
+@keyframes raioFlash { 0%,7.6%,9.4%,25.6%,100% { opacity: 0; } 8% { opacity: 1; } 8.5% { opacity: .15; } 8.9% { opacity: .9; } 9.2% { opacity: 0; } 26% { opacity: .85; } 26.4% { opacity: 0; } }
+@keyframes flowB { 0% { background-position: 100% 0%; } 100% { background-position: 0% 100%; } }
+@keyframes flowC { 0% { background-position: 0% 100%; } 100% { background-position: 100% 0%; } }
+@keyframes mpBob { 0% { transform: translateY(9px); } 50% { transform: translateY(-11px); } 100% { transform: translateY(9px); } }
+@keyframes mpRock { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes mpSway { 0% { transform: translateX(0); animation-timing-function: ease-in-out; } 12% { transform: translateX(16%); } 26% { transform: translateX(-16%); animation-timing-function: ease-in-out; } 40% { transform: translateX(12%); } 52% { transform: translateX(-10%); animation-timing-function: cubic-bezier(.5,0,.9,.4); } 64% { transform: translateX(165%); } 64.01% { transform: translateX(-165%); animation-timing-function: cubic-bezier(.1,.5,.4,1); } 82% { transform: translateX(-7%); } 100% { transform: translateX(0); } }
+@keyframes mpDriftA { 0% { transform: translateX(-7px); } 100% { transform: translateX(7px); } }
+@keyframes mpDriftB { 0% { transform: translateX(6px); } 100% { transform: translateX(-8px); } }
+@keyframes mpDriftC { 0% { transform: translateX(-8px); } 100% { transform: translateX(8px); } }
+@keyframes mpSwell { 0% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-5px) scaleY(1.2); } 100% { transform: translateY(0) scaleY(1); } }
+@keyframes mSlB { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -72px 0; mask-position: -72px 0; } }
+@keyframes mSlF1 { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 58px 0; mask-position: 58px 0; } }
+@keyframes mSlF2 { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -64px 0; mask-position: -64px 0; } }
+.cartao.soterrado { border-color: #C79A55; }
+/* Nome da vítima soterrada: tom um pouco mais escuro que a textura da areia
+   (que vai de #E9CE9F a #CBA470) com sombra interna — parece gravado na areia.
+   O par de sombras (escura em cima + realce claro embaixo) finge o baixo-relevo
+   que o text-shadow sozinho não faz (não existe inset em texto). */
+.cartao.soterrado .nome {
+  color: #9C7338;
+  text-shadow:
+    0 -1px 1px rgba(74, 48, 16, 0.45),
+    0 1px 0 rgba(255, 249, 235, 0.55);
+  /* só o nome fica ACIMA da areia; o resto do cartão segue soterrado */
+  position: relative;
+  z-index: 2;
+}
+.areia-camada {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; overflow: hidden; border-radius: 16px;
+  contain: strict; /* garante que a areia jamais escape do cartão */
+}
+.areia-cartao { width: 100%; height: 100%; display: block; }
+
+/* Histórico individual */
+.lista-historico {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 12px;
+  max-height: 50vh; overflow-y: auto;
+}
+.hist-item {
+  display: flex; gap: 10px; align-items: baseline; padding: 7px 10px;
+  border-radius: 8px; background: #F7FBFD; border: 1px solid #EEF6FA;
+}
+.hist-data {
+  font-size: 11px; color: #9FBFCC; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.hist-texto { font-size: 13px; color: #0B3446; flex: 1; }
+.hist-pct { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.hist-pct.mais { color: #0FA36B; }
+.hist-pct.menos { color: #C0392B; }
+.hist-dia { margin-bottom: 14px; }
+.hist-dia-cab {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin: 6px 2px 6px; border-bottom: 1px solid #E2ECF2;
+  padding-bottom: 4px;
+}
+.hist-dia-nome {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; color: #4B7A8E;
+}
+.hist-dia-saldo { display: inline-flex; gap: 8px; }
+.hist-dia-saldo .hist-pct { font-size: 12px; }
+.btn-historico-rank { color: #B6C9D3; margin-left: 2px; padding: 2px; }
+.nome-rank-linha { display: inline-flex; align-items: center; gap: 3px; }
+.penal-rank { color: #C0392B; }
+.hist-sequencia {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin: 8px 0 2px; padding: 9px 12px; flex-wrap: wrap;
+  background: #EAF6FA; border: 1px solid #C9E7F2; border-radius: 10px;
+  font-size: 13px; color: #0B5A73;
+}
+.hist-sequencia strong { font-size: 15px; color: #0F8BB0; }
+.hist-recorde { font-size: 11.5px; color: #6FA6BC; white-space: nowrap; }
+.hist-cactos { font-size: 11.5px; color: #8A5A1B; white-space: nowrap; font-weight: 600; }
+.bloco-titulo { margin: 14px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #4B7A8E; }
+.graf-mensal { margin-top: 6px; }
+.graf-linha { width: 100%; height: 132px; display: block; }
+.graf-legenda { display: flex; gap: 16px; justify-content: center; margin-top: 4px; font-size: 11px; color: #4B7A8E; }
+.graf-legenda i { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin-right: 4px; }
+.leg-agua { border-top: 2.5px solid #0F8BB0; }
+.leg-meta { border-top: 1.5px dashed #C0392B; }
+.graf-eixo-txt { font-size: 8px; fill: #9FBFCC; font-family: inherit; }
+.cal-navegacao { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 16px 0 4px; }
+.cal-seta { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #D8ECF3; background: #FFFFFF; color: #0F8BB0; font-size: 18px; line-height: 1; cursor: pointer; }
+.cal-seta:hover:not(:disabled) { background: #EAF6FA; }
+.cal-seta:disabled { opacity: 0.35; cursor: not-allowed; }
+.cal-nav-label { font-size: 12.5px; font-weight: 600; color: #0B3446; min-width: 96px; text-align: center; }
+.cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-cab { text-align: center; font-size: 10.5px; font-weight: 700; color: #9FBFCC; padding-bottom: 2px; }
+.cal-dia { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 0; border-radius: 8px; }
+.cal-hoje { background: #EAF6FA; }
+.cal-num { font-size: 10px; color: #6B8A99; }
+.cal-vazio { display: inline-block; width: 22px; height: 24px; }
+.cal-traco { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; color: #C5D6DE; font-weight: 700; }
+.cal-icone { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; }
+/* Painel admin de folgas & feriados */
+.admin-barra { display: flex; justify-content: flex-end; gap: 8px; margin: 10px 0 -2px; flex-wrap: wrap; }
+.btn-admin-ausencias { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; color: #0F8BB0; background: #EAF6FA; border: 1px solid #CDE7F0; border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.btn-admin-ausencias:hover { background: #DCEFF6; }
+.btn-admin-teste { color: #8A5A00; background: #FFF4DE; border-color: #F3DDA8; }
+.btn-admin-teste:hover { background: #FCEBC4; }
+/* Barra do ambiente de teste (fixa no rodapé) */
+.teste-barra { position: fixed; left: 50%; transform: translateX(-50%); top: 12px; z-index: 9995; width: min(680px, calc(100vw - 24px)); background: #0B2430; color: #EAF6FA; border: 1px solid #1D4458; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.45); padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; max-height: calc(100vh - 24px); overflow: auto; }
+.teste-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.teste-tag { font-weight: 800; font-size: 13px; letter-spacing: .3px; }
+.teste-aviso { font-size: 12px; color: #9FC4D4; flex: 1 1 auto; }
+.teste-sair { font: inherit; font-size: 13px; font-weight: 700; color: #0B2430; background: #FFC24B; border: none; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.teste-sair:hover { background: #FFD477; }
+.teste-linha { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.teste-campo { display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 700; color: #9FC4D4; flex: 1 1 140px; }
+.teste-campo select { font: inherit; font-size: 13px; font-weight: 600; color: #0B2430; background: #FFFFFF; border: 1px solid #1D4458; border-radius: 10px; padding: 7px 9px; cursor: pointer; }
+.teste-btn { font: inherit; font-size: 13px; font-weight: 700; color: #FFFFFF; background: #0F8BB0; border: none; border-radius: 10px; padding: 8px 16px; cursor: pointer; }
+.teste-btn:hover { background: #0C7696; }
+.teste-btn2 { font: inherit; font-size: 12.5px; font-weight: 600; color: #EAF6FA; background: #163A4C; border: 1px solid #27576E; border-radius: 10px; padding: 7px 12px; cursor: pointer; }
+.teste-btn2:hover { background: #1D4A60; }
+.aus-navdia { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 14px; }
+.aus-navdia button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #D4E6EE; background: #fff; color: #0F8BB0; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.aus-navdia button:hover { background: #EAF6FA; }
+.aus-dia-rotulo { font-weight: 700; color: #0B3446; font-size: 15px; min-width: 160px; text-align: center; }
+.aus-dia-rotulo span { display: block; font-size: 12px; font-weight: 500; color: #7FA3B4; }
+.aus-nota { background: #F3FAFD; border: 1px solid #DCEBF2; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #4B7A8E; line-height: 1.5; }
+.aus-feriado-linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #FFF7E8; border: 1px solid #F3E2BE; border-radius: 10px; margin-bottom: 14px; }
+.aus-feriado-linha .rot { font-weight: 700; color: #0B3446; font-size: 14px; }
+.aus-feriado-linha .sub2 { font-size: 11.5px; color: #B08A3A; }
+.aus-switch { position: relative; width: 44px; height: 26px; border-radius: 999px; border: none; background: #CFE0E8; cursor: pointer; flex: none; transition: background .15s; }
+.aus-switch.on { background: #0FA36B; }
+.aus-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+.aus-switch.on::after { left: 21px; }
+.aus-titulo-sec { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #7FA3B4; margin: 4px 0 8px; }
+.aus-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.aus-chip { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px; border: 1px solid #D4E6EE; background: #fff; color: #0B3446; font-size: 13px; font-weight: 600; cursor: pointer; }
+.aus-chip.on { background: #E7F3F8; border-color: #41C9E6; color: #0F8BB0; }
+.aus-chip .ponto { width: 10px; height: 10px; border-radius: 50%; background: #D4E6EE; }
+.aus-chip.on .ponto { background: #3E8FB0; }
+.toast {
+  position: fixed; bottom: 20px; left: 0; right: 0; margin: 0 auto;
+  width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box;
+  background: #0F8BB0; color: #FFFFFF; padding: 10px 18px; border-radius: 99px;
+  font-size: 13px; z-index: 60; box-shadow: 0 6px 18px rgba(15, 139, 176, 0.3);
+}
+.cartao.alertando {
+  border-color: #F0B429;
+  box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.3);
+  animation: chacoalhar 0.6s ease 3;
+}
+@keyframes chacoalhar {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-0.6deg); }
+  40% { transform: translateX(7px) rotate(0.6deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+.historico {
+  max-width: 1240px; margin: 28px auto 0; background: #FFFFFF;
+  border: 1px solid #D8ECF3; border-radius: 16px; padding: 20px;
+  box-shadow: 0 4px 14px rgba(15, 139, 176, 0.07); box-sizing: border-box;
+}
+.historico-titulo { margin: 0; font-size: 18px; font-weight: 800; }
+.historico-sub { margin: 4px 0 14px; font-size: 12px; color: #4B7A8E; }
+.historico-rolagem { overflow-x: auto; }
+.historico-tabela { border-collapse: collapse; width: 100%; min-width: 460px; }
+.historico-tabela th, .historico-tabela td { padding: 8px 6px; text-align: center; }
+.historico-tabela tbody tr { border-top: 1px solid #EEF6FA; }
+.historico-tabela th { font-size: 11px; color: #4B7A8E; font-weight: 600; }
+.dia-semana { display: block; text-transform: capitalize; }
+.dia-numero { display: block; font-weight: 400; color: #9FBFCC; }
+.col-nome {
+  text-align: left; font-size: 13px; font-weight: 600; color: #0B3446;
+  position: sticky; left: 0; background: #FFFFFF; max-width: 150px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.posicao {
+  display: inline-block; width: 26px; font-size: 13px;
+  vertical-align: middle; text-align: center;
+}
+.posicao.medalha { font-size: 18px; width: 28px; }
+.nome-rank { display: inline-flex; flex-direction: column; vertical-align: middle; }
+.media-rank { font-size: 10px; font-weight: 400; color: #9FBFCC; }
+.col-hoje { background: #F1F8FB; }
+.celula-dia { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pct { font-size: 10px; color: #4B7A8E; }
+.pct.ok { color: #0FA36B; font-weight: 700; }
+.sem-dado { color: #C9E4EE; font-size: 12px; }
+.fer-label { font-size: 9px; font-weight: 700; color: #C99A2E; white-space: nowrap; line-height: 1; }
+.fer-label.folga { color: #3E8FB0; }
+
+.rodape {
+  max-width: 1240px; margin: 28px auto 0; text-align: center;
+  font-size: 12px; color: #9FBFCC;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-fill, .garrafa-btn, .sino { transition: none; }
+  .cartao.alertando, .banner-alerta, .dica-agua, .comemoracao-emoji { animation: none; }
+}
+
+/* ===================== Premiação do pódio (overlay semanal) ===================== */
+.prem-cena { position: fixed; inset: 0; overflow: hidden; z-index: 9990;
+  background: radial-gradient(120% 95% at 50% 44%, #0e2c40 0%, #061826 46%, #020a11 86%);
+  font-family: "Sora", system-ui, sans-serif; color-scheme: dark; }
+.prem-vinheta { position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(75% 75% at 50% 46%, rgba(0,0,0,0) 46%, rgba(0,0,0,0.5) 100%); }
+.prem-luz { position: fixed; left: 50%; top: 55%; width: 165vmax; height: 165vmax; z-index: 0;
+  transform: translate(-50%,-50%) scale(.6); pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(255,252,236,.95) 0%, rgba(255,216,112,.62) 9%, rgba(248,197,74,.28) 20%, rgba(243,176,40,.08) 34%, rgba(243,176,40,0) 48%);
+  transition: opacity .8s ease; mix-blend-mode: screen; }
+.prem-luz.on { opacity: 1; animation: prem-pulsaLuz 5.5s ease-in-out infinite; }
+@keyframes prem-pulsaLuz { 0%,100%{transform:translate(-50%,-50%) scale(1); opacity:.9;} 50%{transform:translate(-50%,-50%) scale(1.035); opacity:1;} }
+.prem-luz.on.intenso { animation: prem-pulsaIntenso 0.85s ease-in-out infinite; }
+@keyframes prem-pulsaIntenso { 0%,100%{transform:translate(-50%,-50%) scale(.96); opacity:.62;} 50%{transform:translate(-50%,-50%) scale(1.14); opacity:1;} }
+.prem-raios { position: fixed; left: 50%; top: 55%; width: 165vmax; height: 165vmax; z-index: 0;
+  transform: translate(-50%,-50%); pointer-events: none; opacity: 0; transition: opacity .8s ease; mix-blend-mode: screen; }
+.prem-raios.on { opacity: .4; }
+.prem-areia-chao { position: absolute; left: -50%; width: 200%; bottom: -57%; height: 100%; z-index: 3; pointer-events: none; }
+.prem-areia-canvas { display: block; width: 100%; height: 100%; }
+.prem-palco { position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  transform-origin: 50% 50%; transition: transform 3.6s cubic-bezier(.55,.03,.25,1); }
+.prem-fase-perto .prem-palco { transform: scale(1); }
+.prem-fase-afasta .prem-palco, .prem-fase-bastao .prem-palco, .prem-fase-treme .prem-palco,
+.prem-fase-quebra .prem-palco, .prem-fase-final .prem-palco { transform: scale(0.72); }
+.prem-mundo { position: relative; width: 100%; height: 100%; }
+.prem-podio { position: absolute; left: 50%; bottom: 2%; transform: translateX(-50%);
+  display: flex; align-items: flex-end; justify-content: center; z-index: 2; }
+.prem-vaga { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; position: relative; }
+.prem-vaga .prem-nome { font-weight: 800; letter-spacing: -.3px; margin: 2px 0 0; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+.prem-vaga.prem-p1 .prem-nome { font-size: 24px; color: #FFE9A6; }
+.prem-vaga.prem-p2 .prem-nome, .prem-vaga.prem-p3 .prem-nome { font-size: 17px; color: #e7f3fa; }
+.prem-vaga.prem-p2, .prem-vaga.prem-p3 { opacity: 0; transform: scale(1.75); transform-origin: 50% 85%;
+  transition: opacity 5.4s ease, transform 3.6s cubic-bezier(.33,.1,.2,1); }
+.prem-cena:not(.prem-fase-perto) .prem-vaga.prem-p2, .prem-cena:not(.prem-fase-perto) .prem-vaga.prem-p3 { opacity: 1; transform: scale(1); }
+.prem-garrafa-wrap { position: relative; display: flex; align-items: flex-end; justify-content: center; }
+.prem-medalha { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%) scale(.2);
+  opacity: 0; transform-origin: 50% 50%; transition: transform .6s cubic-bezier(.3,1.5,.5,1), opacity .4s ease; z-index: 5; }
+.prem-medalha.posta { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+.prem-bloco { width: 190px; border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, #2a5f7d, #16394e); border: 1px solid #3f7696; border-bottom: none;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.12); display: flex; align-items: flex-start; justify-content: center;
+  color: #cfe8f4; font-weight: 800; font-size: 28px; padding-top: 8px; }
+.prem-p1 .prem-bloco { height: 232px; background: linear-gradient(180deg,#8a6a1f,#5c4310); border-color:#C8971F; color:#FFE9A6; }
+.prem-p2 .prem-bloco { height: 186px; } .prem-p3 .prem-bloco { height: 156px; }
+.prem-p1 { z-index: 3; margin: 0 -6px; } .prem-p2, .prem-p3 { z-index: 2; }
+.prem-bastao { position: absolute; left: 60%; bottom: 150px; width: 46px; height: 132px; z-index: 6;
+  transform-origin: 45% 96%; transform: rotate(40deg) translate(2px,8px); opacity: 0;
+  transition: transform 1s cubic-bezier(.3,1.3,.4,1), opacity .5s ease;
+  filter: drop-shadow(0 0 12px rgba(246,201,69,.85)); }
+.prem-bastao.visivel { opacity: 1; }
+.prem-bastao.erguido { transform: rotate(4deg) translate(8px,-205px); }
+.prem-fileira { position: absolute; left: 0; right: 0; bottom: -8%; z-index: 10;
+  display: flex; justify-content: center; align-items: flex-end; gap: 16px; flex-wrap: nowrap;
+  transform: translateY(145%); transform-origin: 50% 100%;
+  transition: transform 3s cubic-bezier(.33,.08,.25,1); }
+@media (max-width: 640px) {
+  .prem-fileira { flex-wrap: wrap-reverse; gap: 10px 10px; padding: 0 8px; }
+}
+.prem-cena.prem-perd-on .prem-fileira { transform: translateY(0); }
+.prem-perdedor { position: relative; transform-origin: 50% 100%; }
+.prem-perdedor .prem-rotulo { text-align: center; font-size: 10px; color: #0B3446; margin-top: 1px; font-weight: 800; white-space: nowrap; text-shadow: 0 1px 0 rgba(255,246,214,.5); }
+.prem-treme { animation: prem-treme 0.1s linear infinite; }
+@keyframes prem-treme { 0%{transform:translate(0,0) rotate(0)} 25%{transform:translate(-3px,1px) rotate(-1.8deg)}
+  50%{transform:translate(3px,-1px) rotate(1.6deg)} 75%{transform:translate(-1px,2px) rotate(-1deg)} 100%{transform:translate(1px,0) rotate(.7deg)} }
+.prem-estilhacada { opacity: 0 !important; }
+.prem-flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 20; }
+.prem-flash.on { animation: prem-flashQuebra .18s ease; }
+@keyframes prem-flashQuebra { 0%{opacity:0} 30%{opacity:.45} 100%{opacity:0} }
+canvas.prem-cacos { position: fixed; inset: 0; z-index: 15; pointer-events: none; }
+.prem-titulo { position: absolute; top: 5%; left: 0; right: 0; text-align: center; z-index: 6;
+  color: #FFE9A6; font-weight: 800; font-size: 20px; letter-spacing: .5px; opacity: 0;
+  text-shadow: 0 2px 16px rgba(0,0,0,.7); transition: opacity .6s ease; }
+.prem-cena:not(.prem-fase-perto) .prem-titulo { opacity: 1; }
+.prem-titulo small { display:block; font-weight:600; font-size:12px; color:#bfe0f0; letter-spacing:2px; }
+.prem-fim { position: fixed; left: 0; right: 0; bottom: 22px; text-align: center; z-index: 30;
+  opacity: 0; transition: opacity .6s ease; pointer-events: none; }
+.prem-fase-final .prem-fim { opacity: 1; pointer-events: auto; }
+.prem-fim-ctrl { display: inline-flex; align-items: center; gap: 12px; }
+.prem-btn-repetir { width: 46px; height: 46px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.35);
+  background: rgba(255,255,255,.08); color: #eaf6fa; font-size: 22px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; transition: background .15s, transform .15s; }
+.prem-btn-repetir:hover { background: rgba(255,255,255,.18); transform: rotate(-40deg); }
+.prem-btn-continuar { background: #41C9E6; color: #063543; border: none; font-family: inherit; font-weight: 800;
+  font-size: 15px; padding: 13px 34px; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 20px rgba(65,201,230,.35);
+  transition: background .15s, transform .15s; }
+.prem-btn-continuar:hover { background: #5ad4ed; transform: translateY(-1px); }
+.prem-fim-texto { margin-top: 10px; color: #9fb8c6; font-size: 11.5px; }
+
+/* ===================== Olhos animados das garrafas ===================== */
+  .an{transform-box:fill-box;transform-origin:center;}
+  .pup{transform-box:fill-box;transform-origin:center;}
+  @keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.08)}}
+  @keyframes blinkSlow{0%,86%,100%{transform:scaleY(1)}91%,95%{transform:scaleY(.1)}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  /* piscada: pálpebras sup/inf fecham rápido DENTRO do círculo (sem comprimir o olho) */
+  @keyframes piscaSup{0%,90%,100%{transform:translateY(-112%)}95%,96.5%{transform:translateY(0)}}
+  @keyframes piscaInf{0%,90%,100%{transform:translateY(112%)}95%,96.5%{transform:translateY(0)}}
+  @keyframes laugh{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-3px) rotate(-2deg)}50%{transform:translateY(1px) rotate(0)}75%{transform:translateY(-3px) rotate(2deg)}}
+  @keyframes sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+  @keyframes shake{0%,100%{transform:translate(0,0) rotate(0)}20%{transform:translate(-2px,1px) rotate(-1.5deg)}40%{transform:translate(2px,-1px) rotate(1.5deg)}60%{transform:translate(-1.5px,1px) rotate(-1deg)}80%{transform:translate(1.5px,0) rotate(.8deg)}}
+  @keyframes droop{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+  @keyframes pop{0%,100%{transform:scale(1)}12%{transform:scale(1.1)}24%{transform:scale(1)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes heart{0%,100%{transform:scale(1)}30%{transform:scale(1.18)}60%{transform:scale(.96)}}
+  @keyframes twinkle{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1) rotate(25deg)}}
+  @keyframes zzz{0%{opacity:0;transform:translate(0,0) scale(.6)}25%{opacity:1}100%{opacity:0;transform:translate(14px,-26px) scale(1.1)}}
+  @keyframes tear{0%{opacity:0;transform:translateY(0)}15%{opacity:1}100%{opacity:0;transform:translateY(26px)}}
+  @keyframes wink{0%,66%,100%{transform:scaleY(1)}76%,86%{transform:scaleY(.07)}}
+  /* olhar: segura numa direção, DESLIZA suave para a próxima, segura... */
+  @keyframes lookCalm{0%,16%{transform:translate(0,0)}26%,44%{transform:translate(7px,2px)}54%,72%{transform:translate(-7px,1px)}82%,100%{transform:translate(0,0)}}
+  @keyframes lookBusy{0%,12%{transform:translate(0,1px)}20%,34%{transform:translate(8px,3px)}42%,56%{transform:translate(-1px,-6px)}64%,78%{transform:translate(-8px,2px)}86%,100%{transform:translate(0,1px)}}
+  @keyframes lookDown{0%,18%{transform:translate(0,7px)}28%,46%{transform:translate(7px,6px)}56%,74%{transform:translate(-7px,6px)}84%,100%{transform:translate(0,7px)}}
+  @keyframes lookSide{0%,30%{transform:translate(8px,1px)}50%,80%{transform:translate(-8px,1px)}100%{transform:translate(8px,1px)}}
+  @keyframes lookSerious{0%,24%{transform:translate(0,6px)}36%,54%{transform:translate(7px,4px)}66%,84%{transform:translate(-7px,4px)}96%,100%{transform:translate(0,6px)}}
+  @keyframes lookHappy{0%,18%{transform:translate(0,-2px)}28%,46%{transform:translate(7px,-4px)}56%,74%{transform:translate(-7px,-4px)}84%,100%{transform:translate(0,-2px)}}
+
+
+.garrafa-olhos { position: relative; display: inline-flex; }
+.olhos-garrafa { position: absolute; transform: translate(-50%,-50%); pointer-events: none; z-index: 4; }
+.olhos-garrafa svg { width: 100%; height: auto; display: block; overflow: visible; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useRef } = React;
+
+/* Dados centrais: salvos no Vercel Blob através da API /api/dados,
+   compartilhados entre todos os dispositivos que abrirem o site */
+/* ===================== Ambiente de teste (somente admin) =====================
+   Um SANDBOX local e isolado por aba: ao entrar, tira-se uma foto dos dados
+   reais; a partir daí todas as leituras/gravações ficam só no sessionStorage
+   desta aba — NADA é enviado ao servidor. "Ver como" recarrega assumindo a
+   identidade de outro usuário. Sair descarta o sandbox e volta ao real.
+   Isolado de propósito: os testes nunca tocam os dados do time. */
+const TESTE_FLAG_KEY = "agua-teste-on";
+const TESTE_DADOS_KEY = "agua-teste-dados";
+const TESTE_VERCOMO_KEY = "agua-teste-vercomo";
+const TESTE_DONO_KEY = "agua-teste-dono";
+let testeAtivo = false;
+try { testeAtivo = sessionStorage.getItem(TESTE_FLAG_KEY) === "1"; } catch {}
+/* No ambiente de teste, o localStorage também fica ISOLADO: um espelho em
+   memória semeado com uma cópia do real. Assim NENHUMA ação do teste
+   (cooldowns de poder, marcadores de "visto"/premiação, identidade em
+   login/reivindicar, etc.) grava no navegador de verdade — tudo some junto
+   com a aba e nunca influencia o painel principal. O isolamento do servidor
+   (storage.set) já garante, à parte, que nada vaza para outros usuários. */
+if (testeAtivo) {
+  try {
+    const _realLS = window.localStorage;
+    const _mem = Object.create(null);
+    for (let i = 0; i < _realLS.length; i++) { const k = _realLS.key(i); _mem[k] = _realLS.getItem(k); }
+    const _shim = {
+      getItem: (k) => (Object.prototype.hasOwnProperty.call(_mem, k) ? _mem[k] : null),
+      setItem: (k, v) => { _mem[k] = String(v); },
+      removeItem: (k) => { delete _mem[k]; },
+      clear: () => { Object.keys(_mem).forEach((k) => delete _mem[k]); },
+      key: (i) => { const ks = Object.keys(_mem); return i < ks.length ? ks[i] : null; },
+    };
+    Object.defineProperty(_shim, "length", { get: () => Object.keys(_mem).length });
+    Object.defineProperty(window, "localStorage", { configurable: true, value: _shim });
+  } catch (e) { /* se o navegador não deixar sobrescrever, o servidor já está isolado */ }
+}
+const testeLerDados = () => { try { return sessionStorage.getItem(TESTE_DADOS_KEY) || "{}"; } catch { return "{}"; } };
+const testeGravarDados = (v) => { try { sessionStorage.setItem(TESTE_DADOS_KEY, v); } catch {} };
+function entrarModoTeste(dadosAtuais, donoId) {
+  try {
+    sessionStorage.setItem(TESTE_DADOS_KEY, JSON.stringify(dadosAtuais || {}));
+    sessionStorage.setItem(TESTE_DONO_KEY, donoId || "");
+    sessionStorage.setItem(TESTE_FLAG_KEY, "1");
+    sessionStorage.removeItem(TESTE_VERCOMO_KEY);
+  } catch {}
+  location.reload();
+}
+function sairModoTeste() {
+  try {
+    sessionStorage.removeItem(TESTE_FLAG_KEY);
+    sessionStorage.removeItem(TESTE_DADOS_KEY);
+    sessionStorage.removeItem(TESTE_VERCOMO_KEY);
+    sessionStorage.removeItem(TESTE_DONO_KEY);
+  } catch {}
+  location.reload();
+}
+function testeVerComo(deviceId) {
+  try {
+    if (deviceId) sessionStorage.setItem(TESTE_VERCOMO_KEY, deviceId);
+    else sessionStorage.removeItem(TESTE_VERCOMO_KEY);
+  } catch {}
+  location.reload();
+}
+async function testeRessincronizar() {
+  try {
+    const r = await fetch("/api/dados", { cache: "no-store" });
+    if (r.ok) { testeGravarDados(await r.text()); }
+  } catch {}
+  location.reload();
+}
+
+const storage = {
+  get: async (k) => {
+    if (testeAtivo) return { key: k, value: testeLerDados() };
+    const r = await fetch("/api/dados", { cache: "no-store" });
+    if (!r.ok) throw new Error("Falha ao carregar os dados");
+    return { key: k, value: await r.text() };
+  },
+  set: async (k, v) => {
+    if (testeAtivo) { testeGravarDados(v); return { key: k, value: v }; }
+    const r = await fetch("/api/dados", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: v,
     });
-    resultado[id] = [...mapa.values()].sort((a, b) => a.t - b.t).slice(-100);
-  });
-  return resultado;
+    return r.ok ? { key: k, value: v } : null;
+  },
 };
 
-/* O "último registro de água" de cada pessoa só anda para frente */
-const mesclarUltimo = (antigo, novo) => {
-  const resultado = { ...(antigo || {}) };
-  Object.keys(novo || {}).forEach((id) => {
-    resultado[id] = Math.max(
-      Number(resultado[id] || 0),
-      Number(novo[id] || 0)
+/* Identidade anônima deste navegador/dispositivo: quem cria uma garrafa
+   vira "dono" dela e só ele pode registrar ou desfazer */
+const DEVICE_KEY = "agua-device-id";
+let meuDispositivo = (() => {
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+})();
+/* identidade real deste navegador (não muda com o "ver como" do teste) */
+const meuDispositivoReal = meuDispositivo;
+/* no ambiente de teste, "ver como" assume a identidade de outro usuário:
+   todo o painel passa a renderizar do ponto de vista dele */
+if (testeAtivo) {
+  try {
+    const vc = sessionStorage.getItem(TESTE_VERCOMO_KEY);
+    if (vc) meuDispositivo = vc;
+  } catch {}
+}
+
+/* PIN opcional: portabilidade do cartão entre dispositivos.
+   Só a impressão digital (SHA-256) do PIN é gravada — nunca o PIN.
+   Cartões reivindicados por PIN neste navegador ficam em POSSE_KEY */
+const POSSE_KEY = "agua-posse-extra";
+const lerPosseExtra = () => {
+  try {
+    const l = JSON.parse(localStorage.getItem(POSSE_KEY) || "[]");
+    return Array.isArray(l) ? l : [];
+  } catch {
+    return [];
+  }
+};
+const hashPin = async (pin) => {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode("agua-pin:" + pin)
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+};
+/* Senha: 4 a 12 caracteres, letras e/ou números (sem espaços) */
+const SENHA_VALIDA = /^\S{4,12}$/;
+
+const fmtTempo = (ms) => {
+  const h = Math.floor(ms / 3600000);
+  const min = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h${String(min).padStart(2, "0")}` : `${min} min`;
+};
+
+/* Frases de provocação exclusivas, destravadas por conquista */
+const FRASES_CONQUISTA = {
+  "cachoeira-alarmante": [
+    "{LITROS} de correnteza. Você ainda é torneira pingando.",
+    "Quando eu passo, os rios pedem autógrafo.",
+    "Eu corro, você goteja. Cada um no seu ritmo.",
+  ],
+  "represa-billings": [
+    "{LITROS} me contemplam. E você aí, de gole em gole.",
+    "Eu sou basicamente um reservatório público. Você, uma poça.",
+    "Tem gente que bebe água. Tem gente que estoca. Adivinha.",
+    "{LITROS} de calma olhando para a sua pressa de nada.",
+  ],
+  "soberano-da-torneira": [
+    "Ordem real: hidrate-se, plebeu.",
+    "O trono da torneira observa a sua seca com desgosto.",
+    "Meus súditos bebem água. E você, é o quê?",
+  ],
+  "pe-no-podio": [
+    "Falo do pódio: a vista daqui é ótima. E daí de baixo?",
+    "Medalhado te chamando para o gole. É quase uma honra, aproveita.",
+    "Olha, eu não quero me gabar, mas a vista daqui é incrível.",
+  ],
+  "semana-molhada": [
+    "Tá parecendo uma bolacha água e sal — sem a água.",
+    "Sua desidratação já tem CNPJ e tempo de casa.",
+    "Cuidado: alguém aqui tem poderes e você está bem vulnerável.",
+  ],
+  "dinastia-da-gota": [
+    "{SEMANAS} no trono. Isso já não é ranking, é reinado.",
+    "Dinastias caem, dizem. A minha só se hidrata.",
+    "Meu nome está no ranking. O seu, na poeira.",
+    "Você bebe às vezes. Eu bebo há gerações.",
+  ],
+};
+
+/* Texto da recompensa de uma conquista: junta o poder (quando houver)
+   com a contagem REAL de frases exclusivas que ela destrava */
+const textoRecompensa = (c) => {
+  const partes = [];
+  if (c.recompensa) partes.push(c.recompensa);
+  if (c.recompensaFrases) {
+    const n = (FRASES_CONQUISTA[c.id] || []).length;
+    if (n > 0) {
+      partes.push(`${n} frase${n > 1 ? "s" : ""} exclusiva${n > 1 ? "s" : ""} de provocação`);
+    }
+  }
+  return partes.join(" + ");
+};
+
+/* Poderes especiais, destravados por conquista */
+const PODERES = [
+  {
+    id: "cacto",
+    conquista: "pingo-de-disciplina",
+    icone: "🌵",
+    nome: "Cactificação",
+    regras: [
+      "Use em quem está há 3h ou mais sem registrar água (o relógio corre a partir das 8h, de segunda a sexta).",
+      "Você precisa ter registrado ao menos 1 garrafa hoje — e quem está cactificado não cactifica ninguém.",
+      "O poder tem recarga de 1 hora entre usos.",
+      "Tira 4% do desempenho semanal de quem recebe (6% se a meta for abaixo de 2 L).",
+      "Como o feitiço se desfaz? Isso, cada cacto descobre sozinho. 🌵",
+    ],
+  },
+  {
+    id: "deserto",
+    conquista: "mare-alta",
+    icone: "🏜️",
+    nome: "Desertificação",
+    regras: [
+      "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
+      "O cartão vira deserto e só a meta batida do dia faz chover de novo.",
+      "2 ou mais garrafas em menos de 10 min travam o deserto por 3h.",
+      "O poder tem recarga de 1 hora entre usos.",
+      "Tira 8% do desempenho semanal de quem recebe (12% se a meta for abaixo de 2 L).",
+    ],
+  },
+  {
+    id: "tempestade",
+    conquista: "tsunami-de-foco",
+    icone: "⏳",
+    nome: "Soterramento",
+    regras: [
+      "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
+      "A tela da vítima é enterrada em areia — só ela vê o estrago por inteiro; o time vê o cartão dela coberto.",
+      "Para se desenterrar, ela precisa arrastar a areia para fora, camada por camada.",
+      "Some sozinho na virada do dia. O poder tem recarga de 2 horas entre usos.",
+      "Tira 10% do desempenho semanal de quem recebe (15% se a meta for abaixo de 2 L).",
+    ],
+  },
+  {
+    id: "tormenta",
+    conquista: "rei-dos-mares",
+    icone: "⛈️",
+    nome: "Tempestade",
+    regras: [
+      "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
+      "A tela da vítima vira um mar revolto: o cartão é jogado pelas ondas, sob chuva e raios — só ela vê por inteiro; o time vê a tempestade contida no cartão dela.",
+      "Para escapar, ela precisa beber 125% da meta do dia.",
+      "Some sozinha na virada do dia. O poder tem recarga de 2 horas entre usos.",
+      "Tira 12% do desempenho semanal de quem recebe (18% se a meta for abaixo de 2 L).",
+    ],
+  },
+];
+
+const KEY = "agua-tracker-v1";
+/* Versão do código em execução — o auto-atualizador compara com a
+   publicada e recarrega abas antigas (atualizar a cada deploy é
+   opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
+   manter a data ajuda a depurar) */
+const APP_VERSION = "2026-11-04.5-card-tempestade-fiel";
+/* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
+   valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
+   o sorteio de forma justa (sem repetir quem já estava com ela) */
+const CARTA_RESET = "2026-10-05";
+
+/* --- Sino: chaves de controle e alertas para quem recebe --- */
+const SINOS_POR_MEMBRO = "agua-sinos-para-"; /* prefixo + id do membro-alvo */
+const VISTO_KEY = "agua-sinos-vistos";
+const TITULO = "Hidratação do time";
+
+/* Frases do sino — quem toca escolhe uma */
+const FRASES = [
+  "Vai deixar para a última hora? Beba água!",
+  "Deveriam te apelidar de Saara.",
+  "Sua garrafa já criou teia de aranha.",
+  "Até cacto se hidrata mais que você.",
+  "Alerta de seca no seu cartão!",
+  "Camelo aguenta ficar sem água. Você não.",
+  "Seus rins mandaram lembranças.",
+  "Sua gota na tabela está passando vergonha.",
+  "A meta não se bate sozinha, hein?",
+  "Toc, toc: é a sua meta cobrando.",
+  "Passando só para lembrar que água existe.",
+  "Sua garrafa mandou um oi.",
+  "Um golinho agora cai bem.",
+  "Hora de esticar o braço até a garrafa.",
+  "A água tá com saudade de você.",
+  "O corpo pede socorro e você finge que não ouve.",
+  "Sua garrafa virou enfeite de mesa?",
+  "Hidratação em modo avião: sem sinal desde cedo.",
+  "Bebeu café o dia todo e água nenhuma, né?",
+  "ALERTA GERAL: detectado um cacto disfarçado de colega.",
+  "O deserto do Atacama ligou pedindo dicas suas.",
+  "Seus rins estão redigindo a carta de demissão.",
+  "Isso não é um pedido: BEBA. ÁGUA. AGORA.",
+  "Última chamada antes de virar uva-passa.",
+  "Chegou sua entrega: 1 gole, frete grátis.",
+  "Status da sua hidratação: visto por último ontem.",
+  "Previsão do tempo aí na sua mesa: 0% de umidade.",
+  "A impressora consumiu mais tinta que você consumiu água hoje.",
+  "Emergência declarada: colaborador operando 100% a café.",
+  "Arqueólogos já encontraram fósseis mais hidratados que você.",
+  "Últimas notícias: garrafa segue intacta há horas. População apreensiva.",
+  "O banco aprovou seu empréstimo de 500 ml. Juros: zero.",
+  "Trânsito livre entre você e a garrafa. Aproveite.",
+  "Panela no fogo sem água é assim que começa incêndio.",
+  "Isso já não é preguiça, é greve de hidratação.",
+  "Continue assim e você vira o próximo cacto do escritório.",
+  "Sua gota no ranking está pedindo água emprestada.",
+  "Passa a mão na garrafa, não custa nada.",
+  "A previsão para a sua mesa é de tempo firme e seco. De novo.",
+  "Situação crítica: até o sal de cozinha está mais hidratado.",
+  "Você está oficialmente em processo de fossilização.",
+  "Emergência: colaborador operando com reservas do ano passado.",
+  "Isso aqui já não é desidratação, é estilo de vida.",
+  "Falta pouco para o seu cartão virar cenário de filme de faroeste.",
+];
+
+/* Benefícios do consumo de água — exibidos um por vez, em ordem
+   aleatória e sem repetição até o ciclo dos 45 se completar */
+const BENEFICIOS = [
+  "Água pura conduz mal a eletricidade — o choque vem dos sais dissolvidos nela.",
+  "Água é a melhor aliada da digestão — ajuda o intestino a funcionar no ritmo.",
+  "Água quente pode congelar mais rápido que água fria em certas condições: é o efeito Mpemba, ainda debatido.",
+  "A cor da urina é seu medidor gratuito: quanto mais clara, melhor.",
+  "O Brasil detém cerca de 12% da água doce superficial do planeta.",
+  "Uma gota que evapora aqui pode virar chuva do outro lado do mundo.",
+  "A hidratação ajuda a manter os olhos e a boca confortáveis o dia todo.",
+  "A sede já é sinal de desidratação — o ideal é beber antes dela chegar.",
+  "Um recém-nascido é cerca de 75% água; um idoso, perto de 50%.",
+  "Ar-condicionado rouba água do corpo sem você suar — hidrate-se dobrado.",
+  "22 de março é o Dia Mundial da Água.",
+  "Chove no deserto do Atacama tão pouco que há registros de décadas sem uma gota.",
+  "97% da água da Terra é salgada; só cerca de 1% está disponível para consumo.",
+  "A cloração da água no início do século 20 é apontada como uma das maiores conquistas da saúde pública.",
+  "Sem água, o corpo aguenta poucos dias; sem comida, semanas — prioridade clara.",
+  "A saliva que protege seus dentes é feita quase toda de água.",
+  "O corpo humano é cerca de 60% água — você é praticamente uma garrafa ambulante.",
+  "Dor de cabeça no fim da tarde? Falta de água é uma das causas mais comuns.",
+  "No frio a sede engana, mas o corpo perde água do mesmo jeito.",
+  "O cérebro é cerca de 75% água — ele sente primeiro quando falta.",
+  "Vai falar em reunião? Cordas vocais hidratadas garantem a voz firme.",
+  "O sangue é mais de 90% água — hidratar é literalmente manter o fluxo.",
+  "Uma xícara de café carrega cerca de 130 litros de \"água virtual\" na produção.",
+  "A descoberta de que água contaminada causava cólera (Londres, 1854) fundou a epidemiologia.",
+  "Se o gelo afundasse, lagos congelariam de baixo para cima e a vida aquática não sobreviveria ao inverno.",
+  "Beber água ajuda o corpo a se recuperar mais rápido de gripes e resfriados.",
+  "Hidratar-se bem ajuda a prevenir pedras nos rins.",
+  "Beber água ajuda as articulações a se manterem lubrificadas.",
+  "Descarga antiga usa até 12 litros; as modernas, 3 a 6.",
+  "Já foi detectada água em Marte, na Lua e nas luas de Júpiter e Saturno.",
+  "Beber água antes das refeições ajuda a comer com mais consciência.",
+  "Camelos não armazenam água na corcova (é gordura) — mas bebem mais de 100 litros de uma vez.",
+  "Em exercícios longos, cada quilo suado pede cerca de 1,5 L de reposição.",
+  "Beber água ao acordar ajuda a \"ligar\" o metabolismo.",
+  "Florestas \"voam\": a Amazônia lança rios voadores de vapor que irrigam o Sudeste.",
+  "A água ferve a 100 °C ao nível do mar, mas a 90 °C no alto de uma montanha — menos pressão, menos esforço.",
+  "Água regula a temperatura do corpo — essencial em dias quentes.",
+  "Existe no espaço uma nuvem de vapor d'água com água equivalente a trilhões de oceanos.",
+  "Banho de 15 minutos pode gastar mais de 100 litros; de 5 minutos, menos de um terço disso.",
+  "Olhos secos de tanta tela? Hidratação ajuda na produção de lágrimas.",
+  "Nenhum outro líquido substitui a água: café e refrigerante hidratam menos.",
+  "A água-viva é cerca de 95% água.",
+  "Uma gota de água contém mais moléculas do que existem estrelas na Via Láctea.",
+  "Desidratação leve piora o humor e aumenta a sensação de cansaço.",
+  "Hidratação adequada ajuda a memória de curto prazo.",
+  "Perdemos até 2,5 L de água por dia só existindo: respiração, suor e afins.",
+  "Produzir 1 kg de carne bovina consome milhares de litros de água.",
+  "Músculos bem hidratados rendem mais e têm menos cãibras.",
+  "Beber água regularmente ajuda a manter o nível de energia sem cafeína.",
+  "Frutas contam: melancia e pepino são mais de 90% água.",
+  "Beber água melhora a concentração — até 2% de desidratação já reduz o foco.",
+  "O rio Amazonas despeja no oceano cerca de 20% de toda a água doce que chega aos mares.",
+  "Pele hidratada começa por dentro: água ajuda na elasticidade.",
+  "Mais de 68% da água doce do mundo está congelada em geleiras.",
+  "Goles frequentes hidratam melhor que um litro de uma vez só.",
+  "Depois do treino, a água é o primeiro \"suplemento\" da recuperação.",
+  "Água transporta nutrientes e oxigênio para todas as células.",
+  "Uma torneira pingando desperdiça dezenas de litros por dia.",
+  "Uma nuvem comum pesa centenas de toneladas — e mesmo assim flutua.",
+  "Uma molécula de água passa, em média, cerca de 9 dias na atmosfera antes de voltar como chuva.",
+  "Astronautas na estação espacial bebem água reciclada do próprio suor e urina.",
+  "A tensão superficial da água é tão alta que insetos caminham sobre ela.",
+  "Água gelada ou natural? Tanto faz: a melhor água é a que você bebe.",
+  "Você perde água só de respirar — dá para ver no vidro embaçado.",
+  "A água é uma das raras substâncias que aumentam de volume ao congelar — por isso o gelo flutua.",
+  "Dormir melhor também passa por hidratação equilibrada durante o dia.",
+  "Água ajuda a manter o hálito fresco — boca seca é festa para bactérias.",
+  "Beber água ao longo do dia ajuda a manter a pressão arterial estável.",
+  "Água ajuda a controlar o apetite — sede às vezes se disfarça de fome.",
+  "A ONU reconheceu o acesso à água potável como direito humano em 2010.",
+  "A água é chamada de \"solvente universal\": dissolve mais substâncias que qualquer outro líquido comum.",
+  "A água que você bebe hoje já passou por dinossauros: o ciclo é o mesmo há bilhões de anos.",
+  "Álcool desidrata: um copo de água entre as doses faz o dia seguinte agradecer.",
+  "O ponto mais profundo do oceano tem quase 11 km — o Everest caberia dentro com folga.",
+  "A hidratação ajuda o coração a bombear sangue com menos esforço.",
+  "Vai voar? O ar da cabine é mais seco que deserto — embarque hidratado.",
+  "Hidratação adequada contribui para uma circulação melhor nas pernas.",
+  "Beber um copo de água ativa levemente o gasto calórico — pequeno, mas de graça.",
+  "Os discos da coluna são amortecedores cheios de água: beber ajuda a preservá-los.",
+  "Os aquedutos romanos levavam água por dezenas de quilômetros usando só a gravidade.",
+  "Os ossos têm cerca de 30% de água — até eles precisam dela.",
+  "Beber água ajuda os rins a filtrar e eliminar toxinas.",
+];
+
+/* --- Conquistas: definição (ícones em SVG) e cálculo retroativo --- */
+const CONQUISTAS = [
+  { id: "primeiro-gole", nome: "Primeiro Gole", desc: "Registrou a primeira garrafa no app.", recompensa: "Acesso ao sino de provocação 🔔", paths: ["M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"] },
+  { id: "hidratacao-profunda", nome: "Hidratação Profunda", desc: "25 L acumulados.", recompensa: "Envio em massa 📢 — provoca o time inteiro de uma vez", paths: ["M12 3a4 4 0 1 0 0 8a4 4 0 1 0 0-8", "M19 21a7 7 0 0 0-14 0"] },
+  { id: "cachoeira-alarmante", nome: "Cachoeira Alarmante", desc: "50 L acumulados.", recompensaFrases: true, paths: ["M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2", "M9.6 4.6A2 2 0 1 1 11 8H2", "M12.6 19.4A2 2 0 1 0 14 16H2"] },
+  { id: "correnteza-colossal", nome: "Correnteza Colossal", desc: "100 L acumulados.", recompensa: "+1 garrafa", paths: ["M20 12a8 8 0 1 1-8-8", "M12 4a8 8 0 0 1 4 15", "M8 12a4 4 0 1 1 4 4", "M12 16a4 4 0 0 0 2-7.5"] },
+  { id: "represa-billings", nome: "Represa Billings", desc: "200 L acumulados.", recompensa: "+1 garrafa", recompensaFrases: true, paths: ["M8 13a4 4 0 0 1 8 0", "M3 13h18", "M6 17h12", "M9 20h6"] },
+  { id: "pingo-de-disciplina", nome: "Pingo de Disciplina", desc: "Meta batida 3 dias úteis seguidos.", recompensa: "Poder: Cactificação 🌵", paths: ["M7 20h10", "M10 20c5.5-2.5.8-6.4 3-10", "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8", "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2"] },
+  { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", recompensaFrases: true, paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
+  { id: "mare-alta", nome: "Maré Alta", desc: "Meta batida 10 dias úteis seguidos.", recompensa: "Poder: Desertificação 🏜️", paths: ["M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"] },
+  { id: "tsunami-de-foco", nome: "Tsunami de Foco", desc: "Meta batida 30 dias úteis seguidos.", recompensa: "Poder: Soterramento ⏳", paths: ["M2 19h20", "M4 19c0-8 5-13 11-13 4 0 7 2.8 7 6 0 2.6-2 4.6-4.6 4.6-2 0-3.6-1.4-3.6-3.2 0-1.4 1-2.4 2.4-2.4"] },
+  { id: "rei-dos-mares", nome: "Rei dos Mares", desc: "Meta batida 50 dias úteis seguidos.", recompensa: "Poder: Tempestade ⛈️ +1 garrafa", paths: ["M2 9c.6.5 1.2 1 2.5 1C7 10 7 8 9.5 8c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 15c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M7 6l1.5-3 1.5 2 1.5-2 1.5 3"] },
+  { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", recompensaFrases: true, paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
+  { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", recompensa: "+1 garrafa", recompensaFrases: true, paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
+  { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensaFrases: true, paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
+  { id: "incactificavel", nome: "Incactificável", desc: "Não foi cactificado(a) nesta rodada.", recompensa: "Provocação personalizada ✍️", paths: ["M12 21V7", "M12 14H9.5A2.5 2.5 0 0 1 7 11.5V9", "M12 17h2.5A2.5 2.5 0 0 0 17 14.5V11", "M9 21h6", "M10.5 7a1.5 1.5 0 0 1 3 0"] },
+  { id: "a-cartada-certeira", nome: "A Cartada Certeira", desc: "Usou a Carta Anti-Seca para proteger alguém e fez o feitiço ricochetear no feiticeiro.", recompensa: "+1 garrafa", paths: ["M7 3.5h10a1.8 1.8 0 0 1 1.8 1.8v13.4a1.8 1.8 0 0 1-1.8 1.8H7a1.8 1.8 0 0 1-1.8-1.8V5.3A1.8 1.8 0 0 1 7 3.5z", "M12 8.5c-1.4 1.6-2.5 2.8-2.5 4.1a2.5 2.5 0 0 0 5 0c0-1.3-1.1-2.5-2.5-4.1z"] },
+  { id: "rei-da-cactificacao", nome: "Rei da Cactificação", desc: "Dedicado somente a quem mais cactificou colegas desidratados.", recompensa: "Bastão dourado da cactificação", paths: ["M12 21V12", "M12 16H9.4A2.4 2.4 0 0 1 7 13.6V12.2", "M12 17.2H14.6A2.4 2.4 0 0 0 17 14.8V13.4", "M8.4 9.8 8 5.6l2.3 1.7L12 4l1.7 3.3L16 5.6l-.4 4.2z"] },
+  { id: "muralha-de-agua", nome: "Muralha de Água", desc: "Passou 7 dias corridos sem sofrer nenhum poder. Reseta ao sofrer qualquer poder.", recompensa: "+30 min de imunidade aos poderes", paths: ["M12 3l8 3v6c0 5-4 8-8 10-4-2-8-5-8-10V6z", "M8 12c1.3 0 1.3 1.5 2.7 1.5S12 12 13.3 12s1.4 1.5 2.7 1.5"] },
+];
+
+const IconeConquista = ({ conquista, tamanho = 11 }) => (
+  <svg
+    width={tamanho}
+    height={tamanho}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {conquista.paths.map((p, i) => (
+      <path key={i} d={p} />
+    ))}
+  </svg>
+);
+
+const IconeCadeado = ({ tamanho = 12 }) => (
+  <svg
+    width={tamanho}
+    height={tamanho}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" />
+  </svg>
+);
+
+/* Campo de senha com o olho de mostrar/ocultar à direita */
+function CampoSenha({ value, onChange, placeholder, autoFocus, onEnter }) {
+  const [visivel, setVisivel] = useState(false);
+  return (
+    <span className="campo-senha">
+      <input
+        type={visivel ? "text" : "password"}
+        maxLength={12}
+        placeholder={placeholder}
+        value={value}
+        autoFocus={autoFocus}
+        onChange={onChange}
+        onKeyDown={(e) => onEnter && e.key === "Enter" && onEnter()}
+      />
+      <button
+        type="button"
+        className="olho"
+        onClick={() => setVisivel((v) => !v)}
+        title={visivel ? "Ocultar senha" : "Mostrar senha"}
+        aria-label={visivel ? "Ocultar senha" : "Mostrar senha"}
+      >
+        {visivel ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+            <path d="M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6" />
+            <path d="m3 3 18 18" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+            <path d="M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6" />
+          </svg>
+        )}
+      </button>
+    </span>
+  );
+}
+
+/* Feriados nacionais: nesses dias a competição não vale — não somam nem
+   quebram sequências e ninguém pode ser atacado. Datas fixas (dd-mm) e
+   as móveis, ligadas à Páscoa, listadas por ano */
+const FERIADOS_FIXOS = [
+  "01-01", /* Confraternização Universal */
+  "21-04", /* Tiradentes */
+  "01-05", /* Dia do Trabalho */
+  "07-09", /* Independência */
+  "12-10", /* Nossa Senhora Aparecida */
+  "02-11", /* Finados */
+  "15-11", /* Proclamação da República */
+  "20-11", /* Consciência Negra */
+  "25-12", /* Natal */
+];
+const FERIADOS_MOVEIS = [
+  /* Carnaval (segunda e terça), Sexta-feira Santa e Corpus Christi */
+  "2026-02-16", "2026-02-17", "2026-04-03", "2026-06-04",
+  "2027-02-08", "2027-02-09", "2027-03-26", "2027-05-27",
+  "2028-02-28", "2028-02-29", "2028-04-14", "2028-06-15",
+];
+/* Casamento do Renan: imunidade, tema no cartão e frases exclusivas,
+   ativos só na semana de 21 a 25/09/2026 */
+const GIPHY_KEY = "gqiuTgoyJTDO3mlc695hEuDiI7pb0cjT";
+const NOIVO_NOME = "renan";
+/* Admin das ausências (folgas e feriados manuais): só este usuário vê e usa
+   o painel "Folgas & feriados". Comparado via nomeNormalizado. */
+const ADMIN_NOME = "joao witor";
+const CASAMENTO_INICIO = "2026-09-21";
+const CASAMENTO_FIM = "2026-09-25";
+const ehSemanaCasamento = () => {
+  const hoje = chaveDe(new Date());
+  return hoje >= CASAMENTO_INICIO && hoje <= CASAMENTO_FIM;
+};
+/* Frases de casamento — curtas, positivas, água + casamento */
+const FRASES_CASAMENTO = [
+  "Que a vida de casado seja como boa hidratação: constante e leve.",
+  "Casou! Agora são dois copos para encher todo dia.",
+  "Um brinde: que nunca falte água nem amor nessa casa.",
+  "Feliz para sempre — e bem hidratado, claro.",
+  "O amor é líquido: escorre, preenche e mata a sede.",
+  "Encontrou sua cara-metade... e sua garrafa sentiu sua falta.",
+  "Casamento é igual água: essencial todo santo dia.",
+  "Dizem que casamento afunda gente. O seu que te mantenha boiando feliz.",
+  "Que vocês se hidratem de amor a vida inteira.",
+  "Água lava, renova, recomeça. Que seu casamento seja assim.",
+  "O melhor gole é o da vida a dois. Saúde!",
+  "Volte com sede de viver — a água a gente repõe.",
+  "Bem-vindo de volta, noivo! A garrafa te esperou sequinha.",
+  "Voltou casado e desidratado? Bora repor as duas coisas.",
+  "A lua de mel acabou, mas a hidratação é para sempre.",
+];
+
+const ehFeriado = (d) => {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  if (FERIADOS_FIXOS.includes(`${dd}-${mm}`)) return true;
+  return FERIADOS_MOVEIS.includes(`${d.getFullYear()}-${mm}-${dd}`);
+};
+/* Dia que vale para o jogo: segunda a sexta, fora feriado nacional */
+const ehDiaUtil = (d) => {
+  const s = d.getDay();
+  return s !== 0 && s !== 6 && !ehFeriado(d);
+};
+
+const chaveDe = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/* Cactificações sofridas ANTES de o histórico passar a registrá-las
+   (contagem informada pelo time). O histórico só é contado a partir de
+   CACTOS_DESDE, então as duas fontes não se duplicam. Para corrigir um
+   número à mão, basta editar o valor aqui */
+const CACTOS_INICIAIS = {
+  "joao witor": 0,
+  "renan": 0,
+  "isabel": 1,
+  "gui lins": 2,
+  "kaique": 0,
+  "mahmoud": 2,
+  "will": 2,
+  "gabriela": 0,
+};
+const CACTOS_DESDE = new Date("2026-08-14T14:00:00").getTime();
+
+/* Efeitos por cartão: { cacto: {...}, deserto: {...}, tempestade: {...} }.
+   Cartões gravados no formato antigo (um único efeito com .tipo) são
+   convertidos na leitura, então nada se perde na transição */
+const normalizarEfeitos = (bruto) => {
+  if (!bruto || typeof bruto !== "object") return {};
+  if (typeof bruto.tipo === "string") return { [bruto.tipo]: bruto };
+  return bruto;
+};
+
+function calcularConquistas(members, intake, extras, historico, metasPorDia, cartadas) {
+  cartadas = cartadas || {};
+  const resultado = {};
+  const chaveHoje = chaveDe(new Date());
+  const mlDoDia = (m, k) =>
+    ((intake[k] && intake[k][m.id]) || 0) * m.bottleMl +
+    ((extras[k] && extras[k][m.id]) || 0);
+  /* Meta VIGENTE naquele dia: mudar a meta hoje não pode reescrever se a
+     pessoa bateu ou não a meta de ontem. Dias sem registro de meta usam
+     a meta atual (nada foi congelado antes de o app passar a gravar) */
+  const metaDoDia = (m, k) => {
+    const congelada =
+      metasPorDia && metasPorDia[k] && metasPorDia[k][m.id];
+    return Number(congelada) > 0 ? Number(congelada) : m.goalMl;
+  };
+
+  const todasChaves = [
+    ...Object.keys(intake || {}),
+    ...Object.keys(extras || {}),
+  ].sort();
+  const primeiraChave = todasChaves[0] || chaveHoje;
+
+  /* Volume acumulado, dias de meta e sequências (corridas e em dias úteis) */
+  members.forEach((m) => {
+    const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+    const inicio = new Date(
+      Math.max(criadoEm, new Date(primeiraChave + "T00:00:00").getTime())
     );
+    inicio.setHours(0, 0, 0, 0);
+    let totalMl = 0, diasMeta = 0, seqUtil = 0, maxUtil = 0;
+    for (let d = new Date(inicio); chaveDe(d) <= chaveHoje; d.setDate(d.getDate() + 1)) {
+      const ml = mlDoDia(m, chaveDe(d));
+      totalMl += ml;
+      const metaDia = metaDoDia(m, chaveDe(d));
+      const bateu = metaDia > 0 && ml >= metaDia;
+      if (bateu) diasMeta++;
+      /* Sequências contam apenas dias úteis: fim de semana e feriado
+         nacional não somam nem quebram a corrente */
+      if (ehDiaUtil(d)) {
+        /* hoje ainda não batido não quebra a sequência — o dia não acabou */
+        if (bateu) { seqUtil++; }
+        else if (chaveDe(d) !== chaveHoje) { seqUtil = 0; }
+        if (seqUtil > maxUtil) maxUtil = seqUtil;
+      }
+    }
+    resultado[m.id] = { conjunto: new Set(), totalMl, diasMeta, maxUtil, seqAtual: seqUtil };
   });
-  return resultado;
-};
 
-/* Metas congeladas por dia: uma vez gravada, a meta daquele dia nunca é
-   sobrescrita por uma aba desatualizada — é o que impede alterar a meta
-   hoje e "reescrever" se os dias antigos foram batidos ou não */
-/* Efeitos ativos (cacto/deserto/soterramento): funde por membro para que
-   uma aba sem o efeito recém-aplicado não o apague. Efeitos de dias
-   anteriores não são preservados — a virada do dia zera tudo */
-const mesclarEfeitos = (antigo, novo, diaHoje) => {
-  const res = {};
-  const ids = new Set([
-    ...Object.keys(antigo || {}),
-    ...Object.keys(novo || {}),
-  ]);
-  ids.forEach((id) => {
-    const merged = { ...((antigo && antigo[id]) || {}), ...((novo && novo[id]) || {}) };
-    /* "limpo" é pegajoso: uma vez varrido, o efeito não volta a ativar. Sem
-       isso, uma gravação de progresso atrasada (com mapa, sem limpo) chegando
-       depois do "limpou" ressuscitava o soterramento já concluído. */
-    ["cacto", "deserto", "tempestade", "tormenta"].forEach((tipo) => {
-      const a = antigo && antigo[id] && antigo[id][tipo];
-      const n = novo && novo[id] && novo[id][tipo];
-      if (merged[tipo] && ((a && a.limpo) || (n && n.limpo))) {
-        merged[tipo] = { ...merged[tipo], limpo: true };
+  /* Semanas já fechadas: posições do ranking e semanas perfeitas */
+  const posicoesPorMembro = {};
+  members.forEach((m) => (posicoesPorMembro[m.id] = []));
+  const primeiraSegunda = new Date(primeiraChave + "T00:00:00");
+  primeiraSegunda.setDate(
+    primeiraSegunda.getDate() - ((primeiraSegunda.getDay() + 6) % 7)
+  );
+  for (let seg = new Date(primeiraSegunda); ; seg.setDate(seg.getDate() + 7)) {
+    const sex = new Date(seg);
+    sex.setDate(seg.getDate() + 4);
+    if (chaveDe(seg) > chaveHoje) break; /* semana ainda nem começou */
+    /* A semana corrente entra no laço para a Semana Molhada poder cair
+       já na sexta (quando os 5 dias foram batidos). O ranking, esse sim,
+       só conta com a semana fechada */
+    const semanaFechada = chaveDe(sex) < chaveHoje;
+    const linhas = [];
+    members.forEach((m) => {
+      const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+      let soma = 0, validos = 0, metas = 0, uteis = 0;
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(seg);
+        d.setDate(seg.getDate() + i);
+        const fim = new Date(d);
+        fim.setHours(23, 59, 59, 999);
+        if (criadoEm > fim.getTime()) continue;
+        /* feriado nacional não entra na conta da semana */
+        if (!ehDiaUtil(d)) continue;
+        uteis++;
+        const ml = mlDoDia(m, chaveDe(d));
+        const metaDia = metaDoDia(m, chaveDe(d));
+        soma += metaDia > 0 ? ml / metaDia : 0;
+        validos++;
+        if (metaDia > 0 && ml >= metaDia) metas++;
+      }
+      if (validos > 0) {
+        linhas.push({ id: m.id, media: soma / validos });
+        /* semana perfeita = todos os dias úteis da semana batidos, sejam
+           5 ou menos quando cair feriado */
+        if (metas === uteis && uteis > 0)
+          resultado[m.id].conjunto.add("semana-molhada");
       }
     });
-    /* mantém só o que é de hoje */
-    const limpo = {};
-    Object.keys(merged).forEach((tipo) => {
-      const ef = merged[tipo];
-      if (!ef || typeof ef.desde !== "number") return;
-      const d = new Date(ef.desde);
-      const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      if (chave === diaHoje) limpo[tipo] = ef;
+    if (semanaFechada) {
+      linhas.sort((a, b) => b.media - a.media);
+      linhas.forEach((l, i) =>
+        posicoesPorMembro[l.id].push({ semana: seg.getTime(), pos: i + 1 })
+      );
+    }
+  }
+
+  members.forEach((m) => {
+    const r = resultado[m.id];
+    const c = r.conjunto;
+    if (r.totalMl > 0) c.add("primeiro-gole");
+    if (r.totalMl >= 25000) c.add("hidratacao-profunda");
+    if (r.totalMl >= 50000) c.add("cachoeira-alarmante");
+    if (r.totalMl >= 100000) c.add("correnteza-colossal");
+    if (r.totalMl >= 200000) c.add("represa-billings");
+    if (r.maxUtil >= 3) c.add("pingo-de-disciplina");
+    if (r.maxUtil >= 10) c.add("mare-alta");
+    if (r.maxUtil >= 30) c.add("tsunami-de-foco");
+    if (r.maxUtil >= 50) c.add("rei-dos-mares");
+    const posicoes = posicoesPorMembro[m.id];
+    if (posicoes.some((p) => p.pos <= 3)) c.add("pe-no-podio");
+    if (posicoes.some((p) => p.pos === 1)) c.add("soberano-da-torneira");
+    let seguidas = 0;
+    let ultimaSemana = null;
+    const UMA_SEMANA = 7 * 24 * 60 * 60 * 1000;
+    posicoes.forEach((p) => {
+      const adjacente = ultimaSemana !== null && p.semana - ultimaSemana === UMA_SEMANA;
+      if (p.pos === 1) seguidas = adjacente && seguidas > 0 ? seguidas + 1 : 1;
+      else seguidas = 0;
+      if (seguidas >= 3) c.add("dinastia-da-gota");
+      ultimaSemana = p.semana;
     });
-    if (Object.keys(limpo).length > 0) res[id] = limpo;
+    /* semanas consecutivas em 1º lugar até a última semana FECHADA (a semana
+       em curso não conta — o trono só vale quando a semana fecha). Usado para
+       preencher e liberar as frases de provocação que citam o "trono" */
+    r.semanasTrono = seguidas;
   });
-  return res;
-};
 
-/* Ausências (folgas por membro e feriados manuais): documento carimbado.
-   Vence quem gravou por último (maior "at"). Uma aba que só ecoa o valor
-   antigo (at menor, ou sem o campo) nunca sobrescreve uma edição mais nova
-   do admin — e, como é o documento inteiro que vence, remover uma folga
-   também se propaga. */
-const mesclarAusencias = (antigo, novo) => {
-  if (!novo) return antigo;
-  if (!antigo) return novo;
-  const a = Number(antigo.at || 0);
-  const n = Number(novo.at || 0);
-  return n >= a ? novo : antigo;
-};
-
-const mesclarMetas = (antigo, novo) => {
-  const resultado = { ...(antigo || {}) };
-  Object.keys(novo || {}).forEach((dia) => {
-    resultado[dia] = { ...(novo[dia] || {}), ...(resultado[dia] || {}) };
+  /* Incactificável: de quem nunca foi cactificado. É a única conquista que
+     se perde. Quando TODOS os membros já foram cactificados ao menos uma
+     vez, o placar zera e a conquista volta para todo mundo (reset) */
+  const cactos = {};
+  members.forEach((m) => {
+    cactos[m.id] = Number(CACTOS_INICIAIS[nomeNormalizado(m.name)] || 0);
   });
-  return resultado;
-};
-
-/* Garrafas colecionáveis de cada membro: união dos ids (nunca se perde
-   uma garrafa já conquistada por causa de uma aba desatualizada) */
-const mesclarGarrafas = (antigo, novo) => {
-  const res = { ...(antigo || {}) };
-  Object.keys(novo || {}).forEach((id) => {
-    const set = new Set([...((antigo && antigo[id]) || []), ...((novo && novo[id]) || [])]);
-    res[id] = [...set];
+  const eventos = [];
+  Object.keys(historico || {}).forEach((id) => {
+    (historico[id] || []).forEach((e) => {
+      if (e && e.tipo === "cacto" && !e.anulado && Number(e.t) >= CACTOS_DESDE) {
+        eventos.push({ id, t: Number(e.t) });
+      }
+    });
   });
-  return res;
-};
-
-/* Garrafa selecionada por membro: o valor recebido prevalece; os demais
-   mantêm a seleção anterior */
-const mesclarGarrafaSel = (antigo, novo) => ({ ...(antigo || {}), ...(novo || {}) });
-
-/* Cartadas certeiras (ricochete da carta): união — true nunca regride */
-const mesclarCartadas = (antigo, novo) => {
-  const res = { ...(antigo || {}) };
-  Object.keys(novo || {}).forEach((id) => { if (novo[id]) res[id] = true; });
-  return res;
-};
-
-/* Intake e extras: a água registrada nunca regride. Se duas abas gravam
-   quase juntas, a atrasada traz um total menor de alguém — aceitar isso
-   apagaria o que a outra acabou de registrar. Então, por (dia, membro),
-   vence o MAIOR valor. Só um Desfazer explícito reduz, e ele é raro e
-   local; o risco de perder registro é muito pior que o de um desfazer
-   demorar um ciclo a aparecer para terceiros */
-const mesclarContagem = (antigo, novo, reduzir) => {
-  const resultado = {};
-  const dias = new Set([
-    ...Object.keys(antigo || {}),
-    ...Object.keys(novo || {}),
-  ]);
-  dias.forEach((dia) => {
-    const a = (antigo && antigo[dia]) || {};
-    const n = (novo && novo[dia]) || {};
-    const ids = new Set([...Object.keys(a), ...Object.keys(n)]);
-    const linha = {};
-    ids.forEach((id) => {
-      const autorizouReduzir = !!(reduzir && reduzir[dia] && reduzir[dia][id]);
-      /* Desfazer explícito: aceita o valor que o cliente mandou (pode ser
-         menor). Fora isso, vence o maior — água não regride sozinha */
-      linha[id] = autorizouReduzir
-        ? Number(n[id] || 0)
-        : Math.max(Number(a[id] || 0), Number(n[id] || 0));
-    });
-    resultado[dia] = linha;
-  });
-  return resultado;
-};
-
-/* Histórico independente da versão do app: se a gravação recebida
-   aumenta as garrafas/avulsos de alguém sem trazer a entrada
-   correspondente (o caso de abas rodando código antigo), o próprio
-   servidor cria a entrada que falta — sem duplicar as que já vieram */
-const completarHistorico = (atual, corpo) => {
-  const agora = Date.now();
-  (corpo.members || []).forEach((m) => {
-    const id = m.id;
-    let deltaG = 0;
-    Object.keys(corpo.intake || {}).forEach((d) => {
-      const nova = Number((corpo.intake[d] || {})[id] || 0);
-      const velha = Number((((atual && atual.intake) || {})[d] || {})[id] || 0);
-      if (nova > velha) deltaG += nova - velha;
-    });
-    let deltaMl = 0;
-    Object.keys(corpo.extras || {}).forEach((d) => {
-      const nova = Number((corpo.extras[d] || {})[id] || 0);
-      const velha = Number((((atual && atual.extras) || {})[d] || {})[id] || 0);
-      if (nova > velha) deltaMl += nova - velha;
-    });
-    if (deltaG <= 0 && deltaMl <= 0) return;
-
-    /* Desconta o que o próprio cliente já registrou nesta gravação */
-    const jaSalvas = new Set(
-      (((atual && atual.historico) || {})[id] || []).map(
-        (e) => `${e.t}-${e.tipo || ""}`
-      )
-    );
-    let trouxeG = 0;
-    let trouxeMl = 0;
-    (((corpo.historico || {})[id]) || []).forEach((e) => {
-      if (!e || jaSalvas.has(`${e.t}-${e.tipo || ""}`)) return;
-      if (e.tipo === "g") trouxeG += 1;
-      else if (e.tipo === "e") trouxeMl += Number(e.ml || 0);
-    });
-
-    const faltamG = deltaG - trouxeG;
-    const faltamMl = deltaMl - trouxeMl;
-    if (faltamG <= 0 && faltamMl <= 0) return;
-    if (!corpo.historico) corpo.historico = {};
-    if (!Array.isArray(corpo.historico[id])) corpo.historico[id] = [];
-    for (let i = 0; i < faltamG; i++) {
-      corpo.historico[id].push({
-        t: agora + i,
-        tipo: "g",
-        ml: Number(m.bottleMl || 0),
+  eventos.sort((a, b) => a.t - b.t);
+  eventos.forEach((ev) => {
+    if (!(ev.id in cactos)) return;
+    cactos[ev.id] += 1;
+    if (members.length > 0 && members.every((m) => cactos[m.id] > 0)) {
+      members.forEach((m) => {
+        cactos[m.id] = 0;
       });
     }
-    if (faltamMl > 0) {
-      corpo.historico[id].push({ t: agora + 500, tipo: "e", ml: faltamMl });
+  });
+  /* Muralha de Água: 7 dias corridos sem sofrer nenhum poder. Reseta ao
+     sofrer qualquer poder (o relógio parte do último poder sofrido, ou da
+     criação do cartão quando nunca sofreu). */
+  const agoraTS = Date.now();
+  const SETE_DIAS = 7 * 24 * 60 * 60 * 1000;
+  /* Rei da Cactificação: título de quem mais cactificou. Conta por autor
+     (campo "por" das cactificações no histórico das vítimas). Empate fica
+     com quem alcançou o número primeiro. */
+  const feitasPorNome = {};
+  Object.keys(historico || {}).forEach((vid) => {
+    (historico[vid] || []).forEach((e) => {
+      if (e && e.tipo === "cacto" && !e.anulado && e.por) {
+        const chave = nomeNormalizado(e.por);
+        (feitasPorNome[chave] = feitasPorNome[chave] || []).push(Number(e.t) || 0);
+      }
+    });
+  });
+  let reiId = null, reiMax = 0, reiQuando = Infinity;
+  members.forEach((m) => {
+    const ts = (feitasPorNome[nomeNormalizado(m.name)] || []).slice().sort((a, b) => a - b);
+    const total = ts.length;
+    if (resultado[m.id]) resultado[m.id].cactosFeitos = total;
+    if (total > 0) {
+      const alcancou = ts[total - 1]; /* quando chegou ao total atual */
+      if (total > reiMax || (total === reiMax && alcancou < reiQuando)) {
+        reiMax = total; reiQuando = alcancou; reiId = m.id;
+      }
     }
   });
+
+  members.forEach((m) => {
+    const r = resultado[m.id];
+    if (!r) return;
+    r.cactos = cactos[m.id] || 0;
+    if (r.cactos === 0) r.conjunto.add("incactificavel");
+    else r.conjunto.delete("incactificavel");
+    if (cartadas[m.id]) r.conjunto.add("a-cartada-certeira");
+    /* Muralha de Água */
+    const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+    let ultimoPoder = 0;
+    (historico[m.id] || []).forEach((e) => {
+      if (e && !e.anulado && (e.tipo === "cacto" || e.tipo === "deserto" || e.tipo === "tempestade" || e.tipo === "tormenta")) {
+        ultimoPoder = Math.max(ultimoPoder, Number(e.t) || 0);
+      }
+    });
+    const desde = ultimoPoder || criadoEm;
+    if (desde > 0 && agoraTS - desde >= SETE_DIAS) r.conjunto.add("muralha-de-agua");
+    /* Rei da Cactificação */
+    if (reiId && m.id === reiId) r.conjunto.add("rei-da-cactificacao");
+  });
+  return resultado;
+}
+
+/* Desempenho da semana por membro (média do % diário nos dias úteis válidos,
+   menos as penalidades dos poderes sofridos). Retorna a lista ordenada do
+   maior para o menor — usada no ranking E na ordem dos cards. */
+function calcularDesempenho(members, intake, extras, historico, semanaOffset, ausencias) {
+  extras = extras || {};
+  historico = historico || {};
+  ausencias = ausencias || {};
+  const feriadosManuais = ausencias.feriados || [];
+  const folgasPorDia = ausencias.folgas || {};
+  const agora = new Date();
+  const segunda = new Date(agora);
+  segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7) - (semanaOffset || 0) * 7);
+  const dias = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(segunda);
+    d.setDate(segunda.getDate() + i);
+    dias.push(d);
+  }
+  const chave = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const chaveHoje = chave(new Date());
+  const ini = segunda.getTime();
+  const fimSemana = new Date(dias[4]);
+  fimSemana.setHours(23, 59, 59, 999);
+  const fimTs = fimSemana.getTime();
+  return members
+    .map((m) => {
+      const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+      let soma = 0;
+      let diasValidos = 0;
+      dias.forEach((d) => {
+        const k = chave(d);
+        if (k > chaveHoje) return;
+        if (!ehDiaUtil(d)) return;
+        if (feriadosManuais.includes(k)) return;              /* feriado marcado: ninguém conta */
+        if ((folgasPorDia[k] || []).includes(m.id)) return;   /* folga do membro: não conta p/ ele */
+        const fimDoDia = new Date(d);
+        fimDoDia.setHours(23, 59, 59, 999);
+        if (criadoEm > fimDoDia.getTime()) return;
+        const count = (intake[k] && intake[k][m.id]) || 0;
+        const extra = (extras[k] && extras[k][m.id]) || 0;
+        soma += m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
+        diasValidos++;
+      });
+      let penal = 0;
+      ((historico && historico[m.id]) || []).forEach((e) => {
+        if (!e || e.anulado) return;
+        if (e.t < ini || e.t > fimTs) return;
+        if (e.t < PENALIDADE_DESDE) return;
+        if (PENALIDADE[e.tipo]) penal += Math.abs(e.pct || PENALIDADE[e.tipo]);
+      });
+      const mediaPct = diasValidos > 0 ? (soma / diasValidos) * 100 : 0;
+      return { membro: m, criadoEm, desempenho: mediaPct - penal, penal };
+    })
+    .sort((a, b) => b.desempenho - a.desempenho);
+}
+
+const tocarSom = () => {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    if (ctx.state === "suspended") ctx.resume();
+    [880, 1174, 1568].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = f;
+      o.connect(g);
+      g.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.35, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      o.start(t);
+      o.stop(t + 0.6);
+    });
+  } catch {}
 };
 
-export default async function handler(req, res) {
-  try {
-    if (req.method === "GET") {
-      if (req.query && req.query.versao) {
-        return res.status(200).json({ apiVersion: API_VERSION });
-      }
-      const chave = req.query && req.query.backup ? CHAVE_BACKUP : CHAVE;
-      const dados = await redis.get(chave);
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json(dados || VAZIO);
-    }
-
-    if (req.method === "POST") {
-      const corpo =
-        typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-      if (!corpo || !Array.isArray(corpo.members) || typeof corpo.intake !== "object") {
-        return res.status(400).json({ error: "Estrutura de dados inválida" });
-      }
-
-      /* Trava anti-apagão: bloqueia gravação que zeraria os membros
-         quando já existem 2 ou mais salvos; e backup antes de sobrescrever */
-      const atual = await redis.get(CHAVE);
-      if (atual && Array.isArray(atual.members)) {
-        if (atual.members.length >= 2 && corpo.members.length === 0) {
-          return res
-            .status(409)
-            .json({ error: "Gravação bloqueada: apagaria todos os membros" });
-        }
-        await redis.set(CHAVE_BACKUP, atual);
-        completarHistorico(atual, corpo);
-        corpo.intake = mesclarContagem(atual.intake, corpo.intake, corpo.reduzir);
-        corpo.extras = mesclarContagem(atual.extras, corpo.extras, corpo.reduzir);
-        corpo.historico = mesclarHistorico(atual.historico, corpo.historico);
-        corpo.ultimo = mesclarUltimo(atual.ultimo, corpo.ultimo);
-        corpo.metas = mesclarMetas(atual.metas, corpo.metas);
-        /* dia atual segundo o servidor, para expirar efeitos antigos */
-        const _d = new Date();
-        const diaHoje = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
-        corpo.efeitos = mesclarEfeitos(atual.efeitos, corpo.efeitos, diaHoje);
-        /* casamento: união simples — frase registrada por alguém permanece */
-        corpo.casamento = { ...(atual.casamento || {}), ...(corpo.casamento || {}) };
-        /* garrafas colecionáveis, seleção e cartadas certeiras */
-        corpo.garrafas = mesclarGarrafas(atual.garrafas, corpo.garrafas);
-        corpo.garrafaSel = mesclarGarrafaSel(atual.garrafaSel, corpo.garrafaSel);
-        corpo.cartadas = mesclarCartadas(atual.cartadas, corpo.cartadas);
-        /* folgas e feriados manuais: o carimbo mais novo vence */
-        corpo.ausencias = mesclarAusencias(atual.ausencias, corpo.ausencias);
-      }
-
-      delete corpo.reduzir; /* campo auxiliar de gravação, não persiste */
-      await redis.set(CHAVE, corpo);
-      return res.status(200).json({ ok: true });
-    }
-
-    res.setHeader("Allow", "GET, POST");
-    return res.status(405).json({ error: "Método não permitido" });
-  } catch (erro) {
-    return res
-      .status(500)
-      .json({ error: (erro && erro.message) || String(erro) });
+const notificar = (msg) => {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification("🔔 Hora de beber água!", { body: msg });
+    } catch {}
   }
+};
+
+/* Garrafa cactificada 🌵 */
+function Cacto({ tamanho = 92 }) {
+  return (
+    <svg
+      width={tamanho}
+      height={(tamanho * 130) / 92}
+      viewBox="0 0 92 130"
+      aria-hidden="true"
+    >
+      <ellipse cx="46" cy="118" rx="26" ry="7" fill="#E8D5A3" />
+      <path d="M46 116V44" stroke="#2F9E44" strokeWidth="18" strokeLinecap="round" />
+      <path d="M46 78 H30 a9 9 0 0 1 -9 -9 V58" stroke="#2F9E44" strokeWidth="12" strokeLinecap="round" fill="none" />
+      <path d="M46 92 H62 a9 9 0 0 0 9 -9 V70" stroke="#2F9E44" strokeWidth="12" strokeLinecap="round" fill="none" />
+      <path d="M40 55 l-5 -3 M52 65 l5 -3 M42 85 l-5 3 M52 100 l5 3" stroke="#1E7A33" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="46" cy="38" r="4" fill="#E64980" />
+    </svg>
+  );
 }
+
+let tituloTimer = null;
+const piscarTitulo = () => {
+  clearInterval(tituloTimer);
+  let visivel = false;
+  let vezes = 0;
+  tituloTimer = setInterval(() => {
+    document.title = visivel ? TITULO : "🔔 Beba água!";
+    visivel = !visivel;
+    if (++vezes >= 20) {
+      clearInterval(tituloTimer);
+      document.title = TITULO;
+    }
+  }, 800);
+};
+
+/* Favicon de alerta: a gota da aba vira um sino piscando enquanto a
+   página está em segundo plano; volta ao normal assim que a aba é aberta */
+const FAVICON_PADRAO =
+  "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>";
+const FAVICON_SINO =
+  "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔔</text></svg>";
+let faviconTimer = null;
+const setFavicon = (href) => {
+  /* Alguns navegadores ignoram a troca de href no link existente;
+     recriar o nó força a atualização do ícone */
+  const antigo = document.querySelector("link[rel='icon']");
+  if (antigo) antigo.remove();
+  const novo = document.createElement("link");
+  novo.rel = "icon";
+  novo.href = href;
+  document.head.appendChild(novo);
+};
+const pararFaviconAlerta = () => {
+  clearInterval(faviconTimer);
+  faviconTimer = null;
+  setFavicon(FAVICON_PADRAO);
+};
+const iniciarFaviconAlerta = () => {
+  clearInterval(faviconTimer);
+  let sino = true;
+  setFavicon(FAVICON_SINO);
+  faviconTimer = setInterval(() => {
+    /* Auto-desligamento: se a aba estiver visível por qualquer motivo,
+       para de piscar mesmo sem o evento de visibilidade ter chegado */
+    if (!document.hidden) {
+      pararFaviconAlerta();
+      return;
+    }
+    sino = !sino;
+    setFavicon(sino ? FAVICON_SINO : FAVICON_PADRAO);
+  }, 800);
+};
+
+const hoje = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const fmt = (ml) =>
+  ml >= 1000
+    ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
+    : `${ml} ml`;
+
+/* Como fmt, mas truncando em vez de arredondar — usado no volume bebido,
+   para nunca exibir mais do que foi realmente registrado (2.149 ml
+   aparece como 2,14 L, e não como 2,15 L) */
+const fmtPiso = (ml) =>
+  ml >= 1000
+    ? `${(Math.floor(ml / 10) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
+    : `${ml} ml`;
+
+/* Compara nomes ignorando maiúsculas, acentos e espaços extras
+   ("Ana", "ana " e "Âna" contam como o mesmo nome) */
+const nomeNormalizado = (n) =>
+  String(n || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+
+const dataLonga = () =>
+  new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+/* ---------- Garrafa SVG com nível de água ---------- */
+function Garrafa({ pct, tamanho = 92 }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const alturaAgua = 88 * p;
+  const yAgua = 118 - alturaAgua;
+  const cheia = p >= 1;
+  return (
+    <svg
+      width={tamanho}
+      height={(tamanho * 130) / 92}
+      viewBox="0 0 92 130"
+      aria-hidden="true"
+    >
+      <defs>
+        <clipPath id="corpo-garrafa">
+          <path d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" />
+        </clipPath>
+        <linearGradient id="agua-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#41C9E6" />
+          <stop offset="100%" stopColor="#0F8BB0" />
+        </linearGradient>
+      </defs>
+      <g clipPath="url(#corpo-garrafa)">
+        <rect x="0" y={yAgua} width="92" height={alturaAgua + 6} fill="url(#agua-grad)">
+          <animate
+            attributeName="y"
+            values={`${yAgua + 1.5};${yAgua - 1.5};${yAgua + 1.5}`}
+            dur="3s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      </g>
+      <path
+        d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z"
+        fill="none"
+        stroke={cheia ? "#0FA36B" : "#0B3446"}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <rect x="33" y="1" width="26" height="9" rx="3" fill={cheia ? "#0FA36B" : "#0B3446"} />
+    </svg>
+  );
+}
+
+/* ===== Garrafas colecionáveis (prêmios de conquista) ===== */
+const _GARR_GRAD = `<stop offset="0" stop-color="#41C9E6"/><stop offset="1" stop-color="#0F8BB0"/>`;
+function _svgBottle(cid, gid, vb, x0, y0, w, h, clipD, tr, art, contour, yb, yt, pct) {
+  const p = Math.max(0, Math.min(1, pct || 0));
+  const wy = (yb - (yb - yt) * p).toFixed(1);
+  const con = contour ? `<path transform="${tr}" d="${clipD}" fill="none" stroke="#0B3446" stroke-width="${contour}"/>` : "";
+  const html = `<defs><clipPath id="${cid}"><path transform="${tr}" d="${clipD}"/></clipPath>`
+    + `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">${_GARR_GRAD}</linearGradient></defs>`
+    + `<g clip-path="url(#${cid})"><rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#EAF6FA"/>`
+    + `<rect x="${x0}" y="${wy}" width="${w}" height="${h}" fill="url(#${gid})"/></g>`
+    + con + art;
+  return html;
+}
+const _ESP={clip:`M1521 6829 c-115 -20 -180 -69 -168 -128 6 -28 -15 -196 -25 -206 -3
+-3 -65 -10 -138 -15 -118 -7 -139 -12 -195 -39 -127 -63 -196 -175 -220 -357
+-34 -267 -39 -341 -27 -405 19 -105 76 -188 169 -249 l42 -27 -51 -69 c-68
+-92 -123 -209 -144 -303 -19 -84 -19 -77 6 -2366 23 -2096 23 -2073 49 -2133
+67 -150 299 -271 626 -323 106 -18 492 -18 610 -1 206 30 394 96 501 178 100
+76 140 147 149 260 7 91 37 3046 39 3799 l1 590 -31 86 c-17 48 -52 118 -77
+156 -56 85 -181 205 -265 257 l-62 39 0 95 c0 87 2 96 24 117 20 18 25 36 31
+101 4 43 5 120 2 171 -7 117 -23 148 -97 185 l-55 27 -27 188 c-15 103 -27
+205 -27 225 -2 119 -76 149 -381 154 -113 1 -229 -2 -259 -7z m-221 -536 c0
+-11 -22 -29 -58 -49 -90 -48 -97 -67 -97 -261 0 -154 1 -162 23 -185 20 -22
+22 -34 22 -124 l0 -99 -55 -33 -56 -34 -52 30 c-29 16 -65 48 -81 71 -26 36
+-30 51 -34 130 -5 94 12 294 30 371 22 92 69 154 138 184 23 10 68 15 128 16
+81 0 92 -2 92 -17z`,tr:`translate(0,700) scale(0.1,-0.1)`,art:`<path d="M105.296 209.01C105.025 201.763 104.831 194.096 109.374 188.056C119.739 174.278 143.799 168.753 160.022 166.133C141.829 176.57 134.026 185.415 131.583 206.769C131.088 209.227 131.211 213.664 131.219 216.341C126.461 215.594 109.261 213.251 105.883 211.293C105.531 210.328 105.455 210.026 105.296 209.01Z" fill="#D9E7F1"/> <path d="M122.974 88.7675C124.063 83.8566 130.528 81.4042 134.929 80.3535C135.134 81.9121 135.346 84.0131 135.661 85.5095C144.351 93.4703 175.43 92.0703 187.092 91.7825C194.811 91.5918 212.102 90.9913 217.45 85.1342C218.123 84.397 219.181 82.8667 219.765 81.9538C223.082 83.4341 225.054 84.4701 227.65 87.0828C227.785 90.9561 228.255 112.404 227.24 114.827C225.542 116.731 225.293 117.065 222.904 118.17C210.882 124.036 194.625 124.853 181.314 124.988C178.249 125.02 174.885 124.347 171.774 124.384C168.285 124.425 164.825 124.782 161.337 124.767C152.491 124.4 133.007 123.435 126.423 117.777L123.619 116.269C121.547 107.299 123.89 97.4146 122.974 88.7675Z" fill="#849EB4"/> <path d="M122.974 88.7675C124.063 83.8566 130.528 81.4042 134.929 80.3535C135.134 81.9121 135.346 84.0131 135.661 85.5095C144.351 93.4703 175.43 92.0703 187.092 91.7825C194.811 91.5918 212.102 90.9913 217.45 85.1342C218.123 84.397 219.181 82.8667 219.765 81.9538C223.082 83.4341 225.054 84.4701 227.65 87.0828C227.785 90.9561 228.255 112.404 227.24 114.827C226.92 114.795 226.548 114.776 226.244 114.668C222.929 113.497 227.074 94.9199 224.96 91.009C224.224 90.6296 223.95 90.5838 223.079 90.8419C216.264 92.8599 210.571 94.1259 203.501 94.9161C183.56 97.1819 169.916 97.1569 150.379 95.2145C150.435 100.867 151.18 116.652 150.489 121.299C150.319 121.45 149.997 121.762 149.818 121.858L134.686 119.493C131.863 118.828 129.302 118.21 126.423 117.777L123.619 116.269C121.547 107.299 123.89 97.4146 122.974 88.7675Z" fill="#D9E7F1"/> <path d="M122.974 88.7676C126.145 91.0556 131.091 92.1158 134.909 92.6716C134.834 98.2354 134.82 103.8 134.867 109.364C134.878 112.056 135.025 116.972 134.686 119.493C131.863 118.828 129.302 118.21 126.423 117.777L123.619 116.269C121.547 107.299 123.89 97.4147 122.974 88.7676Z" fill="#849EB4"/> <path d="M203.5 94.9161C210.569 94.1258 216.262 92.8598 223.078 90.8419C223.948 90.5838 224.223 90.6296 224.959 91.009C227.073 94.9198 222.927 113.497 226.243 114.668C226.547 114.776 226.918 114.795 227.239 114.827C225.541 116.731 225.292 117.065 222.903 118.17C218.476 117.566 207.468 120.979 201.898 121.079C203.277 112.429 203.358 103.652 203.5 94.9161Z" fill="#595E70"/> <path d="M126.422 117.777C129.302 118.21 131.862 118.829 134.685 119.494L149.817 121.859C151.054 122.19 152.316 122.329 153.603 122.397C161.458 122.811 169.384 124.249 177.244 123.487C185.39 122.696 193.83 122.465 201.899 121.079C207.468 120.98 218.477 117.567 222.903 118.17C210.881 124.036 194.624 124.854 181.313 124.989C178.248 125.02 174.884 124.347 171.774 124.384C168.284 124.426 164.824 124.782 161.336 124.767C152.49 124.401 133.006 123.436 126.422 117.777Z" fill="#4B4A57"/> <path d="M144.856 34.0481C161.274 37.6843 178.196 38.4674 194.88 36.3636C199.161 35.6359 203.434 34.8597 207.698 34.0352C207.932 38.8741 208.831 44.5948 209.495 49.4531C210.643 57.4921 211.71 65.5428 212.697 73.6037C207.307 75.2656 203.098 76.1481 197.535 77.087C178.052 79.3131 158.365 79.0568 138.945 76.3234C140.427 62.4711 143.23 48.0931 144.856 34.0481Z" fill="#849EB4"/> <path d="M194.881 36.3636C199.162 35.6359 203.435 34.8597 207.699 34.0352C207.933 38.8741 208.832 44.5948 209.496 49.4531C210.644 57.4921 211.711 65.5428 212.698 73.6037C207.308 75.2656 203.099 76.1481 197.537 77.087C197.457 72.3206 195.838 39.0553 194.881 36.3636Z" fill="#595E70"/> <path d="M172.559 41.4386C194.442 38.75 200.846 67.8691 177.724 72.6963C173.669 73.048 169.468 72.4686 165.906 70.4049C162.34 68.3534 159.757 64.9447 158.747 60.9562C157.723 56.8632 158.419 52.5292 160.673 48.9629C163.6 44.3035 167.482 42.5918 172.559 41.4386Z" fill="#020303"/> <path d="M164.094 49.1307C166.681 44.7885 170.678 44.0598 175.307 44.1097C174.413 45.938 166.199 49.3338 164.094 49.1307Z" fill="#D9E7F1"/> <path d="M163.923 53.4316L164.21 53.5492C166.953 54.6918 167.228 56.5119 165.884 58.9517C163.326 57.485 162.289 56.1229 163.923 53.4316Z" fill="#D9E7F1"/> <path d="M149.482 37.8145C152.49 37.8979 154.821 38.0028 157.804 38.3377C157.759 38.8959 157.47 42.0979 157.404 42.3364C156.521 45.5367 155.533 74.3765 154.141 75.7864C151.025 75.3793 147.814 74.6762 144.723 74.0531C145.708 65.4641 147.475 56.8652 148.293 48.2447C148.623 44.7717 148.966 41.2639 149.482 37.8145Z" fill="#D9E7F1"/> <path d="M87.8125 630.045C89.8879 630.995 98.0339 636.132 100.393 637.53C132.174 652.091 167.362 653.728 201.803 650.064C208.58 649.343 217.562 648.058 224.082 646.219C224.868 660.772 222.276 662.071 209.831 668.254C209.549 668.395 209.29 668.511 208.984 668.596C185.597 675.213 144.675 672.691 121.435 664.994C115.564 663.049 110.279 660.26 104.913 657.249C102.939 656.633 99.6407 654.48 98.0644 653.072C90.0752 645.921 88.6106 640.114 87.8125 630.045Z" fill="#546D70"/> <path d="M87.8125 630.045C89.8879 630.995 98.0339 636.132 100.393 637.53C99.4493 638.566 99.5324 641.246 99.6257 642.753C100.016 649.063 101.763 652.19 104.913 657.249C102.939 656.633 99.6407 654.48 98.0644 653.072C90.0752 645.921 88.6106 640.114 87.8125 630.045Z" fill="#283D42"/> <path d="M108.322 55.0571C115.388 53.385 125.335 53.7555 132.755 54.0379C132.474 56.0107 132.206 58.2714 131.863 60.2107C131.593 62.2027 131.342 64.2176 130.991 66.1952C130.93 66.4495 130.738 67.5457 130.541 67.5939C125.555 68.812 119.616 67.8499 114.43 67.8878C113.704 67.8929 112.898 67.2336 112.043 67.0726C104.467 69.2191 98.8239 72.3076 94.8183 79.4942C93.5841 81.7378 92.6732 84.1443 92.1134 86.6429C90.8713 91.9855 90.3733 100.117 89.7191 105.646C89.0406 111.38 87.857 118.927 87.9134 124.581C87.9281 127.773 88.3816 130.949 89.2614 134.018C91.424 141.422 96.8042 146.101 103.394 149.708C104.219 150.155 105.053 150.585 105.897 150.996L101.148 154.965L98.3361 157.55C90.1508 153.746 84.0035 148.688 79.9314 140.44C78.1294 136.758 77.0733 132.756 76.8231 128.665C76.363 121.854 77.6899 113.556 78.4719 106.591C79.4594 97.7971 79.9768 87.1405 82.7338 78.7669C84.6246 73.025 89.3537 64.8209 94.9937 62.0636C99.9443 58.2587 102.418 57.1051 108.322 55.0571Z" fill="#4B4A57"/> <path d="M98.3361 157.551C90.1508 153.747 84.0035 148.688 79.9314 140.441C78.1294 136.759 77.0733 132.757 76.8231 128.666C76.363 121.855 77.6899 113.556 78.4719 106.592C79.4594 97.798 79.9768 87.1414 82.7338 78.7677C84.6246 73.0259 89.3537 64.8217 94.9937 62.0645C94.2903 63.3923 93.1989 65.0719 93.2232 66.5106C93.8159 67.8699 93.6569 67.4768 95.0767 68.3962C92.2272 72.1898 89.3171 76.005 87.6249 80.4853C84.4663 88.849 80.803 121.063 82.0468 129.94C83.1497 137.813 86.6426 144.739 93.0523 149.588C95.654 151.556 98.5515 153.039 101.148 154.966L98.3361 157.551Z" fill="#849EB4"/> <path d="M108.323 55.0571C115.389 53.385 125.336 53.7555 132.757 54.0379C132.476 56.0107 132.208 58.2714 131.864 60.2107C123.698 60.1102 115.978 59.564 108.018 61.5509C108.285 59.0018 108.407 57.6076 108.323 55.0571Z" fill="#849EB4"/> <path d="M94.9955 62.0651C99.9461 58.2602 102.419 57.1066 108.324 55.0586C108.407 57.6091 108.285 59.0033 108.018 61.5524C103.107 63.4066 99.2488 65.0903 95.0786 68.3969C93.6587 67.4774 93.8177 67.8705 93.225 66.5112C93.2007 65.0726 94.2921 63.393 94.9955 62.0651Z" fill="#D9E7F1"/> <path d="M130.991 66.1953C130.93 66.4496 130.739 67.5458 130.541 67.5939C125.555 68.8121 119.616 67.8499 114.43 67.8879C113.704 67.893 112.898 67.2337 112.043 67.0727C117.486 66.1916 125.141 66.464 130.991 66.1953Z" fill="#283D42"/> <path d="M128.899 126.34C131.606 127.092 136.52 127.765 138.749 128.687C142.308 129.289 145.449 129.703 149.022 130.121C167.345 131.546 184.023 132.262 202.451 130.071C203.083 132.125 203.182 146.418 202.34 147.9C197.814 148.45 193.309 149.429 188.765 149.78C168.423 151.351 147.764 150.688 128.814 142.597C128.785 137.178 128.813 131.758 128.899 126.34Z" fill="#546D70"/> <path d="M138.75 128.688C142.308 129.289 145.449 129.704 149.022 130.122C148.828 135.336 148.681 140.552 148.58 145.768C145.201 144.928 141.717 143.705 138.396 142.607C138.421 137.965 138.539 133.325 138.75 128.688Z" fill="#D9E7F1"/> <path d="M257.122 633.653C258.41 632.686 259.863 631.537 261.183 630.648C260.981 636.746 260.997 640.762 257.47 646.005C248.465 658.734 230.15 665.211 215.354 667.983C213.361 668.355 211.863 668.574 209.83 668.253C222.275 662.07 224.867 660.771 224.081 646.217C226.745 645.288 231.723 644.262 234.705 643.517C243.796 641.248 249.124 637.973 257.122 633.653Z" fill="#283D42"/> <path d="M138.498 78.0312C160.793 80.8767 174.447 81.455 196.94 79.1267C197.968 80.2437 197.627 85.4315 197.616 87.3329C191.485 87.984 185.331 88.386 179.168 88.5374C170.528 88.6721 146.72 89.3095 139.335 83.3602C138.086 82.3546 138.419 79.664 138.498 78.0312Z" fill="#849EB4"/> <path d="M219.835 126.681C221.264 126.596 221.213 126.345 222.03 127.041C222.784 130.324 222.797 140.228 220.896 142.939C219.449 143.217 217.776 144.039 216.337 144.545C212.281 145.97 206.642 147.886 202.34 147.901C203.182 146.419 203.083 132.127 202.451 130.072C208.266 128.973 214.085 128.817 219.835 126.681Z" fill="#283D42"/> <path d="M196.939 79.1256C203.045 77.7605 206.546 77.3767 212.843 75.3867C213.135 77.9396 213.48 80.6022 213.68 83.1541C207.171 85.8772 204.609 86.3659 197.616 87.3318C197.626 85.4304 197.967 80.2426 196.939 79.1256Z" fill="#4B4A57"/> <path d="M166.92 32.1379C175.792 32.6265 184.533 32.1841 193.38 31.2434C198.876 30.6591 204.498 26.2984 208.106 28.483L208.467 29.0655C204.402 34.4458 170.252 35.5187 163.195 34.2127C166.489 34.0249 169.478 34.2226 172.718 33.6166C170.553 32.9335 169.566 33.0981 166.92 32.1379Z" fill="#849EB4"/> <path d="M163.196 34.2113C159.966 34.2534 144.401 32.3281 143.348 28.8722L143.725 28.2571C146.381 27.4348 149.094 29.5304 151.639 30.1251C156.457 31.2505 162.005 31.659 166.921 32.1365C169.567 33.0967 170.554 32.9321 172.719 33.6152C169.479 34.2212 166.489 34.0236 163.196 34.2113Z" fill="#D9E7F1"/>`};
+const _AQU={clip:`M1565 3543 c-643 -38 -1137 -169 -1235 -328 -25 -41 -25 -86 0 -161
+23 -65 77 -274 82 -315 2 -19 -13 -47 -58 -105 -169 -219 -271 -429 -326 -675
+-20 -90 -23 -131 -23 -304 0 -173 3 -214 23 -304 123 -549 526 -992 1097
+-1206 288 -108 501 -145 830 -145 213 0 373 17 539 56 730 174 1256 662 1397
+1297 32 144 37 407 11 562 -47 272 -161 507 -379 780 -55 70 -55 70 -50 126 3
+39 21 91 61 177 71 153 72 176 10 242 -137 146 -572 261 -1144 300 -129 9
+-705 11 -835 3z`,tr:`translate(0.000000,355.000000) scale(0.100000,-0.100000)`,art:`<path d="M336.598 51.3916C338.28 53.8351 341.055 56.0989 340.568 58.7789C340.198 59.3021 339.807 59.4984 339.275 59.8514C337.382 60.1694 331.288 62.8939 328.983 63.7261L322.96 65.7081L320.888 66.3676C308.44 69.7831 295.818 72.5354 283.075 74.6134C277.673 75.4956 272.055 76.0646 266.61 76.7329C232.893 80.7789 198.892 81.9299 164.979 80.1734C152.112 79.5406 138.392 78.7289 125.651 77.0101C125.887 75.9236 126.006 75.1866 126.157 74.1089C126.379 72.5254 125.836 69.5491 126.55 68.3196C127.059 68.3531 130.063 68.5341 130.415 68.6496C148.429 71.1326 169.315 71.8969 187.583 72.2344C197.06 72.4296 206.54 72.2871 216.007 71.8071C219.423 71.6579 227.24 71.6779 230.146 71.2439C231.915 71.3194 238.598 70.6966 240.158 70.2796C241.621 70.2349 246.586 70.1689 247.678 69.8131C251.947 69.5831 257.55 68.8266 261.862 68.3716C276.462 66.9171 290.97 64.6534 305.32 61.5904C307.14 61.1979 312.192 60.3304 313.372 59.2369L313.515 59.4249C315.36 59.8674 326.638 55.7324 328.943 54.7501L330.94 54.0231C331.913 53.4991 333.042 53.0126 334.057 52.5506C334.897 52.2224 335.775 51.7811 336.598 51.3916Z" fill="#201F21"/> <path d="M118.692 67.336C106.927 66.071 94.997 63.7092 83.532 60.7857C72.8235 58.055 51.161 52.3375 45.2605 42.1567C44.075 40.1112 43.6805 37.781 44.315 35.4869C45.6487 30.6652 50.5135 27.2962 54.654 24.9706C79.8717 10.8067 128.651 6.15757 157.599 4.31862C161.014 4.1017 164.423 3.73272 167.842 3.58152C171.172 3.43422 174.516 3.50615 177.849 3.43322C189.134 3.13062 200.425 3.11287 211.711 3.38002C238.763 3.9682 334.092 8.93675 348.377 34.3067C349.415 37.0672 349.262 38.8292 348.135 41.582C347.34 42.8385 346.79 43.6717 345.872 44.8342L344.372 46.2815L341.267 48.6225L339.267 49.9495L336.597 51.3915C335.775 51.781 334.897 52.2222 334.057 52.5505C333.042 53.0125 331.912 53.499 330.94 54.023L328.942 54.75C326.637 55.7322 315.36 59.8672 313.515 59.4247L313.372 59.2367C311 60.5 301.267 62.191 299 62.5C294 64 273.5 68 267 68C253.5 70 242 70.5 242 70.5C242 70.5 232.5 71.2437 230.146 71.2437C227.24 71.6777 219.423 71.6577 216.007 71.807C206.54 72.287 197.059 72.4295 187.582 72.2342C169.314 71.8967 148.429 71.1325 130.415 68.6495C130.063 68.534 127.059 68.353 126.55 68.3195C124.017 67.8242 121.27 67.5685 118.692 67.336Z" fill="#FCFDFD"/>`};
+const _GAL={clip:`M1771 6820 c-101 -37 -156 -96 -187 -205 -13 -48 -17 -98 -16 -248 1
+-109 6 -203 12 -223 15 -44 61 -81 117 -96 l45 -11 -4 -66 c-7 -92 -34 -141
+-103 -184 -31 -19 -257 -121 -503 -227 -506 -218 -612 -269 -697 -337 -171
+-139 -276 -361 -278 -593 -1 -149 34 -223 144 -300 l59 -41 0 -585 0 -584 -38
+-24 c-136 -85 -180 -203 -169 -453 8 -189 25 -223 177 -342 l25 -19 1 -586 1
+-586 -52 -29 c-157 -89 -197 -289 -99 -499 84 -183 232 -302 414 -333 33 -5
+704 -9 1649 -9 1414 0 1601 2 1654 16 81 21 129 46 209 110 161 130 249 358
+204 534 -20 76 -52 120 -127 173 l-54 38 -6 137 c-3 75 -3 337 -1 582 l5 445
+69 64 c78 72 101 110 118 199 20 99 8 321 -20 396 -25 66 -81 132 -135 162
+l-35 19 -2 572 c-1 315 -2 579 -2 587 -1 7 28 35 64 62 52 39 72 63 99 116 33
+64 34 73 34 170 -1 263 -123 500 -331 642 -63 44 -316 159 -915 416 -135 58
+-232 106 -256 126 -45 39 -69 92 -77 173 l-7 58 48 13 c61 17 102 52 115 98
+17 61 23 269 11 386 -13 126 -34 172 -104 230 -89 73 -73 71 -562 73 -415 3
+-443 2 -494 -17z`,tr:`translate(0.000000,684.000000) scale(0.100000,-0.100000)`,art:`<path transform="translate(0.000000,684.000000) scale(0.100000,-0.100000)" d="M1870 6827 c0 -7 -23 -18 -52 -25 -110 -25 -187 -107 -213 -227 -24 -108 -18 -386 9 -431 22 -37 59 -61 112 -72 39 -8 39 -8 37 -87 -2 -96 -23 -154 -69 -194 -47 -42 -56 -46 -484 -231 -659 -284 -685 -297 -791 -397 -152 -144 -249 -376 -237 -567 7 -108 62 -198 154 -252 44 -26 44 -26 44 -638 0 -612 0 -612 -30 -629 -81 -48 -128 -108 -154 -197 -19 -64 -22 -297 -5 -366 13 -50 80 -131 148 -179 41 -28 41 -28 41 -640 0 -612 0 -612 -39 -630 -93 -42 -161 -155 -161 -268 0 -120 69 -266 175 -372 78 -78 141 -116 236 -142 60 -17 166 -18 1669 -18 1605 0 1605 0 1673 23 222 77 387 301 387 526 0 105 -42 178 -139 241 l-61 39 0 601 0 601 69 56 c117 96 155 219 132 430 -17 153 -66 240 -166 294 -35 19 -35 19 -35 630 0 611 0 611 23 621 43 20 118 96 145 147 24 46 27 61 26 156 0 128 -18 202 -78 325 -67 136 -173 249 -301 320 -58 32 -274 128 -814 361 -146 63 -280 126 -298 140 -56 43 -77 96 -78 198 0 89 0 89 40 101 112 33 120 54 120 310 0 228 -6 254 -68 322 -54 59 -114 92 -176 100 -33 4 -51 10 -51 19 0 12 -65 14 -370 14 -291 0 -370 -3 -370 -13z m845 -191 c13 -13 29 -43 36 -67 13 -47 17 -327 5 -347 -5 -9 -138 -12 -510 -12 l-503 0 -6 83 c-15 181 -1 280 45 333 30 34 30 34 469 34 440 0 440 0 464 -24z m-125 -623 c1 -119 39 -222 115 -311 51 -59 153 -108 849 -406 316 -136 382 -173 464 -260 104 -111 152 -242 152 -417 0 -93 -1 -96 -31 -125 -30 -29 -30 -29 -1867 -32 -1010 -1 -1847 0 -1859 3 -12 3 -35 17 -52 31 -31 26 -31 27 -31 123 0 178 55 316 174 436 86 87 89 88 685 345 243 105 462 200 484 211 144 73 237 224 237 385 l0 64 340 0 c340 0 340 0 340 -47z m1383 -1714 c2 -2 2 -268 -1 -591 l-5 -588 -1718 0 -1719 0 0 593 0 593 1720 -2 c946 0 1721 -2 1723 -5z m126 -1347 c58 -29 74 -75 79 -226 5 -164 -3 -200 -63 -255 -45 -41 -45 -41 -1862 -39 -1808 3 -1818 3 -1853 23 -60 35 -70 69 -70 243 0 193 17 238 96 262 16 4 841 9 1834 9 1700 1 1807 0 1839 -17z m-125 -758 c3 -47 3 -312 -1 -590 l-6 -504 -1719 0 -1718 0 0 583 c0 321 3 587 7 590 3 4 777 7 1718 7 l1712 0 7 -86z m168 -1283 c30 -34 30 -35 26 -130 -5 -113 -30 -171 -106 -253 -55 -59 -115 -92 -197 -108 -44 -8 -491 -10 -1660 -8 -1600 3 -1600 3 -1652 31 -69 36 -151 120 -188 193 -27 53 -30 69 -30 151 0 84 2 94 25 118 14 15 34 31 45 36 11 4 849 7 1863 6 1844 -2 1844 -2 1874 -36z" fill="#111214"/>`};
+const _LON={clip:`M949 7195 c-40 -22 -67 -97 -85 -239 -15 -116 -15 -129 1 -176 15
+-47 16 -79 1 -483 -9 -237 -19 -462 -22 -500 -4 -40 -1 -94 7 -133 10 -51 11
+-94 2 -198 -15 -176 -19 -184 -230 -428 -182 -209 -236 -295 -276 -437 l-22
+-76 -3 -1730 c-2 -1146 1 -1756 7 -1808 19 -143 92 -247 219 -315 86 -46 154
+-50 792 -43 l535 6 59 29 c119 58 209 183 227 315 6 39 8 787 7 1811 -3 1639
+-4 1749 -21 1805 -44 150 -97 233 -296 465 -225 262 -225 262 -223 480 4 330
+3 412 -8 790 -11 365 -10 399 5 438 19 47 18 78 -10 252 -18 115 -30 141 -78
+170 -30 18 -52 20 -297 20 -209 -1 -270 -4 -291 -15z`,tr:`translate(0.000000,763.000000) scale(0.100000,-0.100000)`,art:`<path transform="translate(0.000000,763.000000) scale(0.100000,-0.100000)" d="M939 7205 c-41 -22 -67 -98 -86 -245 -15 -124 -15 -135 1 -186 16 -51 16 -80 2 -467 -9 -226 -18 -451 -22 -500 -4 -56 -2 -110 7 -152 17 -87 0 -295 -30 -352 -24 -47 -74 -112 -198 -255 -182 -209 -236 -295 -276 -437 -22 -76 -22 -76 -25 -1816 -2 -1153 1 -1766 7 -1818 19 -143 92 -247 219 -315 86 -46 164 -50 807 -43 540 6 540 6 599 35 119 58 209 183 227 315 6 39 8 791 7 1821 -3 1648 -4 1759 -21 1815 -44 150 -97 233 -296 465 -223 260 -225 263 -222 470 3 314 2 434 -9 796 -10 349 -10 384 6 422 19 48 17 103 -10 272 -19 115 -31 141 -79 170 -30 19 -52 20 -307 20 -218 -1 -280 -4 -301 -15z m545 -250 c17 -107 17 -117 2 -155 -17 -42 -15 -186 9 -862 l6 -158 -261 0 c-261 0 -261 0 -256 58 3 31 13 253 22 493 16 410 16 439 0 479 -16 39 -16 49 0 151 l17 109 222 0 221 0 18 -115z m-4 -1384 c0 -32 5 -105 11 -162 16 -158 39 -199 259 -454 263 -304 280 -348 280 -729 l0 -236 -786 0 -786 0 5 263 c5 287 10 319 68 426 18 34 86 126 152 204 184 220 236 286 258 329 29 56 47 153 55 296 l7 122 238 0 c239 0 239 0 239 -59z m550 -2491 l0 -760 -785 0 -785 0 0 760 0 760 785 0 785 0 0 -760z m-62 -907 l63 -5 -3 -597 c-3 -597 -3 -597 -33 -656 -37 -73 -110 -128 -190 -145 -35 -7 -229 -10 -591 -8 -491 3 -542 5 -577 21 -55 26 -115 84 -145 141 -27 51 -27 51 -30 648 l-3 597 88 3 c171 6 1359 7 1421 1z" fill="#222021"/>`};
+
+function GarrafaEsportiva({ pct, tamanho }) {
+  const html = _svgBottle("cl-esp","gr-esp","",-9,-9,368,718,_ESP.clip,_ESP.tr,_ESP.art,114,648,150,pct);
+  return <svg viewBox="-9 -9 368 718" preserveAspectRatio="xMidYMax meet" aria-hidden="true"
+    style={{ height: (tamanho ? (tamanho*130/92) : 130) + "px", width: "auto" }}
+    dangerouslySetInnerHTML={{ __html: html }} />;
+}
+function GarrafaGalao({ pct, tamanho }) {
+  const html = _svgBottle("cl-gal","gr-gal","",-8,-8,465,700,_GAL.clip,_GAL.tr,_GAL.art,0,655,150,pct);
+  return <svg viewBox="-8 -8 465 700" preserveAspectRatio="xMidYMax meet" aria-hidden="true"
+    style={{ height: (tamanho ? (tamanho*130/92) : 130) + "px", width: "auto" }}
+    dangerouslySetInnerHTML={{ __html: html }} />;
+}
+function GarrafaLongneck({ pct, tamanho }) {
+  const html = _svgBottle("cl-lon","gr-lon","",-7,-7,264,777,_LON.clip,_LON.tr,_LON.art,0,700,205,pct);
+  return <svg viewBox="-7 -7 264 777" preserveAspectRatio="xMidYMax meet" aria-hidden="true"
+    style={{ height: (tamanho ? (tamanho*130/92) : 130) + "px", width: "auto" }}
+    dangerouslySetInnerHTML={{ __html: html }} />;
+}
+function GarrafaAquario({ pct, tamanho }) {
+  const ref = React.useRef(null);
+  const p = Math.max(0, Math.min(1, pct || 0));
+  const base = _svgBottle("cl-aqu","gr-aqu","",-11,-11,414,377,_AQU.clip,_AQU.tr,_AQU.art,128,345,62,pct);
+  const peixe = p > 0.4
+    ? `<g class="peixe-aqu"><g transform="translate(-24,-9)"><ellipse cx="20" cy="9" rx="20" ry="11" fill="#F2994A" stroke="#C9721E" stroke-width="2"/><path d="M40 9 l14 -10 v20 z" fill="#F2994A" stroke="#C9721E" stroke-width="2" stroke-linejoin="round"/><path d="M18 -1 q6 -6 12 -1" fill="none" stroke="#C9721E" stroke-width="2"/><circle cx="12" cy="6" r="2.6" fill="#0B3446"/><circle cx="12.9" cy="5.2" r="0.9" fill="#fff"/></g></g>`
+    : "";
+  // injeta o peixe DENTRO do grupo recortado (antes de </g> do primeiro grupo)
+  const html = peixe
+    ? base.replace('fill="url(#gr-aqu)"/></g>', 'fill="url(#gr-aqu)"/>' + peixe + '</g>')
+    : base;
+  React.useEffect(() => {
+    const svg = ref.current; if (!svg) return;
+    const fish = svg.querySelector(".peixe-aqu"); if (!fish) return;
+    const xmin=120, xmax=272, ytop=150, ybot=300;
+    let x=(xmin+xmax)/2, dir=1, t=0, raf=0;
+    const wy = 345 - (345-62)*p;
+    const step = () => {
+      t+=0.03; x+=0.9*dir;
+      if (x<xmin) { x=xmin; dir=1; } if (x>xmax) { x=xmax; dir=-1; }
+      const top=Math.max(ytop, wy+22), bot=ybot, cy=(top+bot)/2, amp=Math.min(16,(bot-top)/2-2);
+      const y=cy+Math.sin(t)*amp;
+      fish.setAttribute("transform","translate("+x.toFixed(1)+","+y.toFixed(1)+") scale("+(-dir*1.15)+",1.15)");
+      raf=requestAnimationFrame(step);
+    };
+    raf=requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [p]);
+  return <svg ref={ref} viewBox="-11 -11 414 377" preserveAspectRatio="xMidYMax meet" aria-hidden="true"
+    style={{ height: (tamanho ? (tamanho*112/92) : 112) + "px", width: "auto" }}
+    dangerouslySetInnerHTML={{ __html: html }} />;
+}
+/* Becker (béquer de laboratório): cilindro reto, bico de escoamento e
+   graduação. Desenho geométrico limpo, no mesmo estilo da garrafa Padrão. */
+function GarrafaBecker({ pct, tamanho = 92 }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const alturaAgua = 79 * p;
+  const yAgua = 121 - alturaAgua;
+  const cheia = p >= 1;
+  const cor = cheia ? "#0FA36B" : "#0B3446";
+  return (
+    <svg
+      width={tamanho}
+      height={(tamanho * 130) / 92}
+      viewBox="0 0 92 130"
+      aria-hidden="true"
+    >
+      <defs>
+        <clipPath id="corpo-becker">
+          <path d="M23 42 H69 V114 Q69 121 62 121 H30 Q23 121 23 114 Z" />
+        </clipPath>
+        <linearGradient id="agua-becker" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#41C9E6" />
+          <stop offset="100%" stopColor="#0F8BB0" />
+        </linearGradient>
+      </defs>
+      <g clipPath="url(#corpo-becker)">
+        <rect x="18" y={yAgua} width="56" height={alturaAgua + 6} fill="url(#agua-becker)">
+          <animate
+            attributeName="y"
+            values={`${yAgua + 1.5};${yAgua - 1.5};${yAgua + 1.5}`}
+            dur="3s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      </g>
+      <path
+        d="M57 61 H66 M57 76 H66 M57 91 H66 M57 106 H66"
+        stroke={cor}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        opacity="0.4"
+      />
+      <path
+        d="M22 40 V114 Q22 122 30 122 H62 Q70 122 70 114 V40"
+        fill="none"
+        stroke={cor}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 40 H60 L66 35 Q68 33.5 70 35 L74 40"
+        fill="none"
+        stroke={cor}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+const GARRAFAS = [
+  { id: "padrao", nome: "Padrão", Comp: Garrafa },
+  { id: "esportiva", nome: "Esportiva", Comp: GarrafaEsportiva },
+  { id: "aquario", nome: "Aquário", Comp: GarrafaAquario },
+  { id: "galao", nome: "Galão", Comp: GarrafaGalao },
+  { id: "longneck", nome: "Long-neck", Comp: GarrafaLongneck },
+  { id: "becker", nome: "Becker", Comp: GarrafaBecker },
+];
+const GARRAFA_POR_ID = Object.fromEntries(GARRAFAS.map((g) => [g.id, g]));
+/* Conquistas que dão direito a +1 garrafa */
+const CONQUISTAS_GARRAFA = ["correnteza-colossal", "a-cartada-certeira", "represa-billings", "soberano-da-torneira", "rei-dos-mares"];
+function GarrafaSel({ id, pct, tamanho }) {
+  const g = GARRAFA_POR_ID[id] || GARRAFA_POR_ID["padrao"];
+  const Comp = g.Comp;
+  return <Comp pct={pct} tamanho={tamanho} />;
+}
+
+
+/* ---------- Cartão de membro ---------- */
+/* ---------------------------------------------------------------
+   Soterramento ⏳
+   Só a vítima vê a tela coberta. A areia tem 3 camadas: cobertura
+   total, cobertura parcial e restos — cada arraste tira uma camada,
+   então é preciso passar 3x pelo mesmo lugar para limpar de vez.
+   O progresso é espelhado (em baixa resolução) no cartão que os
+   colegas enxergam.
+   --------------------------------------------------------------- */
+/* Mapa compartilhado do soterramento: altura da areia em 24 colunas,
+   cada uma de 0 a 9 (9 = enterrado até o topo) */
+const AREIA_COLS = 24;
+
+/* Penalidade de cada poder no desempenho semanal de quem sofre (em %) */
+const PENALIDADE = { cacto: 4, deserto: 8, tempestade: 10, tormenta: 12 };
+/* As penalidades no desempenho só valem para poderes aplicados a partir
+   desta atualização — nada do que aconteceu antes desconta nada. O marco
+   é o momento em que esta versão entrou no ar */
+const PENALIDADE_DESDE = 1788537049282;
+/* Metas abaixo de 2 L sofrem 1,5x a penalidade (compensa a meta menor) */
+const penalidadeEfetiva = (poderId, meta) => {
+  const base = PENALIDADE[poderId] || 0;
+  return meta > 0 && meta < 2000 ? Math.round(base * 1.5) : base;
+};
+
+/* Textura de areia: base com variação de tom, manchas suaves e grãos de
+   tamanhos e cores diversos. Pintada uma única vez e depois só recortada
+   pelo contorno do monte */
+const criarTextura = (L, A) => {
+  const tela = document.createElement("canvas");
+  tela.width = Math.max(1, Math.floor(L));
+  tela.height = Math.max(1, Math.floor(A));
+  const ctx = tela.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, L * 0.35, A);
+  grad.addColorStop(0, "#E9CE9F");
+  grad.addColorStop(0.45, "#DCBB8A");
+  grad.addColorStop(1, "#CBA470");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, L, A);
+
+  /* manchas largas: variação de umidade/densidade da areia */
+  const manchas = Math.round((L * A) / 9000);
+  for (let i = 0; i < manchas; i++) {
+    const x = Math.random() * L;
+    const y = Math.random() * A;
+    const r = 18 + Math.random() * 60;
+    const tom = 198 + Math.round(Math.random() * 40);
+    ctx.globalAlpha = 0.05 + Math.random() * 0.09;
+    ctx.fillStyle = `rgb(${tom}, ${tom - 28}, ${tom - 74})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * (0.4 + Math.random() * 0.6), Math.random() * 3.14, 0, 6.283);
+    ctx.fill();
+  }
+
+  /* grãos: tamanhos e cores diversos, alguns escuros (minerais) */
+  ctx.globalAlpha = 1;
+  const graos = Math.round((L * A) / 26);
+  for (let i = 0; i < graos; i++) {
+    const x = Math.random() * L;
+    const y = Math.random() * A;
+    const sorte = Math.random();
+    const r = sorte > 0.97 ? 1.4 + Math.random() * 1.1 : 0.35 + Math.random() * 0.85;
+    let cor;
+    if (sorte > 0.965) cor = "rgba(110, 80, 40, 0.75)";
+    else if (sorte > 0.86) cor = "rgba(146, 108, 56, 0.55)";
+    else if (sorte > 0.55) cor = "rgba(214, 180, 126, 0.65)";
+    else cor = "rgba(240, 219, 178, 0.55)";
+    ctx.fillStyle = cor;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 6.283);
+    ctx.fill();
+  }
+  return tela;
+};
+
+/* Desenha o monte de areia a partir das alturas por coluna: contorno em
+   curvas suaves (nada de degraus retos), crista clara e sombra na base */
+const desenharMonte = (ctx, alturas, L, A, textura) => {
+  const n = alturas.length;
+  const passo = L / (n - 1);
+  const topo = (i) => A - Math.max(0, Math.min(1, alturas[i])) * A;
+
+  ctx.clearRect(0, 0, L, A);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-2, A + 2);
+  ctx.lineTo(-2, topo(0));
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = i * passo;
+    const x2 = (i + 1) * passo;
+    const mx = (x1 + x2) / 2;
+    const my = (topo(i) + topo(i + 1)) / 2;
+    ctx.quadraticCurveTo(x1, topo(i), mx, my);
+  }
+  ctx.lineTo(L + 2, topo(n - 1));
+  ctx.lineTo(L + 2, A + 2);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(textura, 0, 0, L, A);
+  ctx.restore();
+
+  /* crista: fio claro no alto do monte + sombra logo abaixo, o que dá
+     volume e evita a impressão de recorte chapado */
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, topo(0));
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = i * passo;
+    const x2 = (i + 1) * passo;
+    const mx = (x1 + x2) / 2;
+    const my = (topo(i) + topo(i + 1)) / 2;
+    ctx.quadraticCurveTo(x1, topo(i), mx, my);
+  }
+  ctx.lineTo(L, topo(n - 1));
+  ctx.strokeStyle = "rgba(255, 243, 214, 0.75)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(150, 112, 58, 0.25)";
+  ctx.lineWidth = 5;
+  ctx.setLineDash([]);
+  ctx.translate(0, 4);
+  ctx.stroke();
+  ctx.restore();
+};
+
+/* ---------------------------------------------------------------
+   Soterramento ⏳ — a tela é um monte de areia de verdade: cada coluna
+   guarda quanta areia tem em cima. Arrastar empurra a areia para os
+   lados; a gravidade e o ângulo de repouso fazem o que está por cima
+   escorregar devagar, como areia pesada, formando dunas curvas.
+   --------------------------------------------------------------- */
+function Soterramento({ mapaInicial, onLimpou, onProgresso }) {
+  const refLimpou = React.useRef(onLimpou);
+  refLimpou.current = onLimpou;
+  const refProgresso = React.useRef(onProgresso);
+  refProgresso.current = onProgresso;
+  const refMapaInicial = React.useRef(mapaInicial);
+  const refAreia = React.useRef(null);
+  const refAnim = React.useRef(null);
+  const [restante, setRestante] = React.useState(100);
+  const [encerrado, setEncerrado] = React.useState(false);
+
+  React.useEffect(() => {
+    const areia = refAreia.current;
+    const anim = refAnim.current;
+    if (!areia || !anim) return;
+    const ctxA = areia.getContext("2d");
+    const ctxN = anim.getContext("2d");
+    let rodando = true;
+    let raf = 0;
+    let ultimoEnvio = 0;
+    let precisaEnviar = false;
+    let limpou = false;
+    let textura = null;
+
+    /* Simulação: altura da areia (0 a 1) em cada coluna */
+    const COLUNAS = 150;
+    const alturas = new Float32Array(COLUNAS).fill(1);
+    const volumeInicial = COLUNAS; /* tudo cheio */
+    let graos = [];
+    const mouse = { ativo: false, x: 0, y: 0, px: 0, py: 0 };
+    let precisaDesenhar = true;
+
+    /* Retoma o estado salvo (a página pode ter sido recarregada) */
+    const salvo = refMapaInicial.current;
+    if (typeof salvo === "string" && salvo.length === AREIA_COLS) {
+      for (let i = 0; i < COLUNAS; i++) {
+        const fonte = Math.min(
+          AREIA_COLS - 1,
+          Math.floor((i / (COLUNAS - 1)) * (AREIA_COLS - 1))
+        );
+        const v = Number(salvo[fonte]);
+        alturas[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v / 9)) : 1;
+      }
+    }
+
+    const dimensionar = () => {
+      const L = window.innerWidth;
+      const A = window.innerHeight;
+      [areia, anim].forEach((c) => {
+        c.width = L;
+        c.height = A;
+      });
+      textura = criarTextura(L, A);
+      precisaDesenhar = true;
+    };
+
+    /* Tolerância da limpeza: ~2% do volume inicial já conta como limpo. Exigir
+       0 absoluto deixava grãos presos nos cantos segurarem o soterramento para
+       sempre (areia some da tela, mas o status não saía). */
+    const limiarLimpo = volumeInicial * 0.02;
+    const medir = () => {
+      let soma = 0;
+      for (let i = 0; i < COLUNAS; i++) soma += alturas[i];
+      const pct = (soma / volumeInicial) * 100;
+      setRestante(soma <= limiarLimpo ? 0 : Math.max(1, Math.round(pct)));
+      if (soma <= limiarLimpo && !limpou) {
+        limpou = true;
+        ctxA.clearRect(0, 0, anim.width, anim.height);
+        ctxN.clearRect(0, 0, anim.width, anim.height);
+        setEncerrado(true);
+        refLimpou.current();
+      }
+    };
+
+    /* Gravidade / ângulo de repouso: a areia mais alta escorre para as
+       vizinhas mais baixas, aos poucos — o escoamento é pesado */
+    const escoar = () => {
+      const REPOUSO = 0.02; /* desnível tolerado entre colunas vizinhas */
+      const FLUXO = 0.12; /* fração transferida por quadro: devagar */
+      let mexeu = false;
+      for (let passe = 0; passe < 2; passe++) {
+        const inicio = passe === 0 ? 0 : COLUNAS - 2;
+        const fim = passe === 0 ? COLUNAS - 1 : -1;
+        const inc = passe === 0 ? 1 : -1;
+        for (let i = inicio; i !== fim; i += inc) {
+          const j = i + 1;
+          if (j < 0 || j >= COLUNAS) continue;
+          const dif = alturas[i] - alturas[j];
+          if (Math.abs(dif) <= REPOUSO) continue;
+          const excesso = (Math.abs(dif) - REPOUSO) * FLUXO;
+          if (dif > 0) {
+            alturas[i] -= excesso;
+            alturas[j] += excesso;
+          } else {
+            alturas[i] += excesso;
+            alturas[j] -= excesso;
+          }
+          mexeu = true;
+        }
+      }
+      if (mexeu) precisaDesenhar = true;
+      return mexeu;
+    };
+
+    const cavar = () => {
+      const L = anim.width;
+      const A = anim.height;
+      const dx = mouse.x - mouse.px;
+      const dy = mouse.y - mouse.py;
+      const passo = L / (COLUNAS - 1);
+      const centro = Math.round(mouse.x / passo);
+      const RAIO = 6; /* colunas afetadas de cada lado */
+      const superficie = A - Math.max(0, Math.min(1, alturas[Math.max(0, Math.min(COLUNAS - 1, centro))])) * A;
+      /* só mexe na areia se a mão estiver no monte (ou abaixo dele) */
+      if (mouse.y < superficie - 30) return;
+      const forca = Math.min(1, 0.35 + Math.hypot(dx, dy) / 60);
+      let retirado = 0;
+      for (let k = -RAIO; k <= RAIO; k++) {
+        const i = centro + k;
+        if (i < 0 || i >= COLUNAS) continue;
+        if (alturas[i] <= 0) continue;
+        const perto = 1 - Math.abs(k) / (RAIO + 1);
+        const tira = Math.min(alturas[i], 0.02 * forca * perto);
+        alturas[i] -= tira;
+        retirado += tira;
+      }
+      if (retirado <= 0) return;
+      /* parte da areia é empurrada para os lados; o resto voa para fora */
+      const lado = dx >= 0 ? 1 : -1;
+      const paraOsLados = retirado * 0.55;
+      const alvoInicio = centro + lado * (RAIO + 1);
+      for (let k = 0; k < RAIO; k++) {
+        const i = alvoInicio + lado * k;
+        if (i < 0 || i >= COLUNAS) continue;
+        alturas[i] = Math.min(1.4, alturas[i] + paraOsLados / RAIO);
+      }
+      if (graos.length < 140) {
+        const qtd = 3 + Math.floor(retirado * 260);
+        for (let k = 0; k < qtd; k++) {
+          graos.push({
+            x: mouse.x + (Math.random() - 0.5) * passo * RAIO * 2,
+            y: superficie + Math.random() * 26,
+            vx: (dx || lado) * (0.35 + Math.random() * 0.5),
+            vy: -1.6 - Math.random() * 2.4,
+            r: 0.5 + Math.random() * 1.4,
+            vida: 1,
+          });
+        }
+      }
+      precisaDesenhar = true;
+      precisaEnviar = true;
+    };
+
+    const enviarMapa = (agora) => {
+      if (!precisaEnviar || limpou) return;
+      if (agora - ultimoEnvio < 4000) return;
+      ultimoEnvio = agora;
+      precisaEnviar = false;
+      let mapa = "";
+      const porColuna = COLUNAS / AREIA_COLS;
+      for (let c = 0; c < AREIA_COLS; c++) {
+        let soma = 0;
+        for (let k = 0; k < porColuna; k++) {
+          soma += alturas[Math.floor(c * porColuna + k)] || 0;
+        }
+        const media = soma / porColuna;
+        mapa += Math.max(0, Math.min(9, Math.round(media * 9)));
+      }
+      refProgresso.current(mapa);
+    };
+
+    const quadro = (tempo) => {
+      if (!rodando) return;
+      if (mouse.ativo) cavar();
+      mouse.px = mouse.x;
+      mouse.py = mouse.y;
+      escoar();
+      if (precisaDesenhar && textura) {
+        desenharMonte(ctxA, alturas, anim.width, anim.height, textura);
+        precisaDesenhar = false;
+        medir();
+      }
+      if (graos.length > 0) {
+        ctxN.clearRect(0, 0, anim.width, anim.height);
+        graos = graos.filter((g) => {
+          g.x += g.vx;
+          g.y += g.vy;
+          g.vx *= 0.94;
+          g.vy += 0.22; /* cai pesado */
+          g.vida -= 0.014;
+          if (g.vida <= 0) return false;
+          if (g.y > anim.height + 20 || g.x < -30 || g.x > anim.width + 30) return false;
+          ctxN.beginPath();
+          ctxN.arc(g.x, g.y, g.r, 0, 6.283);
+          ctxN.fillStyle = `rgba(${150 + Math.round(g.r * 30)}, 118, 64, ${Math.max(0, g.vida)})`;
+          ctxN.fill();
+          return true;
+        });
+        if (graos.length === 0) ctxN.clearRect(0, 0, anim.width, anim.height);
+      }
+      enviarMapa(tempo);
+      raf = requestAnimationFrame(quadro);
+    };
+
+    const ponto = (ev) => {
+      const t = ev.touches && ev.touches[0];
+      return { x: t ? t.clientX : ev.clientX, y: t ? t.clientY : ev.clientY };
+    };
+    const aoPressionar = (ev) => {
+      const p = ponto(ev);
+      mouse.ativo = true;
+      mouse.x = p.x; mouse.y = p.y; mouse.px = p.x; mouse.py = p.y;
+      ev.preventDefault();
+    };
+    const aoMover = (ev) => {
+      if (!mouse.ativo) return;
+      const p = ponto(ev);
+      mouse.x = p.x;
+      mouse.y = p.y;
+      ev.preventDefault();
+    };
+    const aoSoltar = () => {
+      mouse.ativo = false;
+      ultimoEnvio = 0; /* grava o progresso assim que a mão sai */
+    };
+
+    dimensionar();
+    window.addEventListener("resize", dimensionar);
+    anim.addEventListener("mousedown", aoPressionar);
+    window.addEventListener("mousemove", aoMover);
+    window.addEventListener("mouseup", aoSoltar);
+    anim.addEventListener("touchstart", aoPressionar, { passive: false });
+    window.addEventListener("touchmove", aoMover, { passive: false });
+    window.addEventListener("touchend", aoSoltar);
+    raf = requestAnimationFrame(quadro);
+
+    return () => {
+      rodando = false;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", dimensionar);
+      anim.removeEventListener("mousedown", aoPressionar);
+      window.removeEventListener("mousemove", aoMover);
+      window.removeEventListener("mouseup", aoSoltar);
+      anim.removeEventListener("touchstart", aoPressionar);
+      window.removeEventListener("touchmove", aoMover);
+      window.removeEventListener("touchend", aoSoltar);
+    };
+  }, []);
+
+  if (encerrado) return null;
+
+  return (
+    <div className="tempestade">
+      <canvas ref={refAreia} className="tempestade-canvas" />
+      <canvas ref={refAnim} className="tempestade-canvas tempestade-topo" />
+      <div className="tempestade-medidor">Tela soterrada: {restante}%</div>
+    </div>
+  );
+}
+
+/* Areia dentro do cartão — o que os colegas veem: o mesmo monte, na
+   proporção do cartão. Redesenhado só quando o mapa muda */
+function AreiaCartao({ mapa }) {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const pai = c.parentElement;
+    const L = Math.max(40, (pai && pai.clientWidth) || 0);
+    const A = Math.max(40, (pai && pai.clientHeight) || 0);
+    c.width = L;
+    c.height = A;
+    const ctx = c.getContext("2d");
+    const alturas = new Float32Array(AREIA_COLS);
+    for (let i = 0; i < AREIA_COLS; i++) {
+      const v = mapa && mapa[i] !== undefined ? Number(mapa[i]) : 9;
+      alturas[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v / 9)) : 1;
+    }
+    desenharMonte(ctx, alturas, L, A, criarTextura(L, A));
+  }, [mapa]);
+  return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
+}
+
+/* ===== Poder Tempestade: a cena (nuvens em 3 camadas, mar com ondas, chuva,
+   raios) com o card da pessoa boiando à solta. Serve contida no cartão
+   (visão do time) e em tela cheia (a vítima). ===== */
+function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesfazer, cartao }) {
+  const cena = React.useMemo(() => {
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const pingos = [];
+    const nP = fullscreen ? 90 : 46;
+    for (let i = 0; i < nP; i++) pingos.push({ left: rnd(-6, 102), delay: rnd(0, 0.9), dur: rnd(0.28, 0.48), h: rnd(10, 19), op: rnd(0.55, 0.9) });
+    const nuvem = (tone, n, cyMin, cyMax, ryMin, ryMax) => {
+      const l = [];
+      for (let i = 0; i < n; i++) l.push({ cx: (i * 100) / (n - 1) + rnd(-4, 4), cy: rnd(cyMin, cyMax), rx: rnd(11, 17), ry: rnd(ryMin, ryMax) });
+      return { tone, lobos: l };
+    };
+    const nuvens = [nuvem("#3B4951", 8, 5, 10, 9, 14), nuvem("#55646D", 10, 4, 9, 8, 12), nuvem("#7E929C", 12, 3, 8, 7, 11)];
+    const raios = [];
+    for (let k = 0; k < 2; k++) {
+      let x = rnd(12, 88), y = 0, pts = x.toFixed(0) + ",0";
+      for (let s = 0; s < 14; s++) { x += rnd(-5, 5); y += 100 / 14; pts += " " + x.toFixed(1) + "," + y.toFixed(1); }
+      raios.push({ pts, delay: k * 0.09 });
+    }
+    return { pingos, nuvens, raios };
+  }, [fullscreen]);
+  const meta = membro.goalMl || 0;
+  const pct = meta > 0 ? Math.max(0, Math.min(1, bebido / meta)) : 0;
+  const clsN = ["mp-nb", "mp-nm", "mp-nf"];
+  const bp = "M22 6 h16 v8 q0 4 4 7 q6 5 6 14 v68 q0 7 -7 7 h-22 q-7 0 -7 -7 v-68 q0 -9 6 -14 q4 -3 4 -7 v-8 z";
+  const cid = "cbt-" + membro.id;
+  const Bt = fullscreen && onBeber ? <button className="mp-bt" onClick={onBeber}>Bebi 1 garrafa</button> : <div className="mp-bt">Bebi 1 garrafa</div>;
+  const Bt2 = fullscreen && onDesfazer ? <button className="mp-bt2" onClick={onDesfazer}>Desfazer</button> : <div className="mp-bt2">Desfazer</div>;
+  return (
+    <div className="mp-palco">
+      <div className="mp-dark" />
+      <svg className="mp-raios" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {cena.raios.map((r, i) => (<polyline key={i} className="mp-raio-ln" points={r.pts} style={{ animationDelay: r.delay + "s" }} />))}
+      </svg>
+      <div className="mp-mar mp-back" />
+      <div className="mp-card"><div className="mp-bob"><div className="mp-rock">
+        {cartao ? cartao : (<div className="mp-mini">
+          <div className="mp-head"><b>{membro.name}</b><span className="mp-ic">🔔 ×</span></div>
+          <div className="mp-sub">Garrafa de {fmt(membro.bottleMl)} · meta {fmt(meta)}</div>
+          <div className="mp-corpo">
+            <svg width={fullscreen ? 30 : 22} height={fullscreen ? 60 : 44} viewBox="0 0 60 120" aria-hidden="true">
+              <defs><clipPath id={cid}><path d={bp} /></clipPath></defs>
+              <rect x="0" y={120 - pct * 96 - 2} width="60" height="120" fill="#41C9E6" clipPath={"url(#" + cid + ")"} />
+              <path d={bp} fill="none" stroke="#0B3446" strokeWidth="2.5" />
+            </svg>
+            <div className="mp-dir"><div className="mp-vol">{fmt(bebido)}</div><div className="mp-meta">de {fmt(meta)}</div></div>
+          </div>
+          <div className="mp-barra"><i style={{ width: pct * 100 + "%" }} /></div>
+          <div className="mp-adder">{Bt}{Bt2}</div>
+        </div>)}
+      </div></div></div>
+      <div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />
+      <div className="mp-chuva">{cena.pingos.map((p, i) => (<span key={i} className="mp-pingo" style={{ left: p.left + "%", height: p.h + "px", animationDelay: p.delay + "s", animationDuration: p.dur + "s", opacity: p.op }} />))}</div>
+      <div className="mp-nuvens">{cena.nuvens.map((nv, i) => (
+        <div key={i} className={"mp-nuv " + clsN[i]}>
+          <svg viewBox="0 0 100 20" preserveAspectRatio="none">
+            <rect x="0" y="-12" width="100" height="18" fill={nv.tone} />
+            {nv.lobos.map((l, j) => (<ellipse key={j} cx={l.cx} cy={l.cy} rx={l.rx} ry={l.ry} fill={nv.tone} />))}
+          </svg>
+        </div>
+      ))}</div>
+      <div className="mp-flash" />
+    </div>
+  );
+}
+
+/* Tela cheia da vítima: o cenário + o "?" (explica como sair) + o medidor de escape (125%). */
+function TempestadeCena({ membro, bebido, onBeber, onDesfazer, cartao }) {
+  const [ajuda, setAjuda] = useState(false);
+  const meta = membro.goalMl || 0;
+  const pctHoje = meta > 0 ? bebido / meta : 0;
+  return (
+    <div className="tormenta-cena">
+      <PalcoTormenta membro={membro} bebido={bebido} fullscreen onBeber={onBeber} onDesfazer={onDesfazer} cartao={cartao} />
+      <div className="tc-medidor">Beba 125% da meta para escapar · {Math.round(pctHoje * 100)}%</div>
+      {ajuda && (
+        <div className="tc-pop">
+          <h4>⛈️ Poder Tempestade</h4>
+          <p>Um temporal tomou seu card: seu desempenho cai <b>12%</b> e você fica à deriva no mar revolto.</p>
+          <p className="saida">Para escapar: beba 125% da sua meta de hoje — aí a tempestade passa.</p>
+        </div>
+      )}
+      <div className="tc-ajuda" onClick={() => setAjuda((v) => !v)}>?</div>
+    </div>
+  );
+}
+
+/* Carta Anti-Seca: aparece só para o sorteado, com contador de validade.
+   O clique gira a carta 180º no eixo vertical, revelando o outro lado */
+function CartaAntiSeca({ expiraEm, virada, onVirar }) {
+  const [agora, setAgora] = React.useState(Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const resta = Math.max(0, expiraEm - agora);
+  const mm = String(Math.floor(resta / 60000)).padStart(2, "0");
+  const ss = String(Math.floor((resta % 60000) / 1000)).padStart(2, "0");
+  /* cada face tem seu próprio rótulo: fechada convida a abrir,
+     virada cobra o uso */
+  const contador = (rotulo) => (
+    <span className="carta-contador">
+      {rotulo}: {mm}:{ss}
+    </span>
+  );
+  return (
+    <div className="carta-palco" onClick={onVirar}>
+      <div className={`carta-giro ${virada ? "virada" : ""}`}>
+        <div className="carta-face carta-frente">
+          <svg className="carta-gota" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />
+          </svg>
+          <span className="carta-conteudo">
+            <strong>🤫 Silêncio…</strong>
+            <span>Algo chegou só para você. Vire a carta.</span>
+          </span>
+          {contador("Abra em até")}
+        </div>
+        <div className="carta-face carta-verso">
+          <span className="carta-conteudo">
+            <strong>🃏 Carta Anti-Seca</strong>
+            <span>
+              Escolha alguém (menos você) para ficar imune ao próximo cacto,
+              deserto ou soterramento.
+            </span>
+            <span>
+              Se o atacante esbarrar nessa proteção, o feitiço pode voltar
+              contra ele — e o poder fica com você.
+            </span>
+            <span className="carta-cta">Escolher quem proteger →</span>
+          </span>
+          {contador("Use em até")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Gráfico de barras: total de água (L) por mês, últimos ~6 meses.
+   Puramente visual, calculado a partir de intake/extras do membro */
+/* Gráfico de linha: água bebida por dia no mês (offset 0 = atual, 1 = anterior),
+   com a linha da meta. A meta é a do dia (congelada) — varia só se o usuário
+   mudou a meta ao longo do mês; senão fica reta */
+function GraficoMensal({ membro, intake, extras, metas, offset }) {
+  const hoje = new Date();
+  const ref = new Date(hoje.getFullYear(), hoje.getMonth() - offset, 1);
+  const ano = ref.getFullYear();
+  const mes = ref.getMonth();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const chaveHojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
+
+  const pts = [];
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const k = `${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    if (k > chaveHojeStr) break; /* não desenha o futuro */
+    const d = new Date(ano, mes, dia);
+    if (!ehDiaUtil(d)) continue; /* fim de semana e feriado não contam */
+    const count = (intake[k] && intake[k][membro.id]) || 0;
+    const extra = (extras[k] && extras[k][membro.id]) || 0;
+    const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
+    pts.push({ dia, ml: count * membro.bottleMl + extra, meta: metaDia });
+  }
+
+  const W = 480, H = 132, padL = 30, padR = 10, padT = 12, padB = 22;
+  const areaW = W - padL - padR;
+  const areaH = H - padT - padB;
+  const maxV = Math.max(
+    membro.goalMl,
+    ...pts.map((p) => p.ml),
+    ...pts.map((p) => p.meta),
+    1
+  ) * 1.1;
+  const x = (i) => padL + (pts.length <= 1 ? areaW / 2 : (i / (pts.length - 1)) * areaW);
+  const y = (v) => padT + areaH - (v / maxV) * areaH;
+  /* marcações do eixo Y em litros: 5 níveis (0, 25, 50, 75, 100%) */
+  const maxL = maxV / 1000;
+  const ticksY = [0, maxL * 0.25, maxL * 0.5, maxL * 0.75, maxL];
+  /* rótulos de dia no eixo X: até ~15, para mostrar bastante dia sem poluir */
+  const passoX = Math.max(1, Math.ceil(pts.length / 20));
+
+  /* caminho suavizado passando pelos pontos (curvas, sem bicos) */
+  const suave = (vals) => {
+    const P = vals.map((v, i) => [x(i), y(v)]);
+    if (P.length === 0) return "";
+    if (P.length === 1) return `M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;
+    let d = `M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;
+    for (let i = 0; i < P.length - 1; i++) {
+      const p0 = P[i - 1] || P[i];
+      const p1 = P[i];
+      const p2 = P[i + 1];
+      const p3 = P[i + 2] || p2;
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+      const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+      const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
+  const linhaAgua = suave(pts.map((p) => p.ml));
+  const areaAgua = pts.length
+    ? `${linhaAgua} L${x(pts.length-1).toFixed(1)} ${(padT+areaH).toFixed(1)} L${x(0).toFixed(1)} ${(padT+areaH).toFixed(1)} Z`
+    : "";
+  const linhaMeta = suave(pts.map((p) => p.meta));
+
+  return (
+    <div className="graf-mensal">
+      <p className="bloco-titulo">Água por dia (L)</p>
+      {pts.length === 0 ? (
+        <p className="sub">Sem registros neste mês.</p>
+      ) : (
+        <>
+          <svg className="graf-linha" viewBox={`0 0 ${W} ${H}`}>
+            <defs>
+              <linearGradient id={`gl-${membro.id}-${offset}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#41C9E6" stopOpacity="0.35" />
+                <stop offset="1" stopColor="#41C9E6" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {/* grade horizontal + rótulos de litros à esquerda */}
+            {ticksY.map((t, i) => {
+              const gy = padT + areaH - (t / maxL) * areaH;
+              return (
+                <g key={i}>
+                  <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke="#E2ECF2" strokeWidth="1" />
+                  <text x={padL - 5} y={gy + 3} textAnchor="end" className="graf-eixo-txt">
+                    {t === 0 ? "0" : t < 10 ? t.toFixed(1) : Math.round(t)}
+                  </text>
+                </g>
+              );
+            })}
+            {areaAgua && <path d={areaAgua} fill={`url(#gl-${membro.id}-${offset})`} />}
+            <path d={linhaMeta} fill="none" stroke="#C0392B" strokeWidth="1.2" strokeDasharray="4 3" strokeLinecap="round" />
+            <path d={linhaAgua} fill="none" stroke="#0F8BB0" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+            {/* rótulos de dia no eixo X */}
+            {pts.map((p, i) =>
+              i % passoX === 0 || i === pts.length - 1 ? (
+                <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="graf-eixo-txt">
+                  {p.dia}
+                </text>
+              ) : null
+            )}
+          </svg>
+          <div className="graf-legenda">
+            <span><i className="leg-agua" /> Bebido</span>
+            <span><i className="leg-meta" /> Meta</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Calendário do mês com uma gota por dia representando a % da meta batida.
+   offset 0 = mês atual, 1 = mês anterior (limite máximo) */
+function CalendarioGotas({ membro, intake, extras, metas, offset, ausencias = {} }) {
+  const feriadosManuais = ausencias.feriados || [];
+  const folgasDia = (k) => (ausencias.folgas && ausencias.folgas[k]) || [];
+  const hoje = new Date();
+  const ref = new Date(hoje.getFullYear(), hoje.getMonth() - offset, 1);
+  const ano = ref.getFullYear();
+  const mes = ref.getMonth();
+  const primeiroDiaSemana = new Date(ano, mes, 1).getDay();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const nomeMes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][mes];
+  const chaveHojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
+
+  const celulas = [];
+  for (let i = 0; i < primeiroDiaSemana; i++) celulas.push(null);
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const k = `${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    const d = new Date(ano, mes, dia);
+    const util = ehDiaUtil(d); /* fim de semana e feriado: só traço */
+    const feriado = ehFeriado(d) || feriadosManuais.includes(k);
+    const folga = !feriado && folgasDia(k).includes(membro.id);
+    const count = (intake[k] && intake[k][membro.id]) || 0;
+    const extra = (extras[k] && extras[k][membro.id]) || 0;
+    const metaDia = (metas && metas[k] && metas[k][membro.id]) || membro.goalMl;
+    const pct = metaDia > 0 ? (count * membro.bottleMl + extra) / metaDia : 0;
+    const futuro = k > chaveHojeStr;
+    const casamento =
+      nomeNormalizado(membro.name) === NOIVO_NOME &&
+      k >= CASAMENTO_INICIO && k <= CASAMENTO_FIM;
+    celulas.push({ dia, pct, futuro, util, feriado, folga, casamento, hoje: k === chaveHojeStr });
+  }
+
+  return (
+    <div className="calendario">
+      <p className="bloco-titulo">{nomeMes} {ano}</p>
+      <div className="cal-grade">
+        {["D","S","T","Q","Q","S","S"].map((d, i) => (
+          <span key={`h${i}`} className="cal-cab">{d}</span>
+        ))}
+        {celulas.map((c, i) =>
+          c === null ? (
+            <span key={`v${i}`} />
+          ) : (
+            <span key={c.dia} className={`cal-dia ${c.hoje ? "cal-hoje" : ""}`} title={c.feriado ? "Feriado" : c.folga ? "Folga" : c.futuro || !c.util ? "" : `${Math.round(c.pct*100)}% da meta`}>
+              {c.futuro ? (
+                <span className="cal-vazio" />
+              ) : c.casamento ? (
+                <GotaNoivo idClip={`caln-${membro.id}-${c.dia}-${offset}`} />
+              ) : c.feriado ? (
+                <span className="cal-icone"><IconeFeriado size={16} /></span>
+              ) : c.folga ? (
+                <span className="cal-icone"><IconeFolga size={17} uid={`cal-${membro.id}-${c.dia}-${offset}`} /></span>
+              ) : !c.util ? (
+                <span className="cal-traco">–</span>
+              ) : (
+                <GotaDia pct={c.pct} idClip={`cal-${membro.id}-${c.dia}-${offset}`} />
+              )}
+              <span className="cal-num">{c.dia}</span>
+            </span>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Campo de provocação personalizada com alternador texto ⇄ GIF.
+   No modo texto: digita e envia. No modo GIF: busca no Giphy, escolhe,
+   confirma e envia. onEnviar(texto) e onEnviarGif(url) fazem o disparo */
+function FraseLivre({ limite, onEnviar, onEnviarGif }) {
+  const [modo, setModo] = React.useState("texto"); // "texto" | "gif"
+  const [texto, setTexto] = React.useState("");
+  const [busca, setBusca] = React.useState("");
+  const [resultados, setResultados] = React.useState([]);
+  const [carregando, setCarregando] = React.useState(false);
+  const [erro, setErro] = React.useState("");
+  const [escolhido, setEscolhido] = React.useState(null); // {preview, full}
+
+  const buscarGif = async (termo) => {
+    if (!termo.trim()) return;
+    setCarregando(true);
+    setErro("");
+    setEscolhido(null);
+    try {
+      const r = await fetch(
+        `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(termo)}&limit=12&rating=g`
+      );
+      const d = await r.json();
+      if (!d.data || d.data.length === 0) {
+        setResultados([]);
+        setErro("Nada encontrado 🤷");
+      } else {
+        setResultados(
+          d.data.map((g) => ({
+            preview: (g.images.fixed_width_small || g.images.fixed_width).url,
+            full: (g.images.fixed_width || g.images.original).url,
+          }))
+        );
+      }
+    } catch {
+      setErro("Não consegui buscar agora. Tente de novo.");
+    }
+    setCarregando(false);
+  };
+
+  return (
+    <div className="frase-livre">
+      <div className="frase-livre-cab">
+        <p className="grupo-conquista frase-livre-titulo">
+          <span className="grupo-icone">
+            <IconeConquista
+              conquista={CONQUISTAS.find((c) => c.id === "incactificavel")}
+              tamanho={11}
+            />
+          </span>
+          {modo === "texto" ? "Sua provocação" : "Buscar GIF"}
+        </p>
+        <button
+          type="button"
+          className="alt-modo"
+          title={modo === "texto" ? "Enviar um GIF" : "Escrever texto"}
+          onClick={() => {
+            setModo(modo === "texto" ? "gif" : "texto");
+            setEscolhido(null);
+          }}
+        >
+          {modo === "texto" ? "GIF" : "Aa"}
+        </button>
+      </div>
+
+      {modo === "texto" ? (
+        <>
+          <div className="frase-livre-linha">
+            <input
+              type="text"
+              maxLength={limite}
+              placeholder="Escreva sua própria frase…"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && texto.trim()) {
+                  onEnviar(texto.trim());
+                  setTexto("");
+                }
+              }}
+            />
+            <button
+              className="mini-aplicar"
+              disabled={!texto.trim()}
+              onClick={() => {
+                onEnviar(texto.trim());
+                setTexto("");
+              }}
+            >
+              Enviar
+            </button>
+          </div>
+          <p className="frase-livre-conta">{texto.length}/{limite}</p>
+        </>
+      ) : (
+        <>
+          <div className="frase-livre-linha">
+            <input
+              type="text"
+              placeholder="Buscar no Giphy…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && buscarGif(busca)}
+            />
+            <button className="mini-aplicar" onClick={() => buscarGif(busca)}>
+              Buscar
+            </button>
+          </div>
+
+          {escolhido ? (
+            <div className="gif-confirma">
+              <img src={escolhido.full} alt="GIF escolhido" />
+              <div className="gif-confirma-acoes">
+                <button
+                  className="mini-aplicar"
+                  onClick={() => {
+                    onEnviarGif(escolhido.full);
+                    setEscolhido(null);
+                  }}
+                >
+                  Enviar GIF
+                </button>
+                <button className="desfazer" onClick={() => setEscolhido(null)}>
+                  Escolher outro
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="gif-grade">
+              {carregando && <p className="sub gif-aviso">Buscando…</p>}
+              {!carregando && erro && <p className="sub gif-aviso">{erro}</p>}
+              {!carregando &&
+                !erro &&
+                resultados.length === 0 && (
+                  <p className="sub gif-aviso">Digite algo e toque em Buscar 🔍</p>
+                )}
+              {!carregando &&
+                resultados.map((g, i) => (
+                  <img
+                    key={i}
+                    src={g.preview}
+                    alt="GIF"
+                    className="gif-item"
+                    onClick={() => setEscolhido(g)}
+                  />
+                ))}
+            </div>
+          )}
+          <p className="frase-livre-conta gif-fonte">Resultados via GIPHY</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Garrafa vestida de terno azul royal — tema do noivo (Renan) na semana
+   do casamento. Cobre quase todo o corpo, sobrando só a ponta */
+function GarrafaNoivo({ tamanho = 92 }) {
+  return (
+    <svg width={tamanho} height={(tamanho * 130) / 92} viewBox="0 0 92 130" aria-hidden="true">
+      <defs>
+        <clipPath id="corpo-noivo">
+          <path d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" />
+        </clipPath>
+      </defs>
+      <path d="M36 8 h20 v10 c0 4 10 8 12 16 c2 8 2 14 2 30 v50 c0 8 -6 12 -14 12 h-20 c-8 0 -14 -4 -14 -12 v-50 c0 -16 0 -22 2 -30 c2 -8 12 -12 12 -16 z" fill="#EAF6FA" stroke="#0B3446" strokeWidth="3" strokeLinejoin="round" />
+      <g clipPath="url(#corpo-noivo)">
+        <rect x="14" y="18" width="64" height="76" fill="#1E49B5" />
+        <path d="M46 18 L34 38 L46 90 L58 38 Z" fill="#F4F7FB" />
+        <path d="M46 20 L28 32 L34 38 L44 50 L46 26 Z" fill="#173A93" />
+        <path d="M46 20 L64 32 L58 38 L48 50 L46 26 Z" fill="#173A93" />
+        <path d="M34 38 L44 50 L40 38 Z" fill="#1E49B5" />
+        <path d="M58 38 L48 50 L52 38 Z" fill="#1E49B5" />
+        <path d="M46 24 l-4 7 4 42 4 -42 z" fill="#12245A" />
+        <path d="M46 24 l-3 4 3 4 3 -4 z" fill="#0C1838" />
+        <circle cx="46" cy="64" r="1.6" fill="#F4F7FB" />
+        <circle cx="46" cy="74" r="1.6" fill="#F4F7FB" />
+        <path d="M60 48 h8 l-4 5 z" fill="#F4F7FB" />
+      </g>
+      <path d="M40 18 l6 6 6 -6" fill="none" stroke="#F4F7FB" strokeWidth="2.5" strokeLinejoin="round" />
+      <rect x="33" y="1" width="26" height="9" rx="3" fill="#0B3446" />
+    </svg>
+  );
+}
+
+/* Bastão dourado da cactificação (prêmio do Rei da Cactificação) */
+const BASTAO_SVG = `<svg viewBox="-60 -150 120 300" style="width:100%;height:100%;overflow:visible">
+  <defs>
+    <linearGradient id="brei-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF3C4"/><stop offset="0.4" stop-color="#F6C945"/><stop offset="1" stop-color="#9C6B12"/></linearGradient>
+    <linearGradient id="brei-rod" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#B7841C"/><stop offset="0.5" stop-color="#F1C14A"/><stop offset="1" stop-color="#8A5E10"/></linearGradient>
+    <filter id="brei-sh" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#5a3d05" flood-opacity="0.45"/></filter>
+  </defs>
+  <g filter="url(#brei-sh)">
+    <rect x="-7" y="-26" width="14" height="270" rx="7" fill="url(#brei-rod)" stroke="#7d5510" stroke-width="2"/>
+    <rect x="-11" y="-36" width="22" height="13" rx="6" fill="url(#brei-gold)" stroke="#7d5510" stroke-width="1.5"/>
+    <path d="M-7 252 L0 276 L7 252 Z" fill="url(#brei-gold)" stroke="#7d5510" stroke-width="1.5"/>
+    <g transform="translate(0,-40) scale(0.56) translate(-46,-116)" fill="none" stroke-linecap="round">
+      <g stroke="#7d5510"><path d="M46 116V44" stroke-width="25"/><path d="M46 78 H30 a9 9 0 0 1 -9 -9 V58" stroke-width="19"/><path d="M46 92 H62 a9 9 0 0 0 9 -9 V70" stroke-width="19"/></g>
+      <g stroke="#E3A81C"><path d="M46 116V44" stroke-width="18"/><path d="M46 78 H30 a9 9 0 0 1 -9 -9 V58" stroke-width="12"/><path d="M46 92 H62 a9 9 0 0 0 9 -9 V70" stroke-width="12"/></g>
+      <path d="M40 55 l-5 -3 M52 65 l5 -3 M42 85 l-5 3 M52 100 l5 3" stroke="#9A6B12" stroke-width="2"/>
+      <circle cx="46" cy="38" r="4.5" fill="#FFF0B0" stroke="#C8971F" stroke-width="1.4"/>
+    </g>
+  </g></svg>`;
+function BastaoRei() {
+  return <div className="bastao-rei" aria-hidden="true" dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />;
+}
+
+/* ===================== Premiação do pódio (semanal) =====================
+   Overlay em tela cheia exibido de segunda a quarta (ver gating no App),
+   comemorando o ranking da semana ANTERIOR fechada. Classes com prefixo
+   "prem-" para não colidir com o CSS do app. Reaproveita GarrafaSel e
+   BASTAO_SVG já definidos acima. */
+function Medalha({ lugar, w = 42 }) {
+  const c = {
+    1: { disco: "#F6C945", aro: "#9C6B12", fita1: "#E6B800", fita2: "#B7841C", txt: "#6b4a08" },
+    2: { disco: "#DDE3E8", aro: "#8A939D", fita1: "#C3CBD3", fita2: "#9AA3AD", txt: "#5c636b" },
+    3: { disco: "#E09A54", aro: "#9C6224", fita1: "#CE8745", fita2: "#9C6224", txt: "#5e3a16" },
+  }[lugar] || {};
+  return (
+    <svg viewBox="0 0 64 86" width={w} height={w * 86 / 64} aria-hidden="true" style={{ filter: "drop-shadow(0 3px 5px rgba(0,0,0,.45))" }}>
+      <path d="M20 0 L34 40 L26 46 L12 6 Z" fill={c.fita2} />
+      <path d="M44 0 L30 40 L38 46 L52 6 Z" fill={c.fita1} />
+      <circle cx="32" cy="60" r="22" fill={c.disco} stroke={c.aro} strokeWidth="3.5" />
+      <circle cx="32" cy="60" r="15.5" fill="none" stroke={c.aro} strokeWidth="1.6" opacity=".55" />
+      <text x="32" y="69" textAnchor="middle" fontFamily="Sora, sans-serif" fontSize="24" fontWeight="800" fill={c.txt}>{lugar}º</text>
+    </svg>
+  );
+}
+
+function premRaiosSVG() {
+  let r = `<svg viewBox="-100 -100 200 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">`;
+  const N = 20;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2; const x1 = Math.cos(a) * 5, y1 = Math.sin(a) * 5, x2 = Math.cos(a) * 99, y2 = Math.sin(a) * 99;
+    const nx = -Math.sin(a), ny = Math.cos(a);
+    r += `<polygon points="${x1 + nx * 3},${y1 + ny * 3} ${x2 + nx * 8},${y2 + ny * 8} ${x2 - nx * 8},${y2 - ny * 8} ${x1 - nx * 3},${y1 - ny * 3}" fill="rgba(255,206,92,.92)"/>`;
+  }
+  r += `</svg>`; return r;
+}
+
+function AreiaChao() {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const c = ref.current; if (!c) return;
+    const W = 1600, H = 560; c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+    const base = 170;
+    const bumps = 9, seg = W / bumps;
+    const crest = [];
+    for (let i = 0; i <= bumps; i++) crest.push(base + Math.sin(i * 1.25) * 30 + Math.sin(i * 2.7 + 1) * 13);
+    const topo = new Path2D(); topo.moveTo(0, crest[0]);
+    const cheio = new Path2D(); cheio.moveTo(0, H); cheio.lineTo(0, crest[0]);
+    for (let i = 0; i < bumps; i++) {
+      const x0 = i * seg, x1 = (i + 1) * seg, ctrlY = Math.min(crest[i], crest[i + 1]) - 24;
+      topo.quadraticCurveTo(x0 + seg / 2, ctrlY, x1, crest[i + 1]);
+      cheio.quadraticCurveTo(x0 + seg / 2, ctrlY, x1, crest[i + 1]);
+    }
+    cheio.lineTo(W, H); cheio.closePath();
+    ctx.save(); ctx.clip(cheio);
+    const g = ctx.createLinearGradient(0, base - 70, 0, H);
+    g.addColorStop(0, "#E9CE9F"); g.addColorStop(.5, "#DCBB8A"); g.addColorStop(1, "#CBA470");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    for (let i = 0, n = Math.round(W * H / 9000); i < n; i++) {
+      const x = Math.random() * W, y = base - 50 + Math.random() * (H - base + 50), r = 18 + Math.random() * 60, tom = 198 + Math.round(Math.random() * 40);
+      ctx.globalAlpha = .05 + Math.random() * .09; ctx.fillStyle = `rgb(${tom},${tom - 28},${tom - 74})`;
+      ctx.beginPath(); ctx.ellipse(x, y, r, r * (.4 + Math.random() * .6), Math.random() * 3.14, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0, n = Math.round(W * H / 34); i < n; i++) {
+      const x = Math.random() * W, y = base - 50 + Math.random() * (H - base + 50), s = .5 + Math.random() * 1.7;
+      ctx.fillStyle = Math.random() < .5 ? `rgba(120,86,38,${.16 + Math.random() * .3})` : `rgba(255,246,214,${.2 + Math.random() * .45})`;
+      ctx.fillRect(x, y, s, s);
+    }
+    ctx.lineWidth = 2;
+    for (let r = 0; r < 5; r++) {
+      const yy = base + 30 + r * 30; ctx.strokeStyle = `rgba(150,112,58,.14)`; ctx.beginPath();
+      for (let x = 0; x <= W; x += 10) { const y = yy + Math.sin(x * 0.016 + r * 1.3) * 7; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke();
+    }
+    ctx.restore();
+    ctx.strokeStyle = "rgba(255,246,214,.55)"; ctx.lineWidth = 3; ctx.stroke(topo);
+  }, []);
+  return <canvas ref={ref} className="prem-areia-canvas" aria-hidden="true" />;
+}
+
+const PREM_MEDAL_TOP = { padrao: "42%", esportiva: "40%", galao: "42%", aquario: "54%", longneck: "56%" };
+
+function Premiacao({ podio, perdedores, onRepeat, onContinuar }) {
+  const [fase, setFase] = useState("perto");
+  const [medalhas, setMedalhas] = useState(false);
+  const [perdOn, setPerdOn] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const [quebradas, setQuebradas] = useState([]);
+  const cacosRef = useRef(null);
+  const perdRefs = useRef([]);
+  const timers = useRef([]);
+  const raiosRef = useRef(null);
+  const faseRef = useRef("perto");
+  const tremeT0 = useRef(0);
+  const temBastao = !!(podio.p1 && podio.p1.bastao);
+
+  const limpar = () => { timers.current.forEach((t) => (t._raf ? t.cancel() : clearTimeout(t))); timers.current = []; };
+  const T = (fn, ms) => timers.current.push(setTimeout(fn, ms));
+
+  useEffect(() => {
+    limpar();
+    setFase("perto"); setMedalhas(false); setPerdOn(false); setQuebradas([]);
+    T(() => setMedalhas(true), 800);
+    T(() => setFase("afasta"), 1400);
+    T(() => setPerdOn(true), 2600);
+    T(() => { tremeT0.current = Date.now(); setFase("treme"); }, 7200);
+    T(() => setFase("bastao"), 8500);
+    T(() => quebrarPerdedores(), 9800);
+    T(() => setFase("final"), 12000);
+    return limpar;
+  }, []);
+
+  const quebrarPerdedores = () => {
+    setFase("quebra");
+    const canvas = cacosRef.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    let cacos = [];
+    const estilhacar = (el, i) => {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setFlash(true); T(() => setFlash(false), 180);
+      setQuebradas((prev) => (prev.includes(i) ? prev : [...prev, i]));
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const cores = ["#41C9E6", "#0F8BB0", "#8ad7ea", "#EAF6FA", "#0B3446"];
+      for (let k = 0; k < 44; k++) {
+        const ang = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 9;
+        cacos.push({ x: cx + (Math.random() - .5) * r.width * 0.6, y: cy + (Math.random() - .5) * r.height * 0.6,
+          vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 4, s: 4 + Math.random() * 9,
+          rot: Math.random() * 6.28, vr: (Math.random() - .5) * .5, vida: 1, cor: cores[(Math.random() * cores.length) | 0] });
+      }
+    };
+    perdRefs.current.forEach((el, i) => T(() => estilhacar(el, i), i * 120));
+    let raf;
+    const loop = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      cacos.forEach((p) => {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.45; p.vx *= 0.99; p.rot += p.vr; p.vida -= 0.012; if (p.vida <= 0) return;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.max(0, p.vida);
+        ctx.fillStyle = p.cor; ctx.strokeStyle = "rgba(11,52,70,.6)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, -p.s); ctx.lineTo(p.s * 0.9, p.s * 0.6); ctx.lineTo(-p.s * 0.8, p.s * 0.7); ctx.closePath();
+        ctx.fill(); ctx.stroke(); ctx.restore();
+      });
+      cacos = cacos.filter((p) => p.vida > 0 && p.y < canvas.height + 60);
+      if (cacos.length > 0) raf = requestAnimationFrame(loop); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    raf = requestAnimationFrame(loop);
+    timers.current.push({ _raf: true, cancel: () => cancelAnimationFrame(raf) });
+  };
+
+  faseRef.current = fase;
+  useEffect(() => {
+    let ang = 0, speed = 0.07, raf;
+    const alvo = () => {
+      const f = faseRef.current;
+      if (f === "treme" || f === "bastao") {
+        const prog = Math.min(1, (Date.now() - tremeT0.current) / 2600);
+        return 0.12 + prog * 0.75;
+      }
+      if (f === "quebra" || f === "final") return 0.05;
+      return 0.07;
+    };
+    const loop = () => {
+      speed += (alvo() - speed) * 0.03;
+      ang = (ang + speed) % 360;
+      if (raiosRef.current) raiosRef.current.style.transform = `translate(-50%,-50%) rotate(${ang}deg)`;
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const luzOn = temBastao && fase !== "perto";
+
+  const Vaga = ({ lugar, dados, cls, tamanho }) => (
+    <div className={`prem-vaga ${cls}`}>
+      <div className="prem-garrafa-wrap">
+        <div className={`prem-medalha ${medalhas ? "posta" : ""}`} style={{ top: PREM_MEDAL_TOP[dados.garrafa] || "42%" }}><Medalha lugar={lugar} w={Math.round(tamanho * 0.52)} /></div>
+        <GarrafaSel id={dados.garrafa} pct={1} tamanho={tamanho} />
+      </div>
+      <p className="prem-nome">{dados.nome}</p>
+      <div className="prem-bloco">{lugar}º</div>
+    </div>
+  );
+
+  return (
+    <div className={`prem-cena prem-fase-${fase} ${perdOn ? "prem-perd-on" : ""}`}>
+      {temBastao && <>
+        <div ref={raiosRef} className={`prem-raios ${luzOn ? "on" : ""}`} dangerouslySetInnerHTML={{ __html: premRaiosSVG() }} />
+        <div className={`prem-luz ${luzOn ? "on" : ""} ${(fase === "treme" || fase === "bastao") ? "intenso" : ""}`} />
+      </>}
+      <div className="prem-titulo"><small>CAMPEÃO DA SEMANA</small>{podio.p1.nome}</div>
+
+      <div className="prem-palco">
+        <div className="prem-mundo">
+          <div className="prem-podio">
+            {podio.p2 && <Vaga lugar={2} dados={podio.p2} cls="prem-p2" tamanho={84} />}
+            <div className="prem-vaga prem-p1">
+              <div className="prem-garrafa-wrap" style={{ zIndex: 3 }}>
+                <div className={`prem-medalha ${medalhas ? "posta" : ""}`} style={{ top: PREM_MEDAL_TOP[podio.p1.garrafa] || "42%" }}><Medalha lugar={1} w={Math.round(108 * 0.52)} /></div>
+                <GarrafaSel id={podio.p1.garrafa} pct={1} tamanho={108} />
+              </div>
+              {temBastao &&
+                <div className={`prem-bastao ${fase !== "perto" ? "visivel" : ""} ${(fase === "bastao" || fase === "quebra" || fase === "final") ? "erguido" : ""}`}
+                     dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />}
+              <div className="prem-bloco">1º</div>
+            </div>
+            {podio.p3 && <Vaga lugar={3} dados={podio.p3} cls="prem-p3" tamanho={84} />}
+          </div>
+
+          <div className="prem-areia-chao"><AreiaChao /></div>
+
+          <div className="prem-fileira">
+            {perdedores.map((p, i) => (
+              <div key={i}
+                   className={`prem-perdedor ${(fase === "treme" || fase === "bastao") && !quebradas.includes(i) ? "prem-treme" : ""} ${quebradas.includes(i) ? "prem-estilhacada" : ""}`}
+                   ref={(el) => (perdRefs.current[i] = el)} style={{ animationDelay: (i * 0.03) + "s" }}>
+                <GarrafaSel id={p.garrafa} pct={0.5} tamanho={86} />
+                <div className="prem-rotulo">{4 + i}º · {p.nome}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="prem-vinheta" />
+      <canvas className="prem-cacos" ref={cacosRef} />
+      <div className={`prem-flash ${flash ? "on" : ""}`} />
+
+      <div className="prem-fim">
+        <div className="prem-fim-ctrl">
+          <button className="prem-btn-repetir" onClick={onRepeat} title="Repetir animação" aria-label="Repetir animação">↺</button>
+          <button className="prem-btn-continuar" onClick={onContinuar}>Continuar</button>
+        </div>
+        <div className="prem-fim-texto">↺ repete a animação · “Continuar” abre o painel</div>
+      </div>
+    </div>
+  );
+}
+
+/* Repetir remonta a animação (volta ao enquadramento inicial, sem zoom) */
+function PremiacaoOverlay({ podio, perdedores, onContinuar }) {
+  const [k, setK] = useState(0);
+  return <Premiacao key={k} podio={podio} perdedores={perdedores} onRepeat={() => setK((x) => x + 1)} onContinuar={onContinuar} />;
+}
+
+/* Gota do ranking com gravata — noivo na semana do casamento */
+function GotaNoivo({ idClip }) {
+  return (
+    <svg width="22" height="26" viewBox="0 0 24 30" aria-hidden="true">
+      <defs>
+        <clipPath id={idClip}>
+          <path d="M12 4 C12 4 4 14 4 20 a8 8 0 0 0 16 0 C20 14 12 4 12 4 Z" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${idClip})`}>
+        <rect x="0" y="0" width="24" height="30" fill="#1E49B5" />
+        <path d="M12 4 L7 13 L12 27 L17 13 Z" fill="#F4F7FB" />
+        <path d="M12 5 L5 11 L8 14 L12 9 Z" fill="#173A93" />
+        <path d="M12 5 L19 11 L16 14 L12 9 Z" fill="#173A93" />
+      </g>
+      <path d="M12 4 C12 4 4 14 4 20 a8 8 0 0 0 16 0 C20 14 12 4 12 4 Z" fill="none" stroke="#0B3446" strokeWidth="1.6" />
+      <path d="M12 8 l-2.5 3.5 2.5 12 2.5 -12 z" fill="#12245A" />
+      <path d="M12 8 l-2 2.5 2 2.5 2 -2.5 z" fill="#0C1838" />
+    </svg>
+  );
+}
+
+/* ===================== Olhos animados das garrafas ===================== */
+/* posição/tamanho dos olhos como % da PRÓPRIA garrafa (escalam junto) */
+const EYE_POS = {
+  padrao:   {top:"42%", left:"64%", w:"48%"},
+  esportiva:{top:"38%", left:"61%", w:"54%"},
+  aquario:  {top:"34%", left:"66%", w:"50%"},
+  galao:    {top:"43%", left:"65%", w:"52%"},
+  longneck: {top:"48%", left:"66%", w:"78%"},
+  becker:   {top:"52%", left:"52%", w:"54%"},
+  cacto:    {top:"46%", left:"57%", w:"28%"},
+};
+const INK="#0B3446", IRIS="#0F8BB0", IRIS2="#41C9E6", SCLERA="#FFFFFF", LID="#DCEAF2";
+const R={cx:124,cy:84,rx:27,ry:41}, L={cx:80,cy:84,rx:27,ry:41};
+
+function lidShape(e,tipo){
+  if(tipo==="half"||tipo==="tired"){
+    const ly=tipo==="tired"?e.cy+4:e.cy-6;
+    return `<path d="M${e.cx-e.rx-2} ${e.cy-e.ry-2} H${e.cx+e.rx+2} V${ly} H${e.cx-e.rx-2} Z" fill="${LID}"/><path d="M${e.cx-e.rx} ${ly} H${e.cx+e.rx}" stroke="${INK}" stroke-width="5" stroke-linecap="round" fill="none"/>`;
+  }
+  if(tipo==="angry"){
+    const inner=e.cx<100?{x:e.cx+e.rx,y:e.cy+8}:{x:e.cx-e.rx,y:e.cy+8};
+    const outer=e.cx<100?{x:e.cx-e.rx,y:e.cy-14}:{x:e.cx+e.rx,y:e.cy-14};
+    return `<path d="M${e.cx} ${e.cy-e.ry-6} L${outer.x} ${outer.y-20} L${outer.x} ${outer.y} L${inner.x} ${inner.y} L${inner.x} ${e.cy-e.ry-6} Z" fill="${LID}"/><path d="M${outer.x} ${outer.y} L${inner.x} ${inner.y}" stroke="${INK}" stroke-width="5.5" stroke-linecap="round" fill="none"/>`;
+  }
+  if(tipo==="sad"){
+    const inner=e.cx<100?{x:e.cx+e.rx,y:e.cy-10}:{x:e.cx-e.rx,y:e.cy-10};
+    const outer=e.cx<100?{x:e.cx-e.rx,y:e.cy+4}:{x:e.cx+e.rx,y:e.cy+4};
+    return `<path d="M${outer.x} ${outer.y-24} L${outer.x} ${outer.y} L${inner.x} ${inner.y} L${inner.x} ${inner.y-24} Z" fill="${LID}"/><path d="M${outer.x} ${outer.y} L${inner.x} ${inner.y}" stroke="${INK}" stroke-width="5" stroke-linecap="round" fill="none"/>`;
+  }
+  if(tipo==="smile"){
+    return `<path d="M${e.cx-e.rx-2} ${e.cy+e.ry+2} H${e.cx+e.rx+2} V${e.cy+3} Q${e.cx} ${e.cy-9} ${e.cx-e.rx-2} ${e.cy+3} Z" fill="${LID}"/><path d="M${e.cx-e.rx} ${e.cy+3} Q${e.cx} ${e.cy-9} ${e.cx+e.rx} ${e.cy+3}" stroke="${INK}" stroke-width="5" stroke-linecap="round" fill="none"/>`;
+  }
+  return "";
+}
+
+function olho(e,o,uid){
+  const dx=o.dx||0, dy=o.dy||0, pr=o.pr||12, cid=`c-${uid}-${o.side}`;
+  const px=e.cx+dx, py=e.cy+dy;
+  let nucleo;
+  if(o.pupil==="heart") nucleo=`<g class="an" style="animation:heart 1s ease-in-out infinite"><path d="M${px} ${py+6} C ${px-10} ${py-6}, ${px-13} ${py+2}, ${px} ${py+10} C ${px+13} ${py+2}, ${px+10} ${py-6}, ${px} ${py+6} Z" fill="#E4574C"/></g>`;
+  else if(o.pupil==="spiral") nucleo=`<g class="an" style="animation:spin 2.2s linear infinite"><path d="M${px} ${py} m0,-2 a2,2 0 1,1 -4,2 a5,5 0 1,1 9,0 a8,8 0 1,1 -15,0 a11,11 0 1,1 20,0" fill="none" stroke="${IRIS}" stroke-width="3" stroke-linecap="round"/></g>`;
+  else if(o.pupil==="dollar") nucleo=`<circle cx="${px}" cy="${py}" r="${pr+1}" fill="#1F7A3D"/><text x="${px}" y="${py+6}" text-anchor="middle" font-family="Sora" font-size="18" font-weight="800" fill="#EAFBEF">$</text>`;
+  else nucleo=`<circle cx="${px}" cy="${py}" r="${pr}" fill="${INK}"/><circle cx="${px}" cy="${py}" r="${pr*0.5}" fill="${IRIS}"/><circle cx="${px-pr*0.4}" cy="${py-pr*0.45}" r="${pr*0.28}" fill="#fff"/>`;
+  const lookAnim=(o.look&&!o.pupil)?` style="animation:${o.look}"`:"";
+  if(o.lid==="crescent"){ /* felicidade: lua crescente invertida, sem pálpebra inferior */
+    const d=`M${e.cx-e.rx} ${e.cy-1} C${e.cx-e.rx*0.55} ${e.cy-e.ry} ${e.cx+e.rx*0.55} ${e.cy-e.ry} ${e.cx+e.rx} ${e.cy-1} Q${e.cx} ${e.cy-4} ${e.cx-e.rx} ${e.cy-1} Z`;
+    return `<path d="${d}" fill="${SCLERA}"/><clipPath id="cr-${cid}"><path d="${d}"/></clipPath><g clip-path="url(#cr-${cid})"><g class="pup"${lookAnim}>${nucleo}</g></g><path d="${d}" fill="none" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>`;
+  }
+  /* pálpebras da piscada: fecham dentro do círculo, não comprimem o olho */
+  let lids="";
+  if(o.blink && !o.pupil){
+    const w=e.rx*2+8, x0=e.cx-e.rx-4;
+    const temPalpebraSup=["half","angry","sad","tired"].includes(o.lid); /* já tem pálpebra superior */
+    const sup = temPalpebraSup ? "" : `<g class="an lid-sup" style="animation:piscaSup ${o.blink} infinite"><rect x="${x0}" y="${e.cy-e.ry-4}" width="${w}" height="${e.ry+4}" fill="${LID}"/><rect x="${x0}" y="${e.cy-1}" width="${w}" height="3.5" fill="${INK}"/></g>`;
+    lids = sup + `<g class="an lid-inf" style="animation:piscaInf ${o.blink} infinite"><rect x="${x0}" y="${e.cy-1}" width="${w}" height="${e.ry+5}" fill="${LID}"/><rect x="${x0}" y="${e.cy-1}" width="${w}" height="3.5" fill="${INK}"/></g>`;
+  }
+  return `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${SCLERA}"/>
+    <g clip-path="url(#${cid})"><g class="pup"${lookAnim}>${nucleo}</g>${lidShape(e,o.lid)}${lids}</g>
+    <ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="none" stroke="${INK}" stroke-width="4"/>`;
+}
+function olhoFechado(e){
+  return `<path d="M${e.cx-e.rx} ${e.cy-2} Q${e.cx} ${e.cy+22} ${e.cx+e.rx} ${e.cy-2}" fill="none" stroke="${INK}" stroke-width="5.5" stroke-linecap="round"/><path d="M${e.cx-e.rx+4} ${e.cy+8} l-6 7 M${e.cx} ${e.cy+14} l0 9 M${e.cx+e.rx-4} ${e.cy+8} l6 7" stroke="${INK}" stroke-width="3" stroke-linecap="round" fill="none" opacity=".6"/>`;
+}
+function olhoRindo(e){ /* zoação: olho rindo, arco para cima */
+  return `<path d="M${e.cx-e.rx+2} ${e.cy+5} Q${e.cx} ${e.cy-20} ${e.cx+e.rx-2} ${e.cy+5}" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/>`;
+}
+function brow(d){ return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round"/>`; }
+
+let UID=0;
+function face(cfg, uidOverride){
+  const uid = uidOverride || ("u"+(UID++));
+  const er={...R, ...(cfg.size||{})}, el={...L, ...(cfg.size||{})};
+  const eye=cfg.eye||{};
+  const brows=cfg.brows||[brow(`M61 38 Q84 30 107 38`),brow(`M95 38 Q118 30 141 38`)];
+  const winkL=cfg.winkLeft?`style="animation:wink 3.4s ease-in-out infinite"`:"";
+  let eyeR, eyeL;
+  if(cfg.closed){ eyeR=olhoFechado(er); eyeL=olhoFechado(el); }
+  else if(cfg.rindo){ eyeR=olhoRindo(er); eyeL=olhoRindo(el); }
+  else { eyeR=olho(er,{...eye,side:"r",blink:cfg.blink},uid); eyeL=cfg.winkLeft?olhoFechado(el):olho(el,{...eye,side:"l",blink:cfg.blink},uid); }
+  let extra="";
+  if(cfg.tear) extra+=`<path class="an" style="animation:tear 2.4s ease-in infinite" d="M${el.cx+8} ${el.cy+26} q-5 7 0 11 q5 -4 0 -11 Z" fill="${IRIS2}"/>`;
+  if(cfg.zzz) extra+=`<text class="an" style="animation:zzz 2.6s ease-in infinite" x="146" y="48" font-family="Sora" font-size="18" font-weight="800" fill="${IRIS}">z</text><text class="an" style="animation:zzz 2.6s ease-in infinite .6s" x="146" y="48" font-family="Sora" font-size="23" font-weight="800" fill="${IRIS}">z</text><text class="an" style="animation:zzz 2.6s ease-in infinite 1.2s" x="146" y="48" font-family="Sora" font-size="29" font-weight="800" fill="${IRIS}">z</text>`;
+  if(cfg.kk) extra+=`<text class="an" style="animation:zzz 1.6s ease-in infinite" x="146" y="50" font-family="Sora" font-size="17" font-weight="800" fill="#E4574C">k</text><text class="an" style="animation:zzz 1.6s ease-in infinite .4s" x="146" y="50" font-family="Sora" font-size="22" font-weight="800" fill="#E4574C">k</text><text class="an" style="animation:zzz 1.6s ease-in infinite .8s" x="146" y="50" font-family="Sora" font-size="27" font-weight="800" fill="#E4574C">k</text>`;
+  if(cfg.sparkle){ const sx=148, sy=52;
+    extra+=`<path class="an" style="animation:twinkle 1.8s ease-in-out infinite;transform-origin:${sx}px ${sy}px" d="M${sx} ${sy-8} Q${sx} ${sy} ${sx+8} ${sy} Q${sx} ${sy} ${sx} ${sy+8} Q${sx} ${sy} ${sx-8} ${sy} Q${sx} ${sy} ${sx} ${sy-8} Z" fill="#F6C945"/>`
+      +`<path class="an" style="animation:twinkle 1.8s ease-in-out infinite .9s;transform-origin:${sx-14}px ${sy+16}px" d="M${sx-14} ${sy+11} Q${sx-14} ${sy+16} ${sx-9} ${sy+16} Q${sx-14} ${sy+16} ${sx-14} ${sy+21} Q${sx-14} ${sy+16} ${sx-19} ${sy+16} Q${sx-14} ${sy+16} ${sx-14} ${sy+11} Z" fill="#F6C945"/>`; }
+  const outer=cfg.anim?` style="animation:${cfg.anim}"`:"";
+  /* o olho ESQUERDO fica na frente; o DIREITO não invade a área do esquerdo:
+     recortamos o direito com uma máscara (folga de 5px) e cortamos cada
+     sobrancelha na linha do meio para não cruzarem. */
+  const mid=((el.cx)+(er.cx))/2;
+  /* olhos redondos: o direito ENCOSTA no esquerdo (folga 0). dormindo/feliz/zoação
+     são arcos finos: recorta só um pouco, deixando leve sobreposição. */
+  const arcEyes = cfg.closed || cfg.rindo || (eye.lid==="crescent");
+  const gap = arcEyes ? -2 : 0;
+  const tol = arcEyes ? 3 : 1; /* tolerância do corte das sobrancelhas */
+  const maskDef = `<mask id="mk-${uid}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="20" y="-40" width="180" height="240"><rect x="20" y="-40" width="180" height="240" fill="#fff"/><ellipse cx="${el.cx}" cy="${el.cy}" rx="${el.rx+gap}" ry="${el.ry+gap}" fill="#000"/></mask>`;
+  return `<svg viewBox="52 12 102 120" aria-hidden="true"><defs>
+    <clipPath id="c-${uid}-r"><ellipse cx="${er.cx}" cy="${er.cy}" rx="${er.rx}" ry="${er.ry}"/></clipPath>
+    <clipPath id="c-${uid}-l"><ellipse cx="${el.cx}" cy="${el.cy}" rx="${el.rx}" ry="${el.ry}"/></clipPath>
+    <clipPath id="bl-${uid}"><rect x="20" y="-20" width="${mid-20+tol}" height="200"/></clipPath>
+    <clipPath id="br-${uid}"><rect x="${mid-tol}" y="-20" width="180" height="200"/></clipPath>
+    ${maskDef}</defs>
+    <g class="an"${outer}>
+      <g clip-path="url(#bl-${uid})">${brows[0]||""}</g>
+      <g clip-path="url(#br-${uid})">${brows[1]||""}</g>
+      <g mask="url(#mk-${uid})">${eyeR}</g>
+      ${eyeL}
+      ${extra}</g></svg>`;
+}
+
+const bU=(s)=>brow(s);
+/* mapeadas = gatilho no app; extras = opcionais */
+const EXPR=[
+  {key:"dormindo",nome:"Dormindo",obs:"sem beber / +4h sem beber",
+    closed:true, zzz:true,
+    brows:[bU(`M61 40 Q84 36 107 40`),bU(`M95 40 Q118 36 141 40`)], anim:"droop 3.4s ease-in-out infinite"},
+  {key:"feliz",nome:"Feliz",obs:"bebeu gole / saiu de poder",
+    brows:[bU(`M61 28 Q84 18 107 28`),bU(`M95 28 Q118 18 141 28`)],
+    size:{ry:54}, eye:{lid:"crescent",dy:-16,pr:11,look:"lookHappy 5s ease-in-out infinite"}, anim:"bob 2s ease-in-out infinite"},
+  {key:"neutra",nome:"Neutra",obs:"20min sem gole / bebeu sob poder",
+    eye:{pr:12,look:"lookCalm 6s ease-in-out infinite"}, blink:"4.5s"},
+  {key:"raiva",nome:"Raiva",obs:"recebeu poder (20 min)",
+    brows:[bU(`M61 30 L109 48`),bU(`M93 48 L141 30`)],
+    eye:{lid:"angry",pr:10,look:"lookSide 2.4s ease-in-out infinite"}},
+  {key:"seria",nome:"Séria",obs:"após 20min de raiva",
+    brows:[bU(`M61 40 L107 39`),bU(`M95 39 L141 40`)],
+    eye:{lid:"half",pr:12,look:"lookSerious 7s ease-in-out infinite"}, blink:"6s"},
+  {key:"surpresa",nome:"Surpresa",obs:"vulnerável a poder",
+    brows:[bU(`M61 26 Q84 16 107 26`),bU(`M95 26 Q118 16 141 26`)],
+    size:{ry:47}, eye:{pr:9,look:"lookBusy 3.5s ease-in-out infinite"}},
+  {key:"zoacao",nome:"Zoação",obs:"usou poder em alguém",
+    brows:[bU(`M63 34 L104 47`),bU(`M98 47 L139 34`)],
+    rindo:true, kk:true, anim:"laugh .6s ease-in-out infinite"},
+  /* --- extras opcionais --- */
+  {key:"triste",nome:"Tristeza",obs:"extra",
+    brows:[bU(`M61 46 L107 36`),bU(`M95 36 L141 46`)],
+    eye:{lid:"sad",dy:5,pr:11,look:"lookDown 5.5s ease-in-out infinite"}, tear:true, anim:"droop 3s ease-in-out infinite", blink:"7s"},
+  {key:"apaixonada",nome:"Apaixonada",obs:"extra",
+    brows:[bU(`M61 30 Q84 22 107 30`),bU(`M95 30 Q118 22 141 30`)],
+    eye:{pupil:"heart"}, anim:"sway 2.4s ease-in-out infinite"},
+  {key:"tonta",nome:"Tonta",obs:"extra",
+    eye:{pupil:"spiral"}, anim:"sway 1.8s ease-in-out infinite"},
+  {key:"desconfiada",nome:"Desconfiada",obs:"extra",
+    brows:[bU(`M61 42 L107 40`),bU(`M95 30 Q118 24 141 32`)],
+    eye:{lid:"half",pr:11,look:"lookSide 4.2s ease-in-out infinite"}, blink:"6s"},
+  {key:"piscando",nome:"Piscando",obs:"extra",
+    brows:[bU(`M61 34 Q84 26 107 34`),bU(`M95 32 Q118 24 141 32`)],
+    eye:{dy:-2,look:"lookCalm 5s ease-in-out infinite"}, winkLeft:true},
+  {key:"cifrao",nome:"Cifrão",obs:"extra (ganhou garrafa)",
+    brows:[bU(`M61 30 Q84 22 107 30`),bU(`M95 30 Q118 22 141 30`)],
+    eye:{pupil:"dollar"}, anim:"pop 2s ease-in-out infinite"},
+  {key:"orgulho",nome:"Orgulho",obs:"1º lugar / meta batida",
+    brows:[bU(`M61 30 Q84 23 107 29`),bU(`M95 29 Q118 23 141 30`)],
+    eye:{lid:"half",dy:4,pr:11,look:"lookSerious 7s ease-in-out infinite"}, sparkle:true, blink:"6s", anim:"sway 3.4s ease-in-out infinite"},
+];
+
+
+const EXPR_BY_KEY = Object.fromEntries(EXPR.map(e => [e.key, e]));
+function OlhosGarrafa({ tipo, expr, tremor, uid }) {
+  let cfg = EXPR_BY_KEY[expr] || EXPR_BY_KEY["neutra"];
+  /* o tremor da raiva só nos primeiros ~10s (25 ciclos de .4s) e, com uid
+     estável, o re-render não reinicia a animação */
+  if (expr === "raiva" && tremor) cfg = { ...cfg, anim: "shake .4s ease-in-out 25 both" };
+  const pos = EYE_POS[tipo] || EYE_POS["padrao"];
+  return (
+    <div className="olhos-garrafa" style={{ top: pos.top, left: pos.left, width: pos.w }}
+         dangerouslySetInnerHTML={{ __html: face(cfg, "ol-" + (uid || "x") + "-" + expr) }} />
+  );
+}
+
+function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const bebido = count * membro.bottleMl + extraMl;
+  const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
+  const totalGarrafas = Math.max(1, Math.ceil(membro.goalMl / membro.bottleMl));
+  const bateu = membro.goalMl > 0 && bebido >= membro.goalMl;
+  const cactificado = !!efeitos.cacto;
+  const desertico = !!efeitos.deserto;
+  const soterrado = !!efeitos.tempestade;
+  const tormentado = !!efeitos.tormenta;
+
+  return (
+    <div
+      id={flutuante ? undefined : `card-${membro.id}`}
+      className={`cartao ${flutuante ? "cartao-flutuante" : ""} ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${tormentado ? "tormentado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""} ${conquistaRei && !noivo ? "rei-conquista" : ""}`}
+    >
+      {rei && !noivo && <BastaoRei />}
+      <div className="cartao-topo">
+        <div>
+          <div className="nome-linha">
+            <h2 className="nome">{membro.name}</h2>
+            <button
+              className="btn-historico"
+              title={`Ver histórico de ${membro.name}`}
+              aria-label={`Ver histórico de ${membro.name}`}
+              onClick={() => onHistorico(membro)}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12.5 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v4.5" />
+                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                <path d="M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+              </svg>
+            </button>
+          </div>
+          <p className="sub">
+            {noivo ? "🤵 De férias no casamento" : `Garrafa de ${fmt(membro.bottleMl)} · meta ${fmt(membro.goalMl)}`}
+          </p>
+        </div>
+        <div className="topo-acoes">
+          {dono && !noivo && onEscolherGarrafa && (
+            <button
+              className="sino btn-garrafas"
+              title={creditoGarrafa > 0 ? "Você tem garrafa(s) para escolher!" : "Ver minhas garrafas"}
+              aria-label={`Ver as garrafas de ${membro.name}`}
+              onClick={() => onEscolherGarrafa(membro)}
+            >
+              <svg width="15" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 2h4" />
+                <path d="M10 2v3.2c0 .5-.2 1-.6 1.4L8 8c-.6.6-1 1.5-1 2.4V19a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-8.6c0-.9-.4-1.8-1-2.4l-1.4-1.4c-.4-.4-.6-.9-.6-1.4V2" />
+                <path d="M7 12.5h10" />
+              </svg>
+              {creditoGarrafa > 0 && <span className="garrafa-badge">{creditoGarrafa}</span>}
+            </button>
+          )}
+          {podeEditar && (
+            <button
+              className="sino"
+              title="Editar meu cartão"
+              aria-label={`Editar o cartão de ${membro.name}`}
+              onClick={() => onEditar(membro)}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+              </svg>
+            </button>
+          )}
+          {(mostrarSino || noivo) && (
+            <button
+              className={`sino ${noivo ? "sino-noivo" : ""}`}
+              title={noivo ? `Mandar mensagem de casamento para ${membro.name}` : `Tocar o sino para ${membro.name} beber água`}
+              aria-label={noivo ? `Mandar mensagem de casamento para ${membro.name}` : `Tocar o sino para ${membro.name} beber água`}
+              onClick={() => onSino(membro)}
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </svg>
+            </button>
+          )}
+          {confirmando ? (
+            <span className="remover-confirma">
+              Remover?
+              <button className="mini sim" onClick={() => onRemover(membro.id)}>
+                Sim
+              </button>
+              <button className="mini" onClick={() => setConfirmando(false)}>
+                Não
+              </button>
+            </span>
+          ) : (
+            <button
+              className="remover"
+              title={`Remover ${membro.name}`}
+              onClick={() => setConfirmando(true)}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="cartao-meio">
+        {dono ? (
+          <button
+            className="garrafa-btn"
+            onClick={() => onBeber(membro.id)}
+            title="Registrar 1 garrafa"
+            aria-label={`Registrar uma garrafa de ${fmt(membro.bottleMl)} para ${membro.name}`}
+          >
+            {noivo ? <GarrafaNoivo /> : (
+              <span className="garrafa-olhos">
+                {cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
+                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} tremor={tremorOlhos} uid={membro.id} />}
+              </span>
+            )}
+          </button>
+        ) : (
+          <div className="garrafa-fixa" title="Somente quem criou esta garrafa pode registrar">
+            {noivo ? <GarrafaNoivo /> : (
+              <span className="garrafa-olhos">
+                {cactificado ? <Cacto /> : <GarrafaSel id={garrafaId} pct={pct} />}
+                {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} tremor={tremorOlhos} uid={membro.id} />}
+              </span>
+            )}
+          </div>
+        )}
+        <div className="numeros">
+          {!noivo && <p className="bebido">{fmtPiso(bebido)}</p>}
+          {!noivo && <p className="de-meta">de {fmt(membro.goalMl)}</p>}
+          {noivo && (
+            <p className="efeito-badge badge-casamento">💍 Semana do casamento · imune aos poderes</p>
+          )}
+          {!noivo && cactificado && (
+            <p className="efeito-badge">🌵 Cactificado por {efeitos.cacto.por}</p>
+          )}
+          {!noivo && desertico && (
+            <p className="efeito-badge">🏜️ Desertificado por {efeitos.deserto.por}</p>
+          )}
+          {!noivo && soterrado && (
+            <p className="efeito-badge">
+              ⏳ Soterrado por {efeitos.tempestade.por}
+            </p>
+          )}
+          {bateu && <p className="status ok">Meta batida! 🎉</p>}
+          <button
+            className="conquistas-linha"
+            onClick={() => onConquistas(membro)}
+            title={`Ver conquistas de ${membro.name}`}
+            aria-label={`Ver conquistas de ${membro.name}`}
+          >
+            {selos.map((c) => (
+              <span key={c.id} className="circulo-conquista" title={c.nome}>
+                <IconeConquista conquista={c} />
+              </span>
+            ))}
+            {selos.length < CONQUISTAS.length && (
+              <span className="circulo-conquista mais" title="Há mais conquistas para desbloquear">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </svg>
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="barra">
+        <div className="barra-fill" style={{ width: `${Math.min(100, pct * 100)}%` }} />
+      </div>
+
+      {dono && (
+        <div className="cartao-acoes">
+          <button className="beber" onClick={() => onBeber(membro.id)}>
+            <span className="beber-texto">Bebi 1 garrafa</span>
+            <span className="beber-ml">+{fmt(membro.bottleMl)}</span>
+          </button>
+          <button
+            className="desfazer"
+            onClick={() => onDesfazer(membro.id)}
+            disabled={count === 0 && extraMl === 0}
+            title="Desfazer o último registro"
+          >
+            Desfazer
+          </button>
+        </div>
+      )}
+      {!noivo && (
+        <p className="registros">
+          {count}/{totalGarrafas} garrafas hoje
+          {extraMl > 0 && <span> · +{fmt(extraMl)} avulsos</span>}
+        </p>
+      )}
+      {noivo && (
+        <p className="registros registros-casamento">
+          Aproveite a lua de mel — a hidratação espera você 💧
+        </p>
+      )}
+      {dono && (
+        <button className="link-extra" onClick={() => onExtra(membro)}>
+          Adicionar outra medida
+        </button>
+      )}
+      {soterrado && (
+        <div className="areia-camada" aria-hidden="true">
+          <AreiaCartao mapa={efeitos.tempestade.mapa} />
+        </div>
+      )}
+      {tormentado && !flutuante && (
+        <div className="palco-camada" aria-hidden="true">
+          <PalcoTormenta membro={membro} bebido={bebido} cartao={
+            <CartaoMembro membro={membro} expr="raiva" count={count} extraMl={extraMl}
+              dono={false} efeitos={{}} selos={selos} garrafaId={garrafaId}
+              garrafasDono={garrafasDono} creditoGarrafa={0} podeEditar={false}
+              onSino={()=>{}} onExtra={()=>{}} onEditar={()=>{}} onReivindicar={()=>{}}
+              onConquistas={()=>{}} onHistorico={()=>{}} onBeber={()=>{}} onDesfazer={()=>{}}
+              onRemover={()=>{}} onEscolherGarrafa={null} onTrocarGarrafa={()=>{}} flutuante />
+          } />
+        </div>
+      )}
+      {mostrarReivindicar && (
+        <button className="link-extra" onClick={() => onReivindicar(membro)}>
+          🔑 Este cartão é meu
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Histórico semanal ---------- */
+function GotaDia({ pct, idClip }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const altura = 20 * p; // área útil da gota: y de 3 a 23
+  const y = 23 - altura;
+  const cheia = pct >= 1;
+  const forma = "M12 2 C12 2 5 11 5 16 a7 7 0 0 0 14 0 C19 11 12 2 12 2 Z";
+  return (
+    <svg width="22" height="24" viewBox="0 0 24 26" aria-hidden="true">
+      <defs>
+        <clipPath id={idClip}>
+          <path d={forma} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${idClip})`}>
+        <rect
+          x="0"
+          y={y}
+          width="24"
+          height={altura + 3}
+          fill={cheia ? "#0FA36B" : "url(#agua-grad-gota)"}
+        />
+      </g>
+      <path
+        d={forma}
+        fill="none"
+        stroke={cheia ? "#0FA36B" : "#0B3446"}
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+/* Ícone de FERIADO (dia de trégua para todos) — calendário com estrela.
+   Entra no lugar da gota/traço quando o dia é feriado (nacional ou marcado
+   manualmente pelo admin). */
+function IconeFeriado({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="3" fill="#EAF6FA" stroke="#0F8BB0" strokeWidth="1.8" />
+      <path d="M3 9 H21" stroke="#0F8BB0" strokeWidth="1.8" />
+      <line x1="8" y1="2.5" x2="8" y2="6" stroke="#0F8BB0" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="16" y1="2.5" x2="16" y2="6" stroke="#0F8BB0" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 11.3 l1.25 2.63 2.85 .3 -2.15 1.95 .62 2.82 -2.57 -1.43 -2.57 1.43 .62 -2.82 -2.15 -1.95 2.85 -.3 z" fill="#F6B93B" />
+    </svg>
+  );
+}
+
+/* Ícone de FOLGA (dia de descanso individual, marcado pelo admin) —
+   a gotinha "de férias", de óculos escuros. Óculos ampliados para ler
+   bem no tamanho da célula. */
+function IconeFolga({ size = 24, uid = "x" }) {
+  const g = "fg-" + uid;
+  const forma = "M13 3 C13 3 6 12 6 17 a7 7 0 0 0 14 0 C20 12 13 3 13 3 Z";
+  return (
+    <svg width={size} height={size * 28 / 26} viewBox="0 0 26 28" aria-hidden="true">
+      <defs>
+        <clipPath id={g}><path d={forma} /></clipPath>
+        <linearGradient id={g + "-l"} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#8ad7ea" />
+          <stop offset="1" stopColor="#41C9E6" />
+        </linearGradient>
+      </defs>
+      <g clipPath={`url(#${g})`}>
+        <rect x="0" y="0" width="26" height="28" fill={`url(#${g}-l)`} />
+      </g>
+      <path d={forma} fill="none" stroke="#0B3446" strokeWidth="1.6" />
+      <g>
+        <rect x="7.2" y="14.4" width="5.1" height="3.9" rx="1.6" fill="#0B3446" />
+        <rect x="13.7" y="14.4" width="5.1" height="3.9" rx="1.6" fill="#0B3446" />
+        <path d="M12.3 15.9 h1.4" stroke="#0B3446" strokeWidth="1.5" />
+      </g>
+    </svg>
+  );
+}
+
+function HistoricoSemanal({ members, intake, extras = {}, historico = {}, onHistorico, ausencias = {} }) {
+  const [semanaOffset, setSemanaOffset] = useState(0); // 0 = atual, 1 = passada
+  if (members.length === 0) return null;
+  /* Semana fixa: segunda a sexta; offset recua semanas inteiras */
+  const agora = new Date();
+  const segunda = new Date(agora);
+  segunda.setDate(agora.getDate() - ((agora.getDay() + 6) % 7) - semanaOffset * 7);
+  const dias = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(segunda);
+    d.setDate(segunda.getDate() + i);
+    dias.push(d);
+  }
+  const chave = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const chaveHoje = chave(new Date());
+
+  /* Ranking: média do % diário nos dias válidos da semana
+     (ignora dias futuros e dias anteriores à criação da garrafa,
+     para não punir quem entrou no meio da semana) */
+  const ini = segunda.getTime();
+  const fimSemana = new Date(dias[4]);
+  fimSemana.setHours(23, 59, 59, 999);
+  const fimTs = fimSemana.getTime();
+
+  const ranking = calcularDesempenho(members, intake, extras, historico, semanaOffset, ausencias);
+  const folgasSemana = ausencias.folgas || {};
+  const feriadosManuais = ausencias.feriados || [];
+
+  const rotuloSemana =
+    semanaOffset === 0
+      ? "esta semana"
+      : `${chave(dias[0]).slice(8)}/${chave(dias[0]).slice(5,7)} a ${chave(dias[4]).slice(8)}/${chave(dias[4]).slice(5,7)}`;
+
+  return (
+    <section className="historico">
+      <div className="historico-cab">
+        <h2 className="historico-titulo">Ranking da semana</h2>
+        <div className="semana-nav">
+          <button
+            className="semana-seta"
+            disabled={semanaOffset >= 1}
+            onClick={() => setSemanaOffset(1)}
+            aria-label="Semana passada"
+          >
+            ‹
+          </button>
+          <span className="semana-label">{rotuloSemana}</span>
+          <button
+            className="semana-seta"
+            disabled={semanaOffset <= 0}
+            onClick={() => setSemanaOffset(0)}
+            aria-label="Semana atual"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+      <p className="historico-sub">
+        Segunda a sexta — ordenado pela média diária da meta. Gota verde = meta
+        batida.
+      </p>
+      <div className="historico-rolagem">
+        <table className="historico-tabela">
+          <thead>
+            <tr>
+              <th className="col-nome"></th>
+              {dias.map((d) => (
+                <th key={chave(d)} className={chave(d) === chaveHoje ? "col-hoje" : ""}>
+                  <span className="dia-semana">{SEMANA[d.getDay()]}</span>
+                  <span className="dia-numero">
+                    {String(d.getDate()).padStart(2, "0")}/
+                    {String(d.getMonth() + 1).padStart(2, "0")}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.map(({ membro: m, criadoEm, desempenho, penal }, i) => {
+              const posicao = ["🥇", "🥈", "🥉"][i] || `${i + 1}º`;
+              return (
+                <tr key={m.id}>
+                  <td className="col-nome" title={m.name}>
+                    <span className={`posicao ${i < 3 ? "medalha" : ""}`}>{posicao}</span>
+                    <span className="nome-rank">
+                      <span className="nome-rank-linha">
+                        {m.name}
+                        <button
+                          className="btn-historico btn-historico-rank"
+                          title={`Ver histórico de ${m.name}`}
+                          aria-label={`Ver histórico de ${m.name}`}
+                          onClick={() => onHistorico && onHistorico(m)}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12.5 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v4.5" />
+                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                            <path d="M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+                          </svg>
+                        </button>
+                      </span>
+                      <span className="media-rank">
+                        {nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento()
+                          ? "🤵 de férias no casamento"
+                          : `desempenho ${Math.round(desempenho)}%`}
+                      </span>
+                    </span>
+                  </td>
+                  {dias.map((d) => {
+                    const k = chave(d);
+                    const fimDoDia = new Date(d);
+                    fimDoDia.setHours(23, 59, 59, 999);
+                    const antesDeExistir = criadoEm > fimDoDia.getTime();
+                    const futuro = k > chaveHoje;
+                    const feriado = ehFeriado(d) || feriadosManuais.includes(k);
+                    const folga = !feriado && (folgasSemana[k] || []).includes(m.id);
+                    const count = (intake[k] && intake[k][m.id]) || 0;
+                    const extra = (extras[k] && extras[k][m.id]) || 0;
+                    const pct =
+                      m.goalMl > 0 ? (count * m.bottleMl + extra) / m.goalMl : 0;
+                    return (
+                      <td key={k} className={k === chaveHoje ? "col-hoje" : ""}>
+                        {antesDeExistir || futuro ? (
+                          <span
+                            className="sem-dado"
+                            title={futuro ? "Ainda não chegou" : "A garrafa ainda não existia"}
+                          >
+                            –
+                          </span>
+                        ) : feriado ? (
+                          <div className="celula-dia" title="Feriado — não conta">
+                            <IconeFeriado size={22} />
+                            <span className="fer-label">Feriado</span>
+                          </div>
+                        ) : folga ? (
+                          <div className="celula-dia" title="Folga — não conta">
+                            <IconeFolga size={22} uid={`${m.id}-${k}`} />
+                            <span className="fer-label folga">Folga</span>
+                          </div>
+                        ) : (
+                          <div className="celula-dia">
+                            {nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento() ? (
+                              <GotaNoivo idClip={`gn-${m.id}-${k}`} />
+                            ) : (
+                              <>
+                                <GotaDia pct={pct} idClip={`g-${m.id}-${k}`} />
+                                <span className={`pct ${pct >= 1 ? "ok" : ""}`}>
+                                  {Math.round(pct * 100)}%
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+        <defs>
+          <linearGradient id="agua-grad-gota" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#41C9E6" />
+            <stop offset="100%" stopColor="#0F8BB0" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </section>
+  );
+}
+
+/* ---------- App ---------- */
+/* Alternador: escolher entre as garrafas que o usuário já tem */
+/* Janela única das garrafas: mostra as conquistadas (com selo e com a "em uso"
+   em destaque), permite trocar a garrafa ativa tocando numa que já tem, oferece
+   as novas para adquirir quando há crédito (+1 garrafa) e deixa as indisponíveis
+   visíveis porém sem destaque. Substitui o antigo alternador ⇄ do card. */
+function ModalEscolhaGarrafa({ membro, creditos, conquistasIds, donas, ativa, onAdquirir, onSelecionarAtiva, onFechar }) {
+  const [sel, setSel] = React.useState([]);
+  /* "tinha crédito ao abrir": separa a comemoração (acabei de pegar) do modo
+     consulta (abri a janela só para ver, sem garrafa nova para pegar) */
+  const [tinhaCredito] = React.useState(creditos > 0);
+  const acabou = creditos <= 0;
+  const soVer = acabou && !tinhaCredito; /* aberto manualmente, nada a pegar */
+  const clique = (id) => {
+    /* garrafa que já tenho → vira a ativa do card */
+    if (donas.includes(id)) {
+      if (id !== ativa && onSelecionarAtiva) onSelecionarAtiva(id);
+      return;
+    }
+    if (acabou) return; /* indisponível (sem crédito) → sem ação */
+    setSel((prev) => {
+      const i = prev.indexOf(id);
+      if (i >= 0) return prev.filter((x) => x !== id);
+      const n = [...prev, id];
+      if (n.length > creditos) n.shift();
+      return n;
+    });
+  };
+  const conqs = conquistasIds
+    .map((cid) => CONQUISTAS.find((c) => c.id === cid))
+    .filter(Boolean);
+  const titulo = soVer
+    ? "Minhas garrafas"
+    : acabou
+    ? "Garrafa(s) adquirida(s)! 🎉"
+    : (creditos > 1 ? `Você desbloqueou +${creditos} garrafas! 🎉` : "Você desbloqueou +1 garrafa! 🎉");
+  const subtitulo = soVer
+    ? "Toque numa garrafa adquirida para usá-la no seu card. Conquiste um prêmio de +1 garrafa para desbloquear as demais."
+    : acabou
+    ? "Pronto! Toque numa garrafa adquirida para usá-la no seu card."
+    : (creditos > 1
+        ? "Escolha quais garrafas quer pegar. Toque numa que você já tem para usá-la no card."
+        : "Escolha sua nova garrafa. Toque numa que você já tem para usá-la no card.");
+  return (
+    <div className="modal-fundo" onClick={acabou ? onFechar : undefined}>
+      <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={onFechar}>×</button>
+        {!acabou && conqs.length > 0 && (
+          <div className="escolha-conqs">
+            {conqs.map((c) => (
+              <span key={c.id} className="escolha-conq">
+                <IconeConquista conquista={c} tamanho={14} /> {c.nome}
+              </span>
+            ))}
+          </div>
+        )}
+        <h2 className="nome" style={{ marginTop: 10 }}>{titulo}</h2>
+        <p className="sub">{subtitulo}</p>
+        {!acabou && (
+          <p className="escolha-contador">
+            Você pode escolher <b>{creditos}</b> · selecionadas <b>{sel.length}/{creditos}</b>
+          </p>
+        )}
+        <div className="garrafa-grid">
+          {GARRAFAS.map((g) => {
+            const tenho = donas.includes(g.id);
+            const ehAtiva = tenho && g.id === ativa;
+            const selecionada = !tenho && sel.includes(g.id);
+            const naoDisp = !tenho && acabou; /* indisponível, sem destaque */
+            const cls = [
+              "garrafa-opt",
+              tenho ? "tenho" : "",
+              ehAtiva ? "ativa sel" : "",
+              selecionada ? "sel" : "",
+              naoDisp ? "sover" : "",
+            ].filter(Boolean).join(" ");
+            return (
+              <button key={g.id} className={cls} onClick={() => clique(g.id)}>
+                <span className="opt-selo">{ehAtiva ? "Em uso" : "✓ Adquirida"}</span>
+                <span className="opt-check">✓</span>
+                <div className="opt-bot"><GarrafaSel id={g.id} pct={0.6} tamanho={72} /></div>
+                <div className="opt-nome">{g.nome}</div>
+              </button>
+            );
+          })}
+        </div>
+        {acabou ? (
+          <button className="beber fechar-modal" onClick={onFechar}>Fechar</button>
+        ) : (
+          <button
+            className="beber fechar-modal"
+            disabled={sel.length === 0}
+            onClick={() => { onAdquirir(sel); setSel([]); }}
+          >
+            {sel.length > 1 ? `Adquirir ${sel.length} garrafas` : "Adquirir"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Overlay que anima a cactificação: o bastão do Rei sai do card dele,
+   aponta para o card da vítima, e um cacto cresce sobre a vítima */
+/* Overlay do bastão. mode "cacto": vai do card do Rei até a vítima, o cacto
+   cresce e o bastão VOLTA de forma fluída. mode "troca": quando alguém
+   ultrapassa o Rei, o bastão desliza do card antigo até o card do novo Rei. */
+function AnimacaoBastao({ fromId, toId, mode, onDone }) {
+  const [fase, setFase] = React.useState(0);
+  const fromEl = typeof document !== "undefined" ? document.getElementById("card-" + fromId) : null;
+  const toEl = typeof document !== "undefined" ? document.getElementById("card-" + toId) : null;
+  React.useEffect(() => {
+    if (!fromEl || !toEl) { onDone(); return; }
+    document.body.classList.add("bastao-voando");
+    const timers = [];
+    timers.push(setTimeout(() => setFase(1), 60));
+    if (mode === "cacto") {
+      timers.push(setTimeout(() => setFase(2), 850));   /* cacto cresce */
+      timers.push(setTimeout(() => setFase(3), 1700));  /* bastão volta */
+      timers.push(setTimeout(() => onDone(), 2500));
+    } else {
+      timers.push(setTimeout(() => setFase(2), 900));   /* assenta no novo card */
+      timers.push(setTimeout(() => onDone(), 1250));
+    }
+    return () => { timers.forEach(clearTimeout); document.body.classList.remove("bastao-voando"); };
+  }, []);
+  if (!fromEl || !toEl) return null;
+  const f = fromEl.getBoundingClientRect();
+  const t = toEl.getBoundingClientRect();
+  const restAt = (c) => ({ left: (c.left - 12) + "px", top: (c.top + c.height / 2 - 82) + "px", transform: "rotate(-15deg)" });
+  const aimAt = (c) => ({ left: (c.left + c.width * 0.16) + "px", top: (c.top + c.height * 0.30) + "px", transform: "rotate(72deg)" });
+  let bastaoStyle;
+  if (mode === "cacto") {
+    /* fase 1/2 mira na vítima; fase 0/3 em repouso no card do Rei (ida e volta) */
+    bastaoStyle = (fase === 1 || fase === 2) ? aimAt(t) : restAt(f);
+  } else {
+    /* troca: desliza até o repouso do novo card */
+    bastaoStyle = fase >= 1 ? restAt(t) : restAt(f);
+  }
+  const cactoStyle = {
+    left: (t.left + t.width / 2 - 30) + "px",
+    top: (t.top + t.height / 2 - 42) + "px",
+    opacity: (mode === "cacto" && fase === 2) ? 1 : 0,
+    transform: (mode === "cacto" && fase >= 2) ? "scale(1)" : "scale(0.2)",
+  };
+  return (
+    <div className="cact-overlay">
+      <div className="cact-bastao" style={bastaoStyle} dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />
+      {mode === "cacto" && <div className="cact-cacto" style={cactoStyle}><Cacto tamanho={60} /></div>}
+    </div>
+  );
+}
+
+function AguaTracker() {
+  const [dados, setDados] = useState(null);
+  /* nº de gravações (POST) em voo: enquanto > 0, uma sincronização que chegar
+     não pode rebaixar os registros de hoje feitos nesta tela */
+  const pendenteRef = React.useRef(0);
+  /* Aplica uma foto do servidor SEM apagar um registro local ainda não
+     confirmado: para o dia de hoje, o intake/extras nunca cai abaixo do que
+     esta tela já mostra (mesma regra do "maior vence" que o servidor usa).
+     O resto (membros, poderes, conquistas, garrafas…) vem do servidor. */
+  const aplicarServidor = (serverData) => {
+    setDados((local) => {
+      if (!local) return serverData;
+      const d = hoje();
+      const piso = (campo) => {
+        const out = { ...(serverData[campo] || {}) };
+        const loc = (local[campo] && local[campo][d]) || {};
+        const srv = out[d] || {};
+        const linha = { ...srv };
+        Object.keys(loc).forEach((id) => {
+          linha[id] = Math.max(Number(loc[id] || 0), Number(srv[id] || 0));
+        });
+        out[d] = linha;
+        return out;
+      };
+      /* "ultimo" (horário do último gole) é monotônico — só cresce. Um poll
+         que chegue antes do POST persistir não pode rebaixá-lo, senão a
+         expressão dos olhos pisca feliz→dormindo→feliz e o relógio de seca
+         dos poderes "rejuvenesce". Mesmo piso de "maior vence". */
+      const ultimoFloor = { ...(serverData.ultimo || {}) };
+      const ultimoLoc = local.ultimo || {};
+      Object.keys(ultimoLoc).forEach((id) => {
+        ultimoFloor[id] = Math.max(Number(ultimoLoc[id] || 0), Number(ultimoFloor[id] || 0));
+      });
+      const merged = { ...serverData, intake: piso("intake"), extras: piso("extras"), ultimo: ultimoFloor };
+      /* com gravação em voo, preserva o log de eventos de hoje desta tela
+         (é o que o Desfazer consulta) até o POST confirmar */
+      if (pendenteRef.current > 0 && local.eventos && local.eventos[d]) {
+        merged.eventos = { ...(serverData.eventos || {}), [d]: local.eventos[d] };
+      }
+      return merged;
+    });
+  };
+  const [carregando, setCarregando] = useState(true);
+  const [erroSalvar, setErroSalvar] = useState(false);
+  const [erroConexao, setErroConexao] = useState(false);
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [form, setForm] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "" });
+  const [toast, setToast] = useState(null);
+  const [dica, setDica] = useState(null); // benefício da hidratação exibido nesta abertura
+  const [avisoAgua, setAvisoAgua] = useState(false); // aviso de segurança (>1 L na janela de 1 h)
+  const [poderAberto, setPoderAberto] = useState(null); // poder com o seletor de alvos aberto
+  const [regrasAbertas, setRegrasAbertas] = useState(false); // "saber mais" das regras do poder
+  const [poderesNovos, setPoderesNovos] = useState([]); // popup de anúncio de poder novo
+  const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
+  const [sinoPara, setSinoPara] = useState(null);
+  const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
+  const [regrasCarta, setRegrasCarta] = useState(false); // manual da carta anti-seca
+  const [novidadeDesempenho, setNovidadeDesempenho] = useState(
+    () => !localStorage.getItem("agua-novidade-desempenho-3")
+  );
+  const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
+  const [cartaAlvo, setCartaAlvo] = useState(false); // escolhendo quem proteger
+  const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
+  const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
+  const [valorExtra, setValorExtra] = useState("");
+  const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
+  const [historicoDe, setHistoricoDe] = useState(null); // membro cujo histórico está aberto
+  const [mesHist, setMesHist] = useState(0); // 0 = mês atual, 1 = mês anterior
+  useEffect(() => {
+    if (historicoDe) setMesHist(0);
+  }, [historicoDe]);
+  const [loginAberto, setLoginAberto] = useState(false); // seletor de cartão para "Entrar" (login por senha)
+  const [confirmarSair, setConfirmarSair] = useState(false); // confirmação antes de sair (logout)
+  const [conquistasNovas, setConquistasNovas] = useState([]); // popup de conquista recém-desbloqueada
+  const [escolhaGarrafa, setEscolhaGarrafa] = useState(null); // { membroId } — janela de escolha de garrafa
+  const [animCacto, setAnimCacto] = useState(null); // { fromId, toId, mode, t } — overlay do bastão
+  const [reiConquista, setReiConquista] = useState(null); // id do card que acabou de assumir o bastão (brilho da moldura)
+  const [premiacao, setPremiacao] = useState(null); // { podio, perdedores } — overlay semanal (seg-qua)
+  const premiacaoChecada = React.useRef(false); // garante checagem única por sessão
+  const [tickExpr, setTickExpr] = useState(0); // relógio que reavalia as expressões dos olhos
+  const aberturaRef = React.useRef(Date.now()); // âncora da zoação "na abertura do painel"
+  const [ausenciasAberto, setAusenciasAberto] = useState(false); // painel admin de folgas/feriados
+  const [ausenciaDia, setAusenciaDia] = useState(() => chaveDe(new Date())); // dia escolhido no painel (YYYY-MM-DD)
+  const [tPoder, setTPoder] = useState("tormenta"); // ambiente de teste: poder selecionado
+  const [tAlvo, setTAlvo] = useState(""); // ambiente de teste: alvo selecionado
+  useEffect(() => { const id = setInterval(() => setTickExpr((t) => t + 1), 20000); return () => clearInterval(id); }, []);
+  const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
+  const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
+  const [posseExtra, setPosseExtra] = useState(lerPosseExtra); // cartões reivindicados por PIN neste dispositivo
+  const [reivindicando, setReivindicando] = useState(null); // membro em reivindicação por PIN
+  const [pinTentativa, setPinTentativa] = useState("");
+
+  /* Meta diária estimada pelo peso corporal: 35 ml por kg,
+     arredondada para o múltiplo de 50 ml mais próximo */
+  const calcularMeta = () => {
+    const p = Number(form.peso);
+    if (!p || p <= 0) return;
+    const meta = Math.round((p * 35) / 50) * 50;
+    setForm((f) => ({ ...f, goalMl: meta }));
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await storage.get(KEY);
+        if (r && r.value) {
+          setDados(JSON.parse(r.value));
+        } else {
+          setDados({ members: [], intake: {} });
+        }
+      } catch {
+        /* Sem conexão com os dados, o app não pode operar "vazio":
+           uma gravação nesse estado sobrescreveria os registros do time */
+        setErroConexao(true);
+      } finally {
+        setCarregando(false);
+      }
+    })();
+  }, []);
+
+  /* Sincroniza com registros feitos em outros dispositivos.
+     Economia de cota: 30 s com a aba visível, ~2 min em segundo plano
+     e sono profundo após 30 min oculta (para de consultar até a pessoa
+     voltar — abas esquecidas à noite/fim de semana não gastam nada) */
+  useEffect(() => {
+    let tique = 0;
+    let ocultaDesde = document.hidden ? Date.now() : null;
+    const atualizar = async (forcar) => {
+      tique++;
+      if (document.hidden && !forcar) {
+        if (ocultaDesde && Date.now() - ocultaDesde > 30 * 60 * 1000) return;
+        if (tique % 4 !== 0) return;
+      }
+      try {
+        const r = await storage.get(KEY);
+        if (r && r.value) aplicarServidor(JSON.parse(r.value));
+      } catch {}
+    };
+    const id = setInterval(() => atualizar(false), 30000);
+    const aoMudar = () => {
+      if (document.hidden) {
+        if (!ocultaDesde) ocultaDesde = Date.now();
+      } else {
+        ocultaDesde = null;
+        atualizar(true);
+      }
+    };
+    window.addEventListener("focus", aoMudar);
+    document.addEventListener("visibilitychange", aoMudar);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", aoMudar);
+      document.removeEventListener("visibilitychange", aoMudar);
+    };
+  }, []);
+
+  /* Pede permissão de notificação no primeiro clique na página */
+  useEffect(() => {
+    const pedir = () => {
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+      window.removeEventListener("pointerdown", pedir);
+    };
+    window.addEventListener("pointerdown", pedir);
+    return () => window.removeEventListener("pointerdown", pedir);
+  }, []);
+
+  /* Reage a sinos recebidos nos meus cartões: som, notificação,
+     vibração, título piscando e destaque no cartão */
+  useEffect(() => {
+    if (!dados || !Array.isArray(dados.nudges) || dados.nudges.length === 0) return;
+    const padrao = Date.now() - 5 * 60 * 1000;
+    const visto = Number(localStorage.getItem(VISTO_KEY) || padrao);
+    const meus = new Set(
+      dados.members
+        .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
+        .map((m) => m.id)
+    );
+    const novos = dados.nudges.filter((n) => n.at > visto);
+    if (novos.length === 0) return;
+    localStorage.setItem(VISTO_KEY, String(Math.max(...novos.map((n) => n.at))));
+    const horaDe = (ts) =>
+      new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const anuncios = novos.filter(
+      (n) => typeof n.tipo === "string" && n.tipo.startsWith("anuncio-")
+    ); /* visíveis para todos */
+    const pessoais = novos.filter(
+      (n) => !n.tipo || n.tipo === "carta-aviso" || n.tipo === "casamento"
+    ).filter((n) => meus.has(n.to));
+    if (anuncios.length === 0 && pessoais.length === 0) return;
+    setAlertas((lista) => [
+      ...lista,
+      ...anuncios.map((n) => ({
+        id: n.id,
+        memberId: n.to,
+        tipo: n.tipo,
+        nome: null,
+        frase: n.frase,
+        hora: horaDe(n.at),
+      })),
+      ...pessoais.map((n) => ({
+        id: n.id,
+        memberId: n.to,
+        tipo: n.tipo || "sino",
+        nome: n.fromName || "Alguém",
+        frase: n.gif ? "" : n.frase || "hora de beber água! 💧",
+        gif: n.gif || null,
+        hora: horaDe(n.at),
+      })),
+    ]);
+    const fuiAlvo = pessoais.length > 0 || anuncios.some((n) => meus.has(n.to));
+    if (fuiAlvo) {
+      const ultimo = pessoais[pessoais.length - 1] || anuncios[anuncios.length - 1];
+      notificar(
+        ultimo.fromName
+          ? `${ultimo.fromName}: ${ultimo.frase || "hora de beber água! 💧"}`
+          : ultimo.frase
+      );
+      tocarSom();
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+      piscarTitulo();
+      if (document.hidden) iniciarFaviconAlerta();
+    }
+  }, [dados, posseExtra]);
+
+  /* Ao abrir/voltar para a aba, o favicon volta ao normal —
+     mesmo com avisos ainda não fechados. Cobre visibilidade,
+     foco da janela e clique, para nenhum navegador escapar */
+  useEffect(() => {
+    const desligar = () => {
+      if (!document.hidden) pararFaviconAlerta();
+    };
+    document.addEventListener("visibilitychange", desligar);
+    window.addEventListener("focus", desligar);
+    window.addEventListener("pointerdown", desligar);
+    return () => {
+      document.removeEventListener("visibilitychange", desligar);
+      window.removeEventListener("focus", desligar);
+      window.removeEventListener("pointerdown", desligar);
+    };
+  }, []);
+
+  /* Celebra conquistas novas dos meus cartões (comparadas com as já vistas) */
+  useEffect(() => {
+    if (!dados) return;
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
+    const novas = [];
+    dados.members
+      .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
+      .forEach((m) => {
+        const chaveLS = `agua-conq-${m.id}`;
+        let salvas = [];
+        try {
+          salvas = JSON.parse(localStorage.getItem(chaveLS) || "[]");
+        } catch {}
+        const salvasSet = new Set(salvas);
+        const atuais = mapa[m.id] ? [...mapa[m.id].conjunto] : [];
+        atuais.forEach((id) => {
+          if (!salvasSet.has(id)) {
+            const c = CONQUISTAS.find((x) => x.id === id);
+            if (c) novas.push(c);
+          }
+        });
+        localStorage.setItem(chaveLS, JSON.stringify(atuais));
+      });
+    if (novas.length > 0) {
+      setConquistasNovas(novas);
+      tocarSom();
+    }
+  }, [dados, posseExtra]);
+
+  /* Abre a janela de escolha de garrafa quando um cartão meu tem créditos
+     de garrafa a resgatar (conquistas de +1 garrafa ainda não convertidas) */
+  useEffect(() => {
+    if (!dados) return;
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
+    const meus = dados.members.filter(
+      (m) => !m.ownerId || m.ownerId === meuDispositivo || posseExtra.includes(m.id)
+    );
+    for (const m of meus) {
+      const conj = mapa[m.id] ? mapa[m.id].conjunto : new Set();
+      const ganhas = CONQUISTAS_GARRAFA.filter((id) => conj.has(id)).length;
+      const donas = ((dados.garrafas && dados.garrafas[m.id]) || []).filter((g) => g !== "padrao").length;
+      if (ganhas - donas > 0) {
+        setEscolhaGarrafa((prev) => prev || { membroId: m.id });
+        break;
+      }
+    }
+  }, [dados, posseExtra]);
+
+  /* Animações do bastão (uma vez por dispositivo):
+     - TROCA: quando o Rei muda (alguém ultrapassa), o bastão desliza do card
+       antigo até o novo e a moldura dourada brilha no novo card;
+     - CACTO: quando o Rei atual cactifica alguém, o bastão vai até a vítima,
+       o cacto cresce e o bastão volta de forma fluída. */
+  useEffect(() => {
+    if (!dados || animCacto) return;
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
+    const reiM = dados.members.find((m) => mapa[m.id] && mapa[m.id].conjunto.has("rei-da-cactificacao"));
+    const reiIdAtual = reiM ? reiM.id : null;
+    /* cactificação mais recente */
+    let best = null;
+    Object.keys(dados.historico || {}).forEach((vid) => {
+      (dados.historico[vid] || []).forEach((e) => {
+        if (e && e.tipo === "cacto" && !e.anulado && Number(e.t)) {
+          if (!best || Number(e.t) > best.t) best = { t: Number(e.t), vid, por: e.por || "" };
+        }
+      });
+    });
+    let reiSeen = null;
+    try { reiSeen = localStorage.getItem("agua-rei-seen"); } catch {}
+    let cactSeen = 0;
+    try { cactSeen = Number(localStorage.getItem("agua-cact-anim-seen") || 0); } catch {}
+    const marcar = (k, v) => { try { localStorage.setItem(k, String(v)); } catch {} };
+
+    /* Primeira vez neste dispositivo: só registra o estado atual, sem animar */
+    if (reiSeen === null) {
+      marcar("agua-rei-seen", reiIdAtual || "");
+      marcar("agua-cact-anim-seen", best ? best.t : 0);
+      return;
+    }
+
+    /* TROCA de Rei (ultrapassagem) */
+    if (
+      reiIdAtual && reiIdAtual !== reiSeen &&
+      dados.members.some((m) => m.id === reiSeen) &&
+      document.getElementById("card-" + reiSeen) &&
+      document.getElementById("card-" + reiIdAtual)
+    ) {
+      marcar("agua-rei-seen", reiIdAtual);
+      if (best) marcar("agua-cact-anim-seen", best.t); /* evita disparar o cacto do mesmo evento */
+      setReiConquista(reiIdAtual);
+      setAnimCacto({ fromId: reiSeen, toId: reiIdAtual, mode: "troca", t: Date.now() });
+      return;
+    }
+    /* Rei mudou mas não deu para animar (card ausente / sem Rei) */
+    if (reiIdAtual !== reiSeen) marcar("agua-rei-seen", reiIdAtual || "");
+
+    /* CACTO normal do Rei atual */
+    if (!reiM || !best) return;
+    if (best.t <= cactSeen) return;
+    const feitaPeloRei = nomeNormalizado(best.por) === nomeNormalizado(reiM.name);
+    const vitimaExiste = dados.members.some((m) => m.id === best.vid) && best.vid !== reiM.id;
+    if (feitaPeloRei && vitimaExiste) {
+      setAnimCacto({ fromId: reiM.id, toId: best.vid, mode: "cacto", t: best.t });
+    } else {
+      marcar("agua-cact-anim-seen", best.t);
+    }
+  }, [dados, animCacto]);
+
+  /* Brilho da conquista do bastão dura uma única passada (~2,4 s) */
+  useEffect(() => {
+    if (!reiConquista) return;
+    const t = setTimeout(() => setReiConquista(null), 2500);
+    return () => clearTimeout(t);
+  }, [reiConquista]);
+
+  /* Arraste suave dos cards ao reordenar por desempenho (técnica FLIP):
+     mede a posição de layout de cada card, e quando ela muda entre renders,
+     desloca o card para a posição antiga e anima de volta até a nova. */
+  const cardPosRef = React.useRef({});
+  React.useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    let reduzido = false;
+    try { reduzido = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch {}
+    const prev = cardPosRef.current;
+    const next = {};
+    document.querySelectorAll(".grade > .cartao").forEach((el) => {
+      if (!el.id || el.id.indexOf("card-") !== 0) return;
+      const left = el.offsetLeft;
+      const top = el.offsetTop;
+      next[el.id] = { left, top };
+      const p = prev[el.id];
+      if (p && !reduzido) {
+        const dx = p.left - left;
+        const dy = p.top - top;
+        if (dx || dy) {
+          el.style.transition = "none";
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = "transform 0.5s cubic-bezier(.2,.8,.2,1)";
+            el.style.transform = "";
+          });
+        }
+      }
+    });
+    cardPosRef.current = next;
+  });
+
+  /* Benefício da hidratação: sorteado de um "baralho" local sem repetição
+     até os 45 saírem (aí o ciclo recomeça embaralhado). Intervalo mínimo
+     de 30 min, contado da PRIMEIRA saída após cada dica. A avaliação
+     roda na abertura da página E sempre que a aba volta a ficar visível
+     (Page Visibility API) — voltou depois dos 30 min, troca na hora */
+  useEffect(() => {
+    const SAIDA_KEY = "agua-dica-saida";
+    const RESTANTES_KEY = "agua-dicas-restantes";
+    const ATUAL_KEY = "agua-dica-atual";
+
+    const avaliar = () => {
+      const agora = Date.now();
+      const saida = Number(localStorage.getItem(SAIDA_KEY) || 0);
+      const primeiraVez = !localStorage.getItem(RESTANTES_KEY) && !saida;
+      const liberado =
+        primeiraVez || (saida > 0 && agora - saida >= 30 * 60 * 1000);
+      if (liberado) {
+        let restantes = [];
+        try {
+          restantes = JSON.parse(localStorage.getItem(RESTANTES_KEY) || "[]");
+        } catch {}
+        restantes = (Array.isArray(restantes) ? restantes : []).filter(
+          (i) => Number.isInteger(i) && i >= 0 && i < BENEFICIOS.length
+        );
+        if (restantes.length === 0) {
+          restantes = BENEFICIOS.map((_, i) => i);
+        }
+        const posicao = Math.floor(Math.random() * restantes.length);
+        const indice = restantes.splice(posicao, 1)[0];
+        localStorage.setItem(RESTANTES_KEY, JSON.stringify(restantes));
+        localStorage.setItem(ATUAL_KEY, String(indice));
+        /* Dica nova = ciclo novo: o relógio zera e só volta a ser
+           carimbado na primeira saída deste ciclo */
+        localStorage.removeItem(SAIDA_KEY);
+        setDica(BENEFICIOS[indice]);
+      } else {
+        /* Dentro da janela dos 30 min: mantém a mesma dica na tela */
+        const indiceAtual = Number(localStorage.getItem(ATUAL_KEY));
+        if (
+          Number.isInteger(indiceAtual) &&
+          indiceAtual >= 0 &&
+          indiceAtual < BENEFICIOS.length
+        ) {
+          setDica(BENEFICIOS[indiceAtual]);
+        }
+      }
+    };
+
+    avaliar(); /* abertura da página */
+
+    /* Primeira saída do ciclo: carimba o início do contador de 30 min.
+       Saídas e recargas seguintes NÃO sobrescrevem o carimbo */
+    const marcarSaida = () => {
+      if (!localStorage.getItem(SAIDA_KEY)) {
+        localStorage.setItem(SAIDA_KEY, String(Date.now()));
+      }
+    };
+    const aoMudarVisibilidade = () => {
+      if (document.hidden) marcarSaida();
+      else avaliar(); /* "reabertura" da aba sem recarregar */
+    };
+    window.addEventListener("pagehide", marcarSaida);
+    document.addEventListener("visibilitychange", aoMudarVisibilidade);
+    return () => {
+      window.removeEventListener("pagehide", marcarSaida);
+      document.removeEventListener("visibilitychange", aoMudarVisibilidade);
+    };
+  }, []);
+
+  /* Anuncia poderes recém-disponíveis (inclusive para quem já tinha a
+     conquista antes dos poderes existirem) — uma única vez por poder */
+  useEffect(() => {
+    if (!dados) return;
+    const mapa = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
+    const conj = new Set();
+    dados.members
+      .filter((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id))
+      .forEach((m) => {
+        if (mapa[m.id]) mapa[m.id].conjunto.forEach((x) => conj.add(x));
+      });
+    const ganhos = PODERES.filter((p) => conj.has(p.conquista));
+    if (ganhos.length === 0) return;
+    let vistos = [];
+    try {
+      vistos = JSON.parse(localStorage.getItem("agua-poderes-vistos") || "[]");
+    } catch {}
+    const novosPoderes = ganhos.filter((p) => !vistos.includes(p.id));
+    if (novosPoderes.length === 0) return;
+    localStorage.setItem(
+      "agua-poderes-vistos",
+      JSON.stringify(ganhos.map((p) => p.id))
+    );
+    setPoderesNovos(novosPoderes);
+  }, [dados, posseExtra]);
+
+  /* Auto-atualização: abas deixadas abertas continuam rodando o código
+     antigo mesmo após um deploy — os dados sincronizam, o código não.
+     Este verificador compara a versão em execução com a publicada e
+     recarrega a aba quando divergem (nunca no meio de uma digitação) */
+  useEffect(() => {
+    let ativo = true;
+    const conferir = async () => {
+      try {
+        const r = await fetch("/", { cache: "no-store" });
+        const texto = await r.text();
+        const m = texto.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+        if (!ativo || !m || m[1] === APP_VERSION) return;
+        const digitando =
+          document.activeElement &&
+          ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
+        if (!document.hidden && digitando) return; /* tenta de novo depois */
+        const ultima = Number(sessionStorage.getItem("agua-reload") || 0);
+        if (Date.now() - ultima > 60000) {
+          sessionStorage.setItem("agua-reload", String(Date.now()));
+          location.reload();
+        }
+      } catch {}
+    };
+    const idInt = setInterval(conferir, 5 * 60 * 1000);
+    const aoVoltar = () => {
+      if (!document.hidden) conferir();
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => {
+      ativo = false;
+      clearInterval(idInt);
+      document.removeEventListener("visibilitychange", aoVoltar);
+    };
+  }, []);
+
+  /* Carta Anti-Seca: aparece de surpresa para um membro sorteado, a cada
+     40 min a 3 h. Quem estiver com o app aberto e perceber que passou da
+     hora faz o sorteio — o resultado é gravado para todos, mas só o
+     escolhido vê a carta */
+  useEffect(() => {
+    if (!dados || !Array.isArray(dados.members) || dados.members.length < 3) return;
+    const agora = Date.now();
+    /* o dia é calculado aqui dentro: este efeito é declarado antes das
+       telas de carregamento/erro, então não pode depender de variáveis
+       criadas mais abaixo no componente */
+    const diaHoje = hoje();
+    /* Reset único por publicação: tira a carta de quem estava preso com
+       ela e refaz o sorteio na hora, sem recair na mesma pessoa */
+    if (dados.cartaResetVersao !== CARTA_RESET) {
+      const novo = structuredClone(dados);
+      const anterior =
+        (novo.cartaOferta && novo.cartaOferta.paraId) ||
+        (novo.carta && novo.carta.paraId) ||
+        null;
+      delete novo.cartaOferta;
+      delete novo.carta;
+      novo.ultimaCartaPara = anterior; /* não cai de novo em quem já tinha */
+      novo.proximaCarta = 0; /* força um novo sorteio imediato */
+      novo.cartaResetVersao = CARTA_RESET;
+      persistir(novo);
+      return;
+    }
+
+    const ofertaViva =
+      dados.cartaOferta &&
+      dados.cartaOferta.dia === diaHoje &&
+      agora - Number(dados.cartaOferta.at || 0) < 60 * 60 * 1000;
+    const cartaViva =
+      dados.carta && dados.carta.dia === diaHoje && !dados.carta.usada;
+    const cartaEmJogo = ofertaViva || cartaViva;
+    if (cartaEmJogo) return;
+    const proxima = Number(dados.proximaCarta || 0);
+    if (proxima && agora < proxima) return;
+    const novo = structuredClone(dados);
+    /* Só entra no sorteio quem registrou água nas últimas 24 h: carta
+       para quem sumiu do app não tem graça nenhuma */
+    const ativos = novo.members.filter(
+      (m) =>
+        agora - Number((novo.ultimo && novo.ultimo[m.id]) || 0) <
+        24 * 60 * 60 * 1000
+    );
+    /* A carta é uma mecânica social: só vale a pena com 2+ pessoas ativas.
+       Com só uma pessoa ativa, a carta cairia sempre nela — então não sorteia */
+    if (ativos.length < 2) return;
+    /* Trava anti-repetição: não entrega a carta de novo para quem acabou
+       de recebê-la, desde que haja outro elegível */
+    let elegiveis = ativos;
+    if (novo.ultimaCartaPara) {
+      const semUltimo = ativos.filter((m) => m.id !== novo.ultimaCartaPara);
+      if (semUltimo.length > 0) elegiveis = semUltimo;
+    }
+    const sorteado = elegiveis[Math.floor(Math.random() * elegiveis.length)];
+    novo.cartaOferta = { paraId: sorteado.id, at: agora, dia: diaHoje };
+    novo.ultimaCartaPara = sorteado.id;
+    novo.proximaCarta = agora + (1 + Math.random() * 44) * 60 * 1000;
+    persistir(novo);
+  }, [dados]);
+
+  const persistir = useCallback(async (novo) => {
+    /* "reduzir" é uma instrução de UMA gravação (Desfazer): não fica no
+       estado nem viaja em gravações futuras */
+    const { reduzir, ...limpo } = novo;
+    setDados(limpo);
+    /* Enquanto há gravação em voo, uma sincronização que chegar (polling ou
+       foco) não pode apagar este registro recém-feito — ver aplicarServidor */
+    pendenteRef.current += 1;
+    try {
+      let r = await storage.set(KEY, JSON.stringify(novo));
+      if (!r) {
+        /* a 1ª gravação pode falhar por um soluço de rede; tenta de novo uma
+           vez antes de avisar — é o que evitava o "não registrou na 1ª vez" */
+        await new Promise((res) => setTimeout(res, 800));
+        r = await storage.set(KEY, JSON.stringify(novo));
+      }
+      setErroSalvar(!r);
+    } catch {
+      try {
+        await new Promise((res) => setTimeout(res, 800));
+        const r = await storage.set(KEY, JSON.stringify(novo));
+        setErroSalvar(!r);
+      } catch {
+        setErroSalvar(true);
+      }
+    } finally {
+      pendenteRef.current = Math.max(0, pendenteRef.current - 1);
+    }
+  }, []);
+
+  /* ---- Premiação semanal do pódio ----
+     Exibida para cada usuário a partir de segunda 00h00 (hora local), na
+     primeira vez que o painel abrir dentro da janela, até quarta 23h59.
+     Comemora o ranking da semana ANTERIOR fechada (seg-sex). Uma vez por
+     usuário/semana (marcada ao exibir). Sem opção de pular. */
+  useEffect(() => {
+    if (!dados || carregando || premiacaoChecada.current) return;
+    premiacaoChecada.current = true;
+    try {
+      const agora = new Date();
+      const dow = agora.getDay(); // 0=Dom .. 6=Sáb
+      if (dow < 1 || dow > 3) return; // janela: segunda(1) a quarta(3)
+      const seg = new Date(agora);
+      seg.setDate(agora.getDate() - ((dow + 6) % 7)); // segunda desta semana
+      const chaveDia = (d) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const weekId = chaveDia(seg);
+      const chaveVista = `agua-premiacao-${weekId}`;
+      if (localStorage.getItem(chaveVista)) return;
+      /* ranking da semana anterior fechada (offset 1 = seg-sex passados) */
+      const rank = calcularDesempenho(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 1, dados.ausencias || {});
+      /* TODOS os membros entram na premiação (mesmo quem não registrou na
+         semana), ordenados pelo desempenho — assim aparecem todos os
+         usuários, não só quem bebeu água na semana premiada */
+      const participantes = rank;
+      if (participantes.length < 1) { localStorage.setItem(chaveVista, "1"); return; }
+      const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
+      const gsel = (id) => (dados.garrafaSel && dados.garrafaSel[id]) || "padrao";
+      const campeao = participantes[0].membro;
+      const temBastao = !!(conquistas[campeao.id] && conquistas[campeao.id].conjunto.has("rei-da-cactificacao"));
+      const podio = {
+        p1: { nome: campeao.name, garrafa: gsel(campeao.id), bastao: temBastao },
+        p2: participantes[1] ? { nome: participantes[1].membro.name, garrafa: gsel(participantes[1].membro.id) } : null,
+        p3: participantes[2] ? { nome: participantes[2].membro.name, garrafa: gsel(participantes[2].membro.id) } : null,
+      };
+      const perdedores = participantes.slice(3).map((r) => ({ nome: r.membro.name, garrafa: gsel(r.membro.id) }));
+      localStorage.setItem(chaveVista, "1"); // marca ao exibir: uma vez por usuário/semana
+      setPremiacao({ podio, perdedores });
+    } catch (e) { /* best-effort: nunca bloqueia o painel */ }
+  }, [dados, carregando]);
+
+  if (carregando) {
+    return (
+      <div className="tela-carregando">
+        <p>Carregando registros…</p>
+      </div>
+    );
+  }
+
+  if (erroConexao || !dados) {
+    return (
+      <div className="tela-carregando">
+        <div className="erro-conexao">
+          <h1 className="titulo">Não consegui carregar os dados</h1>
+          <p className="sub">
+            Para proteger os registros do time, nada pode ser adicionado até a
+            conexão com o servidor voltar.
+          </p>
+          <button className="beber" onClick={() => window.location.reload()}>
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const dia = hoje();
+  const registrosHoje = dados.intake[dia] || {};
+  const extrasHoje = (dados.extras && dados.extras[dia]) || {};
+  const meusMembros = dados.members.filter(
+    (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
+  );
+  const tenhoCartao = meusMembros.length > 0;
+  /* Admin das ausências: este dispositivo é dono/entrou no cartão do admin */
+  const souAdmin = meusMembros.some((m) => nomeNormalizado(m.name) === ADMIN_NOME);
+
+  const totalHoje = dados.members.reduce(
+    (soma, m) =>
+      soma + (registrosHoje[m.id] || 0) * m.bottleMl + (extrasHoje[m.id] || 0),
+    0
+  );
+  const metaTotal = dados.members.reduce((s, m) => s + m.goalMl, 0);
+  const conquistas = calcularConquistas(dados.members, dados.intake, dados.extras || {}, dados.historico || {}, dados.metas || {}, dados.cartadas || {});
+
+  /* Conquistas do usuário atual (união dos cartões dele) → poderes e frases */
+  const minhasConquistas = new Set();
+  meusMembros.forEach((m) => {
+    if (conquistas[m.id]) conquistas[m.id].conjunto.forEach((x) => minhasConquistas.add(x));
+  });
+
+  /* ---- Garrafas colecionáveis ---- */
+  const garrafasDe = (id) => {
+    const arr = (dados.garrafas && dados.garrafas[id]) || [];
+    return arr.includes("padrao") ? arr : ["padrao", ...arr];
+  };
+  const garrafaSelDe = (id) => {
+    const sel = dados.garrafaSel && dados.garrafaSel[id];
+    return sel && garrafasDe(id).includes(sel) ? sel : "padrao";
+  };
+  const creditosGarrafaDe = (id) => {
+    const conj = conquistas[id] ? conquistas[id].conjunto : new Set();
+    const ganhas = CONQUISTAS_GARRAFA.filter((cid) => conj.has(cid)).length;
+    const donas = garrafasDe(id).filter((g) => g !== "padrao").length;
+    return Math.max(0, ganhas - donas);
+  };
+  const selecionarGarrafa = (memberId, bottleId) => {
+    persistir({ ...dados, garrafaSel: { ...(dados.garrafaSel || {}), [memberId]: bottleId } });
+  };
+  const adquirirGarrafas = (memberId, ids) => {
+    if (!ids || ids.length === 0) return;
+    const nova = [...new Set([...garrafasDe(memberId), ...ids])];
+    const garrafaSel = { ...(dados.garrafaSel || {}) };
+    if (!garrafaSel[memberId] || garrafaSel[memberId] === "padrao") garrafaSel[memberId] = ids[0];
+    persistir({ ...dados, garrafas: { ...(dados.garrafas || {}), [memberId]: nova }, garrafaSel });
+  };
+
+  /* Ordem dos cards = ranking de desempenho da semana atual: 1º lugar no
+     canto superior esquerdo, depois da esquerda para a direita, de cima
+     para baixo. Atualiza sozinho conforme as posições mudam. */
+  const membrosOrdenados = calcularDesempenho(
+    dados.members, dados.intake, dados.extras || {}, dados.historico || {}, 0, dados.ausencias || {}
+  ).map((r) => r.membro);
+
+  /* ---- Admin: folgas (por membro) e feriados (todos) ----
+     Guarda um documento carimbado em dados.ausencias:
+       { at, folgas: { "YYYY-MM-DD": [membroId...] }, feriados: ["YYYY-MM-DD"] }
+     O servidor funde por "maior at": uma aba antiga que só ecoa o valor nunca
+     apaga uma edição mais nova (ver mesclarAusencias em api/dados.js). */
+  const escreverAusencias = (mut) => {
+    const novo = structuredClone(dados);
+    const base =
+      novo.ausencias && typeof novo.ausencias === "object"
+        ? novo.ausencias
+        : { folgas: {}, feriados: [] };
+    const prox = {
+      folgas: { ...(base.folgas || {}) },
+      feriados: [...(base.feriados || [])],
+    };
+    mut(prox);
+    prox.at = Date.now();
+    novo.ausencias = prox;
+    persistir(novo);
+  };
+  const alternarFolga = (dia, membroId) => {
+    escreverAusencias((a) => {
+      const lista = new Set(a.folgas[dia] || []);
+      if (lista.has(membroId)) lista.delete(membroId);
+      else lista.add(membroId);
+      if (lista.size) a.folgas[dia] = [...lista];
+      else delete a.folgas[dia];
+    });
+  };
+  const alternarFeriado = (dia) => {
+    escreverAusencias((a) => {
+      const i = a.feriados.indexOf(dia);
+      if (i >= 0) a.feriados.splice(i, 1);
+      else a.feriados.push(dia);
+    });
+  };
+
+  /* Poderes tomados de outro jogador pelo efeito rebote (valem só hoje) */
+  const roubos = (dados.roubos && typeof dados.roubos === "object") ? dados.roubos : {};
+  const meusRoubos = [];
+  meusMembros.forEach((m) => {
+    const r = roubos[m.id];
+    if (r && r.dia === dia) meusRoubos.push({ ...r, ladraoId: m.id });
+  });
+  /* Poder meu que está nas mãos de outro: fica indisponível até ele usar */
+  const poderesBloqueados = new Set();
+  Object.keys(roubos).forEach((ladraoId) => {
+    const r = roubos[ladraoId];
+    if (r && r.dia === dia && meusMembros.some((m) => m.id === r.deId)) {
+      poderesBloqueados.add(r.poder);
+    }
+  });
+
+  const podeFrasePersonalizada = minhasConquistas.has("incactificavel");
+  const LIMITE_FRASE = 90;
+
+  const meusPoderes = PODERES.filter(
+    (p) =>
+      minhasConquistas.has(p.conquista) ||
+      meusRoubos.some((r) => r.poder === p.id)
+  );
+  /* Dados variáveis do próprio usuário para as frases com números: litros
+     acumulados e semanas seguidas no 1º lugar (o maior entre os cartões
+     dele). {LITROS} vira "63 litros"; {SEMANAS} vira "3 semanas"/"1 semana". */
+  const meuTotalMl = meusMembros.reduce(
+    (mx, m) => Math.max(mx, (conquistas[m.id] && conquistas[m.id].totalMl) || 0), 0
+  );
+  const meuSemanasTrono = meusMembros.reduce(
+    (mx, m) => Math.max(mx, (conquistas[m.id] && conquistas[m.id].semanasTrono) || 0), 0
+  );
+  const meusLitros = Math.round(meuTotalMl / 1000);
+  /* Resolve os marcadores da frase. Devolve null quando a frase depende de um
+     dado que o usuário ainda não tem (ex.: menos de 1 semana no trono) — e aí
+     ela nem aparece para envio. */
+  const resolverFrase = (txt) => {
+    if (txt.includes("{SEMANAS}") && meuSemanasTrono < 1) return null;
+    return txt
+      .replace(/\{LITROS\}/g, `${meusLitros} litros`)
+      .replace(/\{SEMANAS\}/g, `${meuSemanasTrono} ${meuSemanasTrono === 1 ? "semana" : "semanas"}`);
+  };
+
+  /* agrupadas por conquista, para o seletor mostrar de onde cada uma veio */
+  const gruposExclusivos = [];
+  Object.keys(FRASES_CONQUISTA).forEach((cid) => {
+    if (!minhasConquistas.has(cid)) return;
+    const cq = CONQUISTAS.find((c) => c.id === cid);
+    const frases = FRASES_CONQUISTA[cid].map(resolverFrase).filter(Boolean);
+    if (frases.length === 0) return; /* nenhuma frase liberada ainda */
+    gruposExclusivos.push({
+      id: cid,
+      nome: cq ? cq.nome : "",
+      conquista: cq,
+      frases,
+    });
+  });
+  const frasesExclusivas = gruposExclusivos.flatMap((g) =>
+    g.frases.map((f) => ({ texto: f, conquista: g.nome }))
+  );
+
+  /* Relógio da seca: corre a partir das 8h, de segunda a sexta */
+  const baseSeca = (m) => {
+    const agora = new Date();
+    /* feriado nacional é trégua, como o fim de semana */
+    if (!ehDiaUtil(agora)) return null;
+    const oito = new Date(agora);
+    oito.setHours(8, 0, 0, 0);
+    if (agora < oito) return null;
+    const ult = (dados.ultimo && dados.ultimo[m.id]) || 0;
+    return Math.max(ult, oito.getTime());
+  };
+  const tempoSeco = (m) => {
+    const b = baseSeca(m);
+    return b === null ? null : Date.now() - b;
+  };
+
+  /* Efeitos ativos de um cartão (mapa por tipo), já considerando cura
+     pendente e trava. Nenhum efeito atravessa a meia-noite: o que foi
+     lançado ontem expira às 00:00 */
+  const efeitosDe = (m) => {
+    const todos = normalizarEfeitos(dados.efeitos && dados.efeitos[m.id]);
+    const agora = Date.now();
+    const c = registrosHoje[m.id] || 0;
+    const e = extrasHoje[m.id] || 0;
+    const pctMeta = m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+    const ativos = {};
+    Object.keys(todos).forEach((tipo) => {
+      const ef = todos[tipo];
+      if (!ef) return;
+      if (chaveDe(new Date(ef.desde || 0)) !== dia) return;
+      if (tipo === "tempestade") {
+        /* Só sai quando a vítima limpa a tela (ou na virada do dia) */
+        if (!ef.limpo) ativos[tipo] = ef;
+        return;
+      }
+      if (tipo === "tormenta") {
+        /* Tempestade: só passa quando a vítima bebe 125% da meta (ou na virada do dia) */
+        if (!ef.limpo && pctMeta < 1.25) ativos[tipo] = ef;
+        return;
+      }
+      /* cura única para todos os efeitos: só a meta batida liberta */
+      const curado = pctMeta >= 1;
+      if (curado) return; /* meta batida liberta, sem exceção */
+      ativos[tipo] = ef;
+    });
+    return ativos;
+  };
+
+  /* Horas de seca exigidas pelo poder — garrafas grandes (mais de 900 ml)
+     dão ao dono uma hora extra de tolerância contra a cactificação */
+  const horasExigidas = (poderId, alvo) => {
+    let h;
+    if (poderId === "cacto") h = alvo.bottleMl > 900 ? 4 : 3;
+    else if (poderId === "deserto" || poderId === "tempestade" || poderId === "tormenta") h = 4;
+    else h = 1;
+    /* Muralha de Água: +30 min de tolerância enquanto a conquista estiver ativa */
+    if (conquistas[alvo.id] && conquistas[alvo.id].conjunto.has("muralha-de-agua")) h += 0.5;
+    return h;
+  };
+
+  /* ===== Expressão dos olhos da garrafa (máquina de estados) =====
+     Regra: o ÚLTIMO evento vence, respeitando os timers combinados.
+     feliz 5min · raiva 20min→séria · bebeu sob poder=séria · usou poder=
+     zoação(20s)→feliz(5min)→neutra na abertura · surpresa=vulnerável ·
+     dormindo=sem beber hoje/4h · orgulho=meta batida · neutra=resto. */
+  const usouPoderQuando = (m) => {
+    const nomeM = nomeNormalizado(m.name);
+    let t = 0;
+    dados.members.forEach((v) => {
+      ((dados.historico && dados.historico[v.id]) || []).forEach((e) => {
+        if (!e || e.anulado) return;
+        if (!["cacto", "deserto", "tempestade", "tormenta"].includes(e.tipo)) return;
+        if (nomeNormalizado(e.por || "") !== nomeM) return;
+        if (chaveDe(new Date(Number(e.t) || 0)) !== dia) return;
+        if (Number(e.t) > t) t = Number(e.t);
+      });
+    });
+    return t;
+  };
+  const estaVulneravel = (m) => {
+    const seco = tempoSeco(m);
+    if (seco === null) return false;
+    const c = registrosHoje[m.id] || 0, e = extrasHoje[m.id] || 0;
+    const pct = m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+    if (pct >= 1) return false;
+    if (Object.keys(efeitosDe(m)).length > 0) return false;
+    if (nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento()) return false;
+    return seco >= horasExigidas("cacto", m) * 3600000;
+  };
+  const expressaoDe = (m) => {
+    const now = Date.now();
+    const efs = efeitosDe(m);
+    const tipos = Object.keys(efs);
+    const ultimoGole = Number((dados.ultimo && dados.ultimo[m.id]) || 0);
+    const goleHoje = ultimoGole > 0 && chaveDe(new Date(ultimoGole)) === dia;
+    /* ---- expressão BASE (sem considerar "usou poder") ---- */
+    let key = "neutra", tremor = false;
+    if (tipos.length > 0) {
+      /* sob poder: raiva (20min) → séria; bebeu depois do poder → séria */
+      const desde = Math.max(...tipos.map((t) => Number(efs[t].desde) || 0));
+      if (goleHoje && ultimoGole > desde) key = "seria";
+      else if (now - desde < 20 * 60 * 1000) { key = "raiva"; tremor = now - desde < 12 * 1000; }
+      else key = "seria";
+    } else {
+      const c = registrosHoje[m.id] || 0, ex = extrasHoje[m.id] || 0;
+      if (m.goalMl > 0 && c * m.bottleMl + ex >= m.goalMl) key = "orgulho";       /* meta batida */
+      else if (goleHoje && now - ultimoGole < 5 * 60 * 1000) key = "feliz";        /* bebeu <5min */
+      else if (estaVulneravel(m)) key = "surpresa";                                /* vulnerável: surpresa vence o dormindo */
+      else if (!goleHoje || now - ultimoGole >= 4 * 3600 * 1000) key = "dormindo"; /* nada hoje / 4h */
+      else key = "neutra";
+    }
+    /* ---- zoação na abertura: sobrepõe por 20s, depois volta ao BASE ---- */
+    const usouT = usouPoderQuando(m);
+    if (usouT > 0 && now - aberturaRef.current < 20 * 1000) { key = "zoacao"; tremor = false; }
+    return { key, tremor };
+  };
+
+  /* Carta Anti-Seca em jogo hoje */
+  const cartaOferta =
+    dados.cartaOferta && dados.cartaOferta.dia === dia ? dados.cartaOferta : null;
+  /* A carta oferecida vale por 1 hora; passou disso, some sem ser usada */
+  const cartaNoPrazo =
+    cartaOferta && Date.now() - Number(cartaOferta.at || 0) < 60 * 60 * 1000;
+  const minhaCarta =
+    cartaNoPrazo && meusMembros.some((m) => m.id === cartaOferta.paraId)
+      ? cartaOferta
+      : null;
+  /* O prazo de 1 h vale para a carta OFERECIDA e não usada. Depois de
+     jogada em alguém, a proteção fica de pé até um ataque resolvê-la —
+     ou até a meia-noite, já que toda carta carrega o dia em que nasceu */
+  const cartaAtiva =
+    dados.carta && dados.carta.dia === dia && !dados.carta.usada
+      ? dados.carta
+      : null;
+
+  /* Tempestade ativa em um cartão MEU: só a vítima vê a tela soterrada */
+  const minhaTempestade = (() => {
+    for (const m of meusMembros) {
+      const ef = efeitosDe(m).tempestade;
+      if (ef) return { id: m.id, ef };
+    }
+    return null;
+  })();
+
+  const minhaTormenta = (() => {
+    for (const m of meusMembros) {
+      const ef = efeitosDe(m).tormenta;
+      if (ef) {
+        const c = registrosHoje[m.id] || 0;
+        const e = extrasHoje[m.id] || 0;
+        return { id: m.id, membro: m, ef, bebido: c * m.bottleMl + e };
+      }
+    }
+    return null;
+  })();
+
+  /* Tela limpa: marca o efeito como resolvido para que os tornadinhos
+     sumam também na visão dos colegas */
+  /* Aplica um efeito de poder a um cartão qualquer (usado pelo rebote) */
+  const aplicarEfeito = (novo, membroId, poderId, autorNome, agora) => {
+    if (!novo.efeitos) novo.efeitos = {};
+    const efs = normalizarEfeitos(novo.efeitos[membroId]);
+    efs[poderId] = {
+      tipo: poderId,
+      desde: agora,
+      por: autorNome,
+      curas: [],
+      travaAte: 0,
+    };
+    novo.efeitos[membroId] = efs;
+    const alvoM = novo.members.find((x) => x.id === membroId);
+    registrarHistorico(novo, membroId, {
+      t: agora,
+      tipo: poderId,
+      por: autorNome,
+      pct: -penalidadeEfetiva(poderId, alvoM ? alvoM.goalMl : 0),
+    });
+  };
+
+  /* ===== Ambiente de teste: aplicar/limpar poderes sem restrição ===== */
+  const aplicarPoderTeste = (poderId, alvoId) => {
+    if (!poderId || !alvoId || !dados) return;
+    const novo = structuredClone(dados);
+    aplicarEfeito(novo, alvoId, poderId, "Modo teste", Date.now());
+    /* o soterramento/tempestade só "saem" via limpo/virada — no teste
+       garantimos que começam ativos limpando qualquer marca de limpo */
+    if (novo.efeitos && novo.efeitos[alvoId] && novo.efeitos[alvoId][poderId]) {
+      novo.efeitos[alvoId][poderId].limpo = false;
+    }
+    persistir(novo);
+    const alvoM = dados.members.find((m) => m.id === alvoId);
+    const pod = PODERES.find((p) => p.id === poderId);
+    setToast(`🧪 ${pod ? pod.nome : poderId} aplicado em ${alvoM ? alvoM.name : "alvo"}.`);
+  };
+  const limparEfeitosTeste = (alvoId) => {
+    if (!dados) return;
+    const novo = structuredClone(dados);
+    if (!novo.efeitos) novo.efeitos = {};
+    if (alvoId === "__all__") {
+      novo.efeitos = {};
+      setToast("🧪 Todos os efeitos foram limpos.");
+    } else if (alvoId) {
+      delete novo.efeitos[alvoId];
+      const alvoM = dados.members.find((m) => m.id === alvoId);
+      setToast(`🧪 Efeitos de ${alvoM ? alvoM.name : "alvo"} limpos.`);
+    }
+    persistir(novo);
+  };
+
+  /* Resolve o palpite do atacante que esbarrou na Carta Anti-Seca */
+  const resolverAdivinhacao = (palpiteId) => {
+    const info = adivinhacao;
+    if (!info) return;
+    const { poderId, alvo, carta } = info;
+    const agora = Date.now();
+    const novo = structuredClone(dados);
+    novo.carta = { ...carta, usada: true };
+    const eu = meusMembros[0];
+    const meuNome = eu ? eu.name : "Alguém";
+    const protetor = novo.members.find((m) => m.id === carta.porId);
+    const nomeCarta = "Carta Anti-Seca";
+    const acertou = palpiteId === carta.porId;
+
+    const nomePoder = (PODERES.find((p) => p.id === poderId) || {}).nome || "o feitiço";
+    novo.nudges = (novo.nudges || []).filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    const avisarProtetor = (frase) => {
+      if (!carta.porId) return;
+      novo.nudges.push({
+        id: `n-${agora}-k-${Math.random().toString(36).slice(2, 6)}`,
+        to: carta.porId,
+        at: agora,
+        tipo: "carta-aviso",
+        frase,
+      });
+    };
+
+    if (acertou) {
+      /* desmascarou o protetor: a vítima e o protetor pagam o pato */
+      aplicarEfeito(novo, alvo.id, poderId, meuNome, agora);
+      if (protetor) aplicarEfeito(novo, protetor.id, poderId, meuNome, agora);
+      localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
+      avisarProtetor(
+        `🃏 Sua carta protegeu ${alvo.name}, mas ${meuNome} adivinhou que foi você quem a jogou. ${nomePoder} caiu sobre vocês dois.`
+      );
+      /* anúncio para o time todo: o atacante desmascarou a carta */
+      novo.nudges.push({
+        id: `n-${agora}-p-${Math.random().toString(36).slice(2, 6)}`,
+        to: alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: `anuncio-${poderId}`,
+        frase: `🃏 ${alvo.name} estava protegido por uma Carta Anti-Seca, mas ${meuNome} adivinhou quem a jogou: ${
+          protetor ? protetor.name : "o protetor"
+        }. ${nomePoder} caiu sobre os dois.`,
+      });
+      setToast(`🃏 Você acertou! ${alvo.name} e ${protetor ? protetor.name : "o protetor"} pagaram o preço.`);
+    } else {
+      /* errou: o feitiço vira contra o atacante e o poder muda de mãos */
+      const c = (novo.intake[dia] && novo.intake[dia][eu && eu.id]) || 0;
+      const e = (novo.extras && novo.extras[dia] && novo.extras[dia][eu && eu.id]) || 0;
+      const metaBatida = eu && eu.goalMl > 0 && c * eu.bottleMl + e >= eu.goalMl;
+      if (eu && !metaBatida) {
+        aplicarEfeito(novo, eu.id, poderId, `${nomeCarta}`, agora);
+      }
+      if (carta.porId) {
+        if (!novo.roubos) novo.roubos = {};
+        novo.roubos[carta.porId] = { poder: poderId, deId: eu ? eu.id : null, dia };
+        /* A Cartada Certeira: protegeu alguém e fez o feitiço ricochetear */
+        if (!novo.cartadas) novo.cartadas = {};
+        novo.cartadas[carta.porId] = true;
+      }
+      avisarProtetor(
+        `🃏 Sua carta funcionou! ${meuNome} tentou ${nomePoder} em ${alvo.name}, errou o palpite sobre quem protegeu e levou o próprio feitiço de volta.` +
+          ` O poder agora é seu até você usá-lo hoje — depois volta para ${meuNome}.`
+      );
+      /* anúncio para o time todo: o feitiço voltou contra o atacante.
+         Quem jogou a carta segue no anonimato — ele não foi descoberto */
+      novo.nudges.push({
+        id: `n-${agora}-p-${Math.random().toString(36).slice(2, 6)}`,
+        to: eu ? eu.id : alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: `anuncio-${poderId}`,
+        frase: `🃏 ${meuNome} tentou ${nomePoder} em ${alvo.name}, esbarrou numa Carta Anti-Seca, errou o palpite sobre quem a jogou e levou o próprio feitiço de volta.`,
+      });
+      setToast(
+        metaBatida
+          ? "🃏 Errou o palpite! A meta batida te salvou do efeito — mas o poder mudou de mãos."
+          : "🃏 Errou o palpite! O feitiço voltou contra você e o poder mudou de mãos."
+      );
+    }
+    persistir(novo);
+    setAdivinhacao(null);
+    setTimeout(() => setToast(null), 6000);
+  };
+
+  /* Jogada da carta: o sorteado escolhe quem fica protegido (em segredo) */
+  const jogarCarta = (protegidoId) => {
+    const novo = structuredClone(dados);
+    const eu = meusMembros[0];
+    novo.carta = {
+      paraId: protegidoId,
+      porId: eu ? eu.id : null,
+      dia,
+      at: Date.now(),
+      usada: false,
+    };
+    delete novo.cartaOferta;
+    persistir(novo);
+    setCartaAlvo(false);
+    setCartaVirada(false);
+    const nome = (dados.members.find((m) => m.id === protegidoId) || {}).name || "";
+    setToast(`🃏 Carta jogada em segredo para ${nome}. Ninguém precisa saber. 🤫`);
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  /* Espelha o progresso da limpeza para os colegas (mapa de baixa
+     resolução gravado no próprio efeito) */
+  const salvarMapaAreia = (id, mapa) => {
+    const novo = structuredClone(dados);
+    const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
+    if (!efs.tempestade) return;
+    if (efs.tempestade.limpo) return; /* já varrido: não reativa */
+    efs.tempestade = { ...efs.tempestade, mapa };
+    novo.efeitos[id] = efs;
+    persistir(novo);
+  };
+
+  const limparTempestade = (id) => {
+    const novo = structuredClone(dados);
+    if (!novo.efeitos) novo.efeitos = {};
+    const efs = normalizarEfeitos(novo.efeitos[id]);
+    if (!efs.tempestade) return;
+    /* NÃO apagar: a fusão de efeitos no servidor é uma UNIÃO de chaves e não
+       sabe remover — um delete ressuscita na próxima sincronização. Em vez
+       disso marca limpo:true (efeitosDe ignora tempestade limpa). O campo
+       positivo atravessa a união e some para todos. */
+    efs.tempestade = { ...efs.tempestade, limpo: true, mapa: [] };
+    novo.efeitos[id] = efs;
+    persistir(novo);
+    setToast("⏳ Areia varrida! Você se desenterrou.");
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  /* Elegibilidade do alvo, com o motivo específico quando não pode.
+     Cacto e deserto podem coexistir no mesmo cartão — um cacto no
+     deserto combina —, então só o MESMO efeito já ativo bloqueia */
+  const statusPoder = (poderId, alvo) => {
+    const meuAlvo =
+      alvo.ownerId === meuDispositivo || posseExtra.includes(alvo.id);
+    if (meuAlvo) return { ok: false, motivo: "é o seu próprio cartão" };
+    if (nomeNormalizado(alvo.name) === NOIVO_NOME && ehSemanaCasamento()) {
+      return { ok: false, motivo: "está de casamento 💍 — intocável esta semana" };
+    }
+    if (poderesBloqueados.has(poderId)) {
+      return {
+        ok: false,
+        motivo: "esse poder foi tomado de você hoje — só volta quando for usado",
+      };
+    }
+    /* Quem está sob efeito não desfere poder nenhum: primeiro se cura */
+    const meuEfeito = (() => {
+      for (const m of meusMembros) {
+        const efs = efeitosDe(m);
+        const tipo = Object.keys(efs)[0];
+        if (tipo) return tipo;
+      }
+      return null;
+    })();
+    if (meuEfeito) {
+      const rotulo = {
+        cacto: "cactificado",
+        deserto: "desertificado",
+        tempestade: "soterrado",
+      }[meuEfeito] || "sob efeito";
+      return {
+        ok: false,
+        motivo: `você está ${rotulo} — bata a meta e se livre disso antes de atacar alguém`,
+      };
+    }
+    const RECARGAS = { cacto: 3600000, deserto: 3600000, tempestade: 2 * 3600000, tormenta: 2 * 3600000 };
+    if (RECARGAS[poderId]) {
+      const ultimoUso = Number(
+        localStorage.getItem(`agua-${poderId}-cooldown`) || 0
+      );
+      const resto = RECARGAS[poderId] - (Date.now() - ultimoUso);
+      if (ultimoUso && resto > 0) {
+        return {
+          ok: false,
+          motivo: `poder em recarga — libera em ${fmtTempo(resto)}`,
+        };
+      }
+    }
+    const ativos = efeitosDe(alvo);
+    if (ativos[poderId]) {
+      const jaTem = {
+        cacto: "já está cactificado",
+        deserto: "já está desertificado",
+        tempestade: "já está soterrado de areia",
+      };
+      return { ok: false, motivo: jaTem[poderId] || "já está sob esse efeito" };
+    }
+    const alvoProtegido = !!(cartaAtiva && cartaAtiva.paraId === alvo.id);
+    if (
+      alvoProtegido &&
+      meusMembros.some((m) => m.id === cartaAtiva.porId)
+    ) {
+      return {
+        ok: false,
+        motivo:
+          "você protegeu essa pessoa com a Carta Anti-Seca — não dá para atacar quem você blindou",
+      };
+    }
+    if (!alvoProtegido && (poderId === "cacto" || poderId === "deserto")) {
+      const cAlvo = registrosHoje[alvo.id] || 0;
+      const eAlvo = extrasHoje[alvo.id] || 0;
+      const pctAlvo =
+        alvo.goalMl > 0 ? (cAlvo * alvo.bottleMl + eAlvo) / alvo.goalMl : 0;
+      /* imunidade só com a meta inteira batida */
+      if (pctAlvo >= 1) {
+        return { ok: false, motivo: "já bateu a meta de hoje — imune" };
+      }
+    }
+    const seco = tempoSeco(alvo);
+    if (seco === null) {
+      return {
+        ok: false,
+        motivo: "o relógio da seca só corre das 8h em diante, de segunda a sexta",
+      };
+    }
+    const exigidoH = horasExigidas(poderId, alvo);
+    if (seco < exigidoH * 3600000) {
+      const extra =
+        poderId === "cacto" && alvo.bottleMl > 900
+          ? " (garrafa grande: 4h)"
+          : "";
+      return {
+        ok: false,
+        motivo: `só ${fmtTempo(seco)} de seca — precisa de ${exigidoH}h sem registrar${extra}`,
+      };
+    }
+    if (poderId === "cacto") {
+      /* vale qualquer registro de água: garrafa cheia OU medida avulsa */
+      const bebiHoje = meusMembros.some(
+        (m) => (registrosHoje[m.id] || 0) > 0 || (extrasHoje[m.id] || 0) > 0
+      );
+      if (!bebiHoje) {
+        return {
+          ok: false,
+          motivo: "registre alguma água hoje antes de cactificar",
+        };
+      }
+    }
+    return { ok: true, motivo: "" };
+  };
+
+  const usarPoder = async (poderId, alvo) => {
+    const previa = statusPoder(poderId, alvo);
+    if (!previa.ok) {
+      setToast(`Não dá: ${previa.motivo}`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    /* Checagem FINAL com dados frescos do servidor: a tela sincroniza a
+       cada 30 s, então o alvo pode ter registrado água segundos atrás sem
+       que o lançador veja — o poder é negado aqui, na hora do golpe */
+    let base = dados;
+    try {
+      const r = await storage.get(KEY);
+      if (r && r.value) base = JSON.parse(r.value);
+    } catch {}
+    const agora = Date.now();
+    let horasAnuncio = 1;
+    if (["cacto", "deserto", "tempestade", "tormenta"].includes(poderId)) {
+      const oito = new Date();
+      oito.setHours(8, 0, 0, 0);
+      const utilHoje = ehDiaUtil(new Date());
+      const ultimoF = (base.ultimo && base.ultimo[alvo.id]) || 0;
+      const baseRelogio =
+        !utilHoje || agora < oito.getTime()
+          ? null
+          : Math.max(ultimoF, oito.getTime());
+      const secoF = baseRelogio === null ? null : agora - baseRelogio;
+      const exigidoH = horasExigidas(poderId, alvo);
+      const cF = (base.intake[dia] && base.intake[dia][alvo.id]) || 0;
+      const eF =
+        (base.extras && base.extras[dia] && base.extras[dia][alvo.id]) || 0;
+      const pctF =
+        alvo.goalMl > 0 ? (cF * alvo.bottleMl + eF) / alvo.goalMl : 0;
+      const cartaF =
+        base.carta && base.carta.dia === dia && !base.carta.usada
+          ? base.carta
+          : null;
+      const protegidoF = !!(cartaF && cartaF.paraId === alvo.id);
+      const imuneF = protegidoF
+        ? false /* protegido pela carta: o golpe entra para o rebote rolar */
+        : (poderId === "cacto" || poderId === "deserto") && pctF >= 1;
+      const efsF = normalizarEfeitos(base.efeitos && base.efeitos[alvo.id]);
+      const mesmoAtivo =
+        efsF[poderId] && chaveDe(new Date(efsF[poderId].desde || 0)) === dia;
+      let motivo = null;
+      if (mesmoAtivo) {
+        motivo = "esse efeito já está ativo nele";
+      } else if (imuneF) {
+        motivo = "acabou de bater a meta — imune";
+      } else if (secoF === null || secoF < exigidoH * 3600000) {
+        motivo = `registrou água agora há pouco — só ${
+          secoF === null ? "0 min" : fmtTempo(secoF)
+        } de seca`;
+      }
+      if (motivo) {
+        setDados(base); /* atualiza a tela com a verdade fresca */
+        setToast(`Não dá: ${motivo}`);
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      horasAnuncio = Math.max(1, Math.floor((secoF || 3600000) / 3600000));
+    }
+    const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
+
+    let cartaDesperdicada = null;
+    /* Carta Anti-Seca: se o alvo estiver protegido, o golpe trava aqui e
+       o atacante precisa adivinhar quem o protegeu. Quem jogou a carta
+       segue livre para usar os próprios poderes — e a carta dele não é
+       gasta nem anulada por isso */
+    const cartaFresca =
+      base.carta && base.carta.dia === dia && !base.carta.usada
+        ? base.carta
+        : null;
+    const cartaEhMinha =
+      cartaFresca && meusMembros.some((m) => m.id === cartaFresca.porId);
+    if (cartaFresca && !cartaEhMinha) {
+      if (cartaFresca.paraId === alvo.id) {
+        setAdivinhacao({ poderId, alvo, carta: cartaFresca, base });
+        setPoderAberto(null);
+        return;
+      }
+      /* atacou alguém sem carta: a proteção se desfaz — e só o dono da
+         carta fica sabendo, para não entregar o jogo a ninguém */
+      base.carta = { ...cartaFresca, usada: true };
+      cartaDesperdicada = cartaFresca;
+    }
+
+    const novo = structuredClone(base);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    {
+      if (!novo.efeitos) novo.efeitos = {};
+      const atuais = normalizarEfeitos(novo.efeitos[alvo.id]);
+      atuais[poderId] = {
+        tipo: poderId,
+        desde: agora,
+        por: meuNome,
+        curas: [],
+        travaAte: 0,
+      };
+      novo.efeitos[alvo.id] = atuais;
+      registrarHistorico(novo, alvo.id, {
+        t: agora,
+        tipo: poderId,
+        por: meuNome,
+        pct: -penalidadeEfetiva(poderId, alvo.goalMl),
+      });
+      localStorage.setItem(`agua-${poderId}-cooldown`, String(agora));
+      /* usou um poder tomado pelo rebote? devolve ao dono original */
+      meusMembros.forEach((m) => {
+        const r = novo.roubos && novo.roubos[m.id];
+        if (r && r.dia === dia && r.poder === poderId) delete novo.roubos[m.id];
+      });
+      const frases = {
+        cacto: `🌵 ${meuNome} cactificou ${alvo.name} após ${horasAnuncio}h de seca. A garrafa virou cacto — só a água quebra o feitiço.`,
+        deserto: `🏜️ ${meuNome} desertificou ${alvo.name} após ${horasAnuncio}h de seca. O cartão rachou — só a meta batida faz chover.`,
+        tempestade: `⏳ ${meuNome} soterrou ${alvo.name} em areia após ${horasAnuncio}h de seca. A tela dele virou duna — boa sorte para se desenterrar.`,
+      };
+      novo.nudges.push({
+        id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+        to: alvo.id,
+        at: agora,
+        fromName: meuNome,
+        tipo: `anuncio-${poderId}`,
+        frase: frases[poderId],
+      });
+      if (cartaDesperdicada && cartaDesperdicada.porId) {
+        const nomePoder =
+          (PODERES.find((p) => p.id === poderId) || {}).nome || "um feitiço";
+        novo.nudges.push({
+          id: `n-${agora}-c-${Math.random().toString(36).slice(2, 6)}`,
+          to: cartaDesperdicada.porId,
+          at: agora,
+          tipo: "carta-aviso",
+          frase: `🃏 ${alvo.name} levou ${nomePoder} — e não era quem você protegeu. Sua carta se desfez; outra vai aparecer para alguém, a qualquer momento.`,
+        });
+      }
+      const avisos = {
+        cacto: `🌵 ${alvo.name} foi cactificado!`,
+        deserto: `🏜️ ${alvo.name} foi desertificado!`,
+        tempestade: `⏳ ${alvo.name} foi soterrado em areia!`,
+      };
+      setToast(avisos[poderId]);
+    }
+    persistir(novo);
+    setTimeout(() => setToast(null), 4000);
+    setPoderAberto(null);
+  };
+
+  /* Log ordenado dos registros do dia (garrafas e avulsos) — é o que o
+     Desfazer consulta. Só o dia atual é mantido, para o arquivo não crescer */
+  const registrarEvento = (novo, id, evento) => {
+    novo.eventos = { [dia]: (novo.eventos && novo.eventos[dia]) || {} };
+    if (!novo.eventos[dia][id]) novo.eventos[dia][id] = [];
+    novo.eventos[dia][id].push(evento);
+  };
+
+  /* Segurança (hiponatremia): a janela de 60 min começa a contar no
+     PRIMEIRO registro; quando expira, o próximo registro abre uma janela
+     nova. O aviso surge PELO VOLUME: basta o total da janela passar de 1 L,
+     não importa em quantos registros. Dois copos de 180 ml (360 ml) não
+     alertam; 1,1 L — de uma vez ou somado — alerta. */
+  const verificarSeguranca = (membroId, ml) => {
+    try {
+      const chave = `agua-seg-${membroId}`;
+      const agora = Date.now();
+      let ctl = { inicio: 0, ml: 0, n: 0, ultimoTs: 0 };
+      try {
+        ctl = { ...ctl, ...JSON.parse(localStorage.getItem(chave) || "{}") };
+      } catch {}
+      if (!ctl.inicio || agora - ctl.inicio >= 60 * 60 * 1000) {
+        ctl = { inicio: agora, ml: 0, n: 0, ultimoTs: ctl.ultimoTs };
+      }
+      ctl.ml += ml;
+      ctl.n = (ctl.n || 0) + 1;
+      ctl.ultimoTs = agora;
+      localStorage.setItem(chave, JSON.stringify(ctl));
+      if (ctl.ml > 1000) {
+        const ultimoAviso = Number(localStorage.getItem("agua-seg-aviso") || 0);
+        if (agora - ultimoAviso >= 30 * 60 * 1000) {
+          localStorage.setItem("agua-seg-aviso", String(agora));
+          setAvisoAgua(true);
+        }
+      }
+    } catch {}
+  };
+
+  /* Desfazer remove o volume também da janela de segurança */
+  const descontarSeguranca = (membroId, ml) => {
+    try {
+      const chave = `agua-seg-${membroId}`;
+      let ctl = null;
+      try {
+        ctl = JSON.parse(localStorage.getItem(chave) || "null");
+      } catch {}
+      if (ctl && ctl.inicio && Date.now() - ctl.inicio < 60 * 60 * 1000) {
+        ctl.ml = Math.max(0, (ctl.ml || 0) - ml);
+        localStorage.setItem(chave, JSON.stringify(ctl));
+      }
+    } catch {}
+  };
+
+  /* Ao registrar água: atualiza o "último registro" (usado pelos poderes)
+     e aplica a cura dos efeitos ativos. Cacto: sai com 60% da meta bebida
+     (a meta batida, portanto, também liberta). Deserto: sai com a meta.
+     Anti-fraude: 2 registros em <10 min não curam e travam o efeito
+     (cacto: +1h30; deserto: +3h) */
+  const aoRegistrarAgua = (novo, id, agora) => {
+    if (!novo.ultimo) novo.ultimo = {};
+    novo.ultimo[id] = agora;
+    /* Congela a meta vigente hoje: uma alteração futura não muda o
+       veredito dos dias já registrados */
+    const membroAtual = novo.members.find((x) => x.id === id);
+    if (membroAtual && membroAtual.goalMl > 0) {
+      if (!novo.metas) novo.metas = {};
+      if (!novo.metas[dia]) novo.metas[dia] = {};
+      novo.metas[dia][id] = membroAtual.goalMl;
+    }
+    const efs = normalizarEfeitos(novo.efeitos && novo.efeitos[id]);
+    if (Object.keys(efs).length === 0) return;
+    const m = novo.members.find((x) => x.id === id);
+    const c = (novo.intake[dia] && novo.intake[dia][id]) || 0;
+    const e = (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
+    const pctMeta = m && m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+    const restantes = {};
+    Object.keys(efs).forEach((tipo) => {
+      const ef = efs[tipo];
+      /* Efeito de ontem: venceu à meia-noite */
+      if (chaveDe(new Date(ef.desde || 0)) !== dia) return;
+      /* A tempestade não sai com água — só arrastando a areia */
+      if (tipo === "tempestade") {
+        if (!ef.limpo) restantes[tipo] = ef;
+        return;
+      }
+      ef.curas = [...(ef.curas || []), agora];
+      /* cura única para todos os efeitos: só a meta batida liberta */
+      const curado = pctMeta >= 1;
+      if (curado) return; /* meta batida liberta, sem exceção */
+      restantes[tipo] = ef;
+    });
+    if (Object.keys(restantes).length === 0) delete novo.efeitos[id];
+    else novo.efeitos[id] = restantes;
+  };
+
+  /* Histórico individual: cada registro de água (com horário e volume)
+     e cada cactificação/desertificação sofrida. Mantém as 100 entradas
+     mais recentes por pessoa, para o arquivo não crescer sem limite */
+  const registrarHistorico = (novo, id, entrada) => {
+    if (!novo.historico) novo.historico = {};
+    if (!novo.historico[id]) novo.historico[id] = [];
+    novo.historico[id].push(entrada);
+    if (novo.historico[id].length > 100) {
+      novo.historico[id] = novo.historico[id].slice(-100);
+    }
+  };
+
+  /* Desfazer não apaga a entrada do histórico — marca como anulada.
+     A fusão no servidor respeita a anulação; uma remoção física seria
+     "ressuscitada" pela união com os dados antigos */
+  const removerDoHistorico = (novo, id, tipo) => {
+    const h = novo.historico && novo.historico[id];
+    if (!h) return;
+    for (let i = h.length - 1; i >= 0; i--) {
+      if (h[i].tipo === tipo && !h[i].anulado) {
+        h[i] = { ...h[i], anulado: true };
+        return;
+      }
+    }
+  };
+
+  const beber = (id) => {
+    const agora = Date.now();
+    const novo = structuredClone(dados);
+    if (!novo.intake[dia]) novo.intake[dia] = {};
+    novo.intake[dia][id] = (novo.intake[dia][id] || 0) + 1;
+    registrarEvento(novo, id, { t: "g" });
+    const alvoNovo = novo.members.find((m) => m.id === id);
+    if (alvoNovo) {
+      registrarHistorico(novo, id, { t: agora, tipo: "g", ml: alvoNovo.bottleMl, pct: alvoNovo.goalMl > 0 ? Math.round((alvoNovo.bottleMl / alvoNovo.goalMl) * 100) : 0 });
+    }
+    aoRegistrarAgua(novo, id, agora);
+    persistir(novo);
+    const membro = dados.members.find((m) => m.id === id);
+    if (membro) verificarSeguranca(id, membro.bottleMl);
+  };
+
+  /* Desfaz sempre o último registro, seja garrafa ou medida avulsa */
+  const desfazer = (id) => {
+    const novo = structuredClone(dados);
+    /* marca que a redução em intake/extras deste membro hoje é intencional,
+       para o servidor não "restaurar" o valor pela regra do maior */
+    novo.reduzir = { [dia]: { [id]: true } };
+    const lista =
+      (novo.eventos && novo.eventos[dia] && novo.eventos[dia][id]) || [];
+    if (lista.length > 0) {
+      const ultimo = lista.pop();
+      if (ultimo.t === "g") {
+        if (novo.intake[dia] && novo.intake[dia][id] > 0) {
+          novo.intake[dia][id] -= 1;
+        }
+        removerDoHistorico(novo, id, "g");
+        const membro = dados.members.find((m) => m.id === id);
+        if (membro) descontarSeguranca(id, membro.bottleMl);
+      } else {
+        const atual =
+          (novo.extras && novo.extras[dia] && novo.extras[dia][id]) || 0;
+        const restante = Math.max(0, atual - (ultimo.ml || 0));
+        if (novo.extras && novo.extras[dia]) {
+          if (restante > 0) novo.extras[dia][id] = restante;
+          else delete novo.extras[dia][id];
+        }
+        removerDoHistorico(novo, id, "e");
+        descontarSeguranca(id, ultimo.ml || 0);
+      }
+      persistir(novo);
+      return;
+    }
+    /* Registros feitos antes do log existir: desfaz as garrafas uma a uma
+       e, quando elas acabam, zera o avulso restante. reduzir já marcado */
+    if (novo.intake[dia] && novo.intake[dia][id] > 0) {
+      novo.intake[dia][id] -= 1;
+      descontarSeguranca(id, (dados.members.find((m) => m.id === id) || {}).bottleMl || 0);
+      persistir(novo);
+    } else if (novo.extras && novo.extras[dia] && novo.extras[dia][id] > 0) {
+      delete novo.extras[dia][id];
+      persistir(novo);
+    }
+  };
+
+  const remover = (id) => {
+    const novo = structuredClone(dados);
+    novo.members = novo.members.filter((m) => m.id !== id);
+    persistir(novo);
+  };
+
+  const fecharAlerta = (id) =>
+    setAlertas((lista) => lista.filter((a) => a.id !== id));
+
+  /* Medida avulsa: soma ml de outro recipiente ao dia, sem alterar
+     a garrafa principal do cartão (guardada em dados.extras) */
+  const abrirExtra = (membro) => {
+    setValorExtra("");
+    setExtraPara(membro);
+  };
+
+  const adicionarExtra = () => {
+    if (!extraPara) return;
+    const ml = Math.round(Number(valorExtra));
+    if (!ml || ml <= 0 || ml > 5000) {
+      setToast("Informe um valor entre 1 e 5000 ml");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const novo = structuredClone(dados);
+    if (!novo.extras) novo.extras = {};
+    if (!novo.extras[dia]) novo.extras[dia] = {};
+    novo.extras[dia][extraPara.id] = (novo.extras[dia][extraPara.id] || 0) + ml;
+    registrarEvento(novo, extraPara.id, { t: "e", ml });
+    registrarHistorico(novo, extraPara.id, { t: Date.now(), tipo: "e", ml, pct: extraPara.goalMl > 0 ? Math.round((ml / extraPara.goalMl) * 100) : 0 });
+    aoRegistrarAgua(novo, extraPara.id, Date.now());
+    persistir(novo);
+    verificarSeguranca(extraPara.id, ml);
+    setToast(`+${fmt(ml)} registrados para ${extraPara.name} 💧`);
+    setTimeout(() => setToast(null), 4000);
+    setExtraPara(null);
+    setValorExtra("");
+  };
+
+  const zerarExtra = () => {
+    if (!extraPara) return;
+    const novo = structuredClone(dados);
+    /* redução intencional: sem esta marca, a regra do "maior valor" no
+       servidor restauraria o avulso que a pessoa acabou de zerar */
+    novo.reduzir = { [dia]: { [extraPara.id]: true } };
+    if (novo.extras && novo.extras[dia]) delete novo.extras[dia][extraPara.id];
+    if (novo.eventos && novo.eventos[dia] && novo.eventos[dia][extraPara.id]) {
+      novo.eventos[dia][extraPara.id] = novo.eventos[dia][extraPara.id].filter(
+        (e) => e.t !== "e"
+      );
+    }
+    persistir(novo);
+    setToast(`Medidas avulsas de hoje zeradas para ${extraPara.name}`);
+    setTimeout(() => setToast(null), 4000);
+    setExtraPara(null);
+    setValorExtra("");
+  };
+
+  /* Edição do próprio cartão (nome, medida da garrafa e meta) */
+  const abrirEdicao = (membro) => {
+    setFormEd({
+      name: membro.name,
+      bottleMl: membro.bottleMl,
+      goalMl: membro.goalMl,
+      peso: "",
+      pin: "",
+      removerPin: false,
+    });
+    setEditando(membro);
+  };
+
+  const calcularMetaEd = () => {
+    const p = Number(formEd.peso);
+    if (!p || p <= 0) return;
+    setFormEd((f) => ({ ...f, goalMl: Math.round((p * 35) / 50) * 50 }));
+  };
+
+  const salvarEdicao = async () => {
+    if (!editando) return;
+    const souDono =
+      editando.ownerId === meuDispositivo || posseExtra.includes(editando.id);
+    if (!souDono) return; /* só o próprio cartão */
+    const nome = String(formEd.name).trim();
+    const garrafa = Number(formEd.bottleMl);
+    const meta = Number(formEd.goalMl);
+    if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    if (nome.length > 15) {
+      setToast("O nome pode ter no máximo 15 caracteres");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (
+      dados.members.some(
+        (m) =>
+          m.id !== editando.id &&
+          nomeNormalizado(m.name) === nomeNormalizado(nome)
+      )
+    ) {
+      setToast(`Já existe uma garrafa com o nome "${nome}" — use outro nome`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const pin = String(formEd.pin || "").trim();
+    let pinHashNovo = null;
+    if (!formEd.removerPin && pin) {
+      if (!SENHA_VALIDA.test(pin)) {
+        setToast("A senha deve ter de 4 a 12 caracteres, sem espaços");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      try {
+        pinHashNovo = await hashPin(pin);
+      } catch {
+        setToast("Não foi possível gerar a senha neste navegador");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+    }
+    const novo = structuredClone(dados);
+    const alvo = novo.members.find((m) => m.id === editando.id);
+    if (!alvo) return;
+    const medidaAntiga = alvo.bottleMl;
+    if (garrafa !== medidaAntiga) {
+      /* Congela o histórico: converte as garrafas já registradas em ml
+         fixos na medida antiga, para a troca valer só daqui em diante */
+      Object.keys(novo.intake || {}).forEach((k) => {
+        const c = novo.intake[k] && novo.intake[k][alvo.id];
+        if (c > 0) {
+          if (!novo.extras) novo.extras = {};
+          if (!novo.extras[k]) novo.extras[k] = {};
+          novo.extras[k][alvo.id] =
+            (novo.extras[k][alvo.id] || 0) + c * medidaAntiga;
+          delete novo.intake[k][alvo.id];
+        }
+      });
+      /* Eventos de hoje: garrafas antigas viram medidas fixas,
+         para o Desfazer continuar removendo o valor certo */
+      if (novo.eventos && novo.eventos[dia] && novo.eventos[dia][alvo.id]) {
+        novo.eventos[dia][alvo.id] = novo.eventos[dia][alvo.id].map((e) =>
+          e.t === "g" ? { t: "e", ml: medidaAntiga } : e
+        );
+      }
+    }
+    /* Blindagem retroativa: antes de trocar a meta, grava a meta ANTIGA
+       nos dias já registrados que ainda não têm meta congelada. Assim
+       reduzir a meta hoje não "aprova" dias antigos que não bateram */
+    if (Number(alvo.goalMl) > 0 && Number(alvo.goalMl) !== meta) {
+      if (!novo.metas) novo.metas = {};
+      const diasComRegistro = new Set([
+        ...Object.keys(novo.intake || {}),
+        ...Object.keys((novo.extras) || {}),
+      ]);
+      diasComRegistro.forEach((k) => {
+        if (k > dia) return;
+        const temRegistro =
+          ((novo.intake[k] || {})[alvo.id] || 0) > 0 ||
+          (((novo.extras || {})[k] || {})[alvo.id] || 0) > 0;
+        if (!temRegistro) return;
+        if (!novo.metas[k]) novo.metas[k] = {};
+        if (!novo.metas[k][alvo.id]) novo.metas[k][alvo.id] = Number(alvo.goalMl);
+      });
+    }
+    alvo.name = nome;
+    alvo.bottleMl = garrafa;
+    alvo.goalMl = meta;
+    if (formEd.removerPin) {
+      delete alvo.pinHash;
+    } else if (pinHashNovo) {
+      alvo.pinHash = pinHashNovo;
+    }
+    persistir(novo);
+    setToast("Cartão atualizado ✏️");
+    setTimeout(() => setToast(null), 4000);
+    setEditando(null);
+  };
+
+  /* Reivindicação por PIN: outro dispositivo assume o controle do cartão */
+  const abrirReivindicacao = (membro) => {
+    setPinTentativa("");
+    setReivindicando(membro);
+  };
+
+  /* Login/Logout no topo do painel.
+     "Entrar": assume um cartão pela senha (vira dono neste aparelho). Se há só
+     um cartão possível, abre direto; se há vários, mostra o seletor.
+     "Sair": larga o controle neste dispositivo — libera os cartões
+     reivindicados por senha e troca a identidade do aparelho, voltando a ser
+     espectador. Avisa antes se há cartão nativo sem senha (não dá para voltar). */
+  const cartoesParaEntrar = dados.members.filter(
+    (m) => m.pinHash && m.ownerId !== meuDispositivo && !posseExtra.includes(m.id)
+  );
+  const abrirLogin = () => {
+    if (cartoesParaEntrar.length === 0) {
+      setToast("Nenhum cartão com senha para entrar neste aparelho.");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (cartoesParaEntrar.length === 1) return abrirReivindicacao(cartoesParaEntrar[0]);
+    setLoginAberto(true);
+  };
+  /* cartões criados aqui sem senha: avisar que não dá para voltar neles */
+  const nativosSemPin = dados.members.filter(
+    (m) => m.ownerId === meuDispositivo && !m.pinHash
+  );
+  const executarSaida = () => {
+    try {
+      localStorage.removeItem(POSSE_KEY);
+      localStorage.setItem(DEVICE_KEY, `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+    } catch {}
+    window.location.reload();
+  };
+
+  const confirmarReivindicacao = async () => {
+    if (!reivindicando) return;
+    const chaveTent = `agua-pin-tent-${reivindicando.id}`;
+    let controle = { erros: 0, ate: 0 };
+    try {
+      controle = { ...controle, ...JSON.parse(localStorage.getItem(chaveTent) || "{}") };
+    } catch {}
+    const agora = Date.now();
+    if (controle.ate > agora) {
+      const min = Math.ceil((controle.ate - agora) / 60000);
+      setToast(`Muitas tentativas — aguarde ${min} min`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const pin = pinTentativa.trim();
+    if (!SENHA_VALIDA.test(pin)) {
+      setToast("A senha deve ter de 4 a 12 caracteres, sem espaços");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    let h = "";
+    try {
+      h = await hashPin(pin);
+    } catch {
+      setToast("Não foi possível validar a senha neste navegador");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (h === reivindicando.pinHash) {
+      const nova = [...new Set([...posseExtra, reivindicando.id])];
+      setPosseExtra(nova);
+      localStorage.setItem(POSSE_KEY, JSON.stringify(nova));
+      localStorage.removeItem(chaveTent);
+      setToast(`🔑 Cartão de ${reivindicando.name} reivindicado — este dispositivo agora o controla`);
+      setTimeout(() => setToast(null), 5000);
+      setReivindicando(null);
+      setPinTentativa("");
+    } else {
+      controle.erros = (controle.erros || 0) + 1;
+      if (controle.erros >= 5) {
+        controle = { erros: 0, ate: agora + 5 * 60 * 1000 };
+        setToast("Senha incorreta 5 vezes — tente de novo em 5 min");
+      } else {
+        setToast(`Senha incorreta (${controle.erros}/5)`);
+      }
+      localStorage.setItem(chaveTent, JSON.stringify(controle));
+      setTimeout(() => setToast(null), 4000);
+    }
+  };
+
+  /* Toques enviados PARA um membro específico nos últimos 10 minutos */
+  const toquesRecentes = (membroId) => {
+    let lista = [];
+    try {
+      lista = JSON.parse(
+        localStorage.getItem(SINOS_POR_MEMBRO + membroId) || "[]"
+      );
+    } catch {}
+    const agora = Date.now();
+    return (Array.isArray(lista) ? lista : []).filter(
+      (t) => agora - t < 10 * 60 * 1000
+    );
+  };
+
+  /* Abre o seletor de frases — exige cartão próprio e respeita o limite
+     de 2 sinos por membro-alvo a cada 10 min (janela deslizante).
+     Membros diferentes têm contadores independentes, sem limite global */
+  const ehNoivo = (m) =>
+    nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento();
+
+  const abrirSino = (membro) => {
+    const meuCartao = dados.members.some(
+      (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
+    );
+    if (!meuCartao) {
+      setToast("Crie a sua garrafa para poder tocar o sino 🔔");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (!minhasConquistas.has("primeiro-gole")) {
+      setToast("Registre sua primeira garrafa de água para desbloquear o sino 🔔");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    /* Semana do casamento: o sino do noivo SEMPRE abre a lista de frases;
+       a recarga e o "já enviada" controlam cada card dentro do modal,
+       não a abertura */
+    if (ehNoivo(membro)) {
+      setSinoPara(membro);
+      return;
+    }
+    const toques = toquesRecentes(membro.id);
+    if (toques.length >= 2) {
+      const min = Math.ceil((toques[0] + 10 * 60 * 1000 - Date.now()) / 60000);
+      setToast(
+        `Você já tocou 2 sinos para ${membro.name} — libera em ${min} min`
+      );
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    setSinoPara(membro);
+  };
+
+  /* Frases de casamento que ESTE dispositivo ainda não enviou ao noivo
+     (cada frase só pode ser usada uma vez por pessoa) */
+  const frasesCasamentoDisponiveis = () => {
+    let usadas = [];
+    try {
+      usadas = JSON.parse(localStorage.getItem("agua-casamento-usadas") || "[]");
+    } catch {}
+    return FRASES_CASAMENTO.filter((f) => !usadas.includes(f));
+  };
+
+  /* Minha recarga: quanto falta para eu poder mandar outra mensagem */
+  const recargaCasamento = () => {
+    const ultimo = Number(localStorage.getItem("agua-casamento-cooldown") || 0);
+    const resto = 60 * 60 * 1000 - (Date.now() - ultimo);
+    return ultimo && resto > 0 ? resto : 0;
+  };
+
+  /* Envia uma frase de casamento ao noivo: 1 por hora, cada frase 1x
+     (o registro de quem enviou cada frase fica nos dados compartilhados) */
+  const enviarCasamento = (frase) => {
+    const noivo = dados.members.find(
+      (m) => nomeNormalizado(m.name) === NOIVO_NOME
+    );
+    if (!noivo) return;
+    const agora = Date.now();
+    /* já foi enviada por alguém? (registro compartilhado) */
+    const jaEnviada = dados.casamento && dados.casamento[frase];
+    if (jaEnviada) {
+      setToast(`Essa mensagem já foi enviada por ${jaEnviada.por}`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (recargaCasamento() > 0) {
+      setToast(
+        `Aguarde ${Math.ceil(recargaCasamento() / 60000)} min para mandar outra mensagem`
+      );
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const meuNome = meusMembros[0] ? meusMembros[0].name : "Alguém";
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 30 * 24 * 60 * 60 * 1000);
+    novo.nudges.push({
+      id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+      to: noivo.id,
+      at: agora,
+      fromName: meuNome,
+      tipo: "casamento",
+      frase,
+    });
+    /* registro compartilhado: essa frase foi usada por mim */
+    if (!novo.casamento) novo.casamento = {};
+    novo.casamento[frase] = { por: meuNome, at: agora };
+    persistir(novo);
+    let usadas = [];
+    try {
+      usadas = JSON.parse(localStorage.getItem("agua-casamento-usadas") || "[]");
+    } catch {}
+    usadas.push(frase);
+    localStorage.setItem("agua-casamento-usadas", JSON.stringify(usadas));
+    localStorage.setItem("agua-casamento-cooldown", String(agora));
+    setToast("💍 Mensagem de casamento enviada ao Renan!");
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  /* Envia o sino para o dono de outro cartão.
+     Anti-spam: no máximo 2 sinos para o MESMO membro a cada 10 minutos */
+  /* Envio em massa (recompensa da Hidratação Profunda): manda a mesma
+     provocação para todo mundo, PULANDO quem já bateu o limite de 2
+     sinos em 10 min e quem não pode receber (você mesmo e quem já
+     bateu a meta) */
+  const enviarEmMassa = (frase, gif) => {
+    setMassaAberto(false);
+    const agora = Date.now();
+    const meuCartao = meusMembros[0];
+    const alvos = dados.members.filter((m) => {
+      const meu = m.ownerId === meuDispositivo || posseExtra.includes(m.id);
+      if (meu) return false;
+      if (ehNoivo(m)) return false; /* noivo fora do disparo em massa */
+      const c = registrosHoje[m.id] || 0;
+      const e = extrasHoje[m.id] || 0;
+      if (m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl) return false;
+      return toquesRecentes(m.id).length < 2;
+    });
+    if (alvos.length === 0) {
+      setToast("Ninguém disponível agora — todos no limite ou com a meta batida");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    alvos.forEach((m, i) => {
+      const toques = toquesRecentes(m.id);
+      toques.push(agora);
+      localStorage.setItem(SINOS_POR_MEMBRO + m.id, JSON.stringify(toques));
+      novo.nudges.push({
+        id: `n-${agora}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+        to: m.id,
+        at: agora,
+        fromName: meuCartao ? meuCartao.name : null,
+        frase: gif ? "" : frase,
+        ...(gif ? { gif } : {}),
+      });
+    });
+    persistir(novo);
+    const pulados = dados.members.length - 1 - alvos.length;
+    setToast(
+      `📢 Provocação enviada para ${alvos.length} pessoa${alvos.length > 1 ? "s" : ""}` +
+        (pulados > 0 ? ` — ${pulados} fora do alcance agora` : "")
+    );
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  const tocarSino = (membro, frase, gif) => {
+    if (ehNoivo(membro)) { setSinoPara(null); return; } /* noivo: só casamento */
+    setSinoPara(null);
+    const agora = Date.now();
+    const toques = toquesRecentes(membro.id);
+    if (toques.length >= 2) {
+      const min = Math.ceil((toques[0] + 10 * 60 * 1000 - agora) / 60000);
+      setToast(
+        `Você já tocou 2 sinos para ${membro.name} — libera em ${min} min`
+      );
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    toques.push(agora);
+    localStorage.setItem(
+      SINOS_POR_MEMBRO + membro.id,
+      JSON.stringify(toques)
+    );
+    const meuCartao = dados.members.find(
+      (m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id)
+    );
+    const novo = structuredClone(dados);
+    if (!Array.isArray(novo.nudges)) novo.nudges = [];
+    // Mantém só os sinos das últimas 2 horas para o arquivo não crescer
+    novo.nudges = novo.nudges.filter((n) => agora - n.at < 2 * 60 * 60 * 1000);
+    novo.nudges.push({
+      id: `n-${agora}-${Math.random().toString(36).slice(2, 7)}`,
+      to: membro.id,
+      at: agora,
+      fromName: meuCartao ? meuCartao.name : null,
+      frase: gif ? "" : frase,
+      ...(gif ? { gif } : {}),
+    });
+    persistir(novo);
+    setToast(gif ? `GIF enviado para ${membro.name} 🎬` : `Sino enviado para ${membro.name} 🔔`);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const adicionar = async () => {
+    const nome = form.name.trim();
+    const garrafa = Number(form.bottleMl);
+    const meta = Number(form.goalMl);
+    if (!nome || !garrafa || garrafa <= 0 || !meta || meta <= 0) return;
+    if (nome.length > 15) {
+      setToast("O nome pode ter no máximo 15 caracteres");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (
+      dados.members.some(
+        (m) => nomeNormalizado(m.name) === nomeNormalizado(nome)
+      )
+    ) {
+      setToast(`Já existe uma garrafa com o nome "${nome}" — use outro nome`);
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    const pin = String(form.pin || "").trim();
+    let pinHash = null;
+    if (pin) {
+      if (!SENHA_VALIDA.test(pin)) {
+        setToast("A senha deve ter de 4 a 12 caracteres, sem espaços");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      try {
+        pinHash = await hashPin(pin);
+      } catch {
+        setToast("Não foi possível gerar a senha neste navegador");
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+    }
+    const novo = structuredClone(dados);
+    const membroNovo = {
+      id: `m-${Date.now()}`,
+      name: nome,
+      bottleMl: garrafa,
+      goalMl: meta,
+      ownerId: meuDispositivo,
+    };
+    if (pinHash) membroNovo.pinHash = pinHash;
+    novo.members.push(membroNovo);
+    persistir(novo);
+    setForm({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "" });
+    setMostrarForm(false);
+  };
+
+  return (
+    <div className={`app ${meusPoderes.length > 0 ? "com-poderes" : ""}`}>
+      {premiacao && (
+        <PremiacaoOverlay
+          podio={premiacao.podio}
+          perdedores={premiacao.perdedores}
+          onContinuar={() => setPremiacao(null)}
+        />
+      )}
+      <header className="cabecalho">
+        <div>
+          <p className="data-dia">{dataLonga()}</p>
+          <h1 className="titulo">Hidratação do time</h1>
+        </div>
+        <div className="resumo">
+          <button
+            className="btn-regras-carta"
+            title="Regras do desempenho e dos poderes"
+            aria-label="Regras do desempenho e dos poderes"
+            onClick={() => setNovidadeDesempenho(true)}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
+            </svg>
+          </button>
+          <button
+            className="btn-regras-carta"
+            title="Regras da Carta Anti-Seca"
+            aria-label="Regras da Carta Anti-Seca"
+            onClick={() => setRegrasCarta(true)}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+              <path d="M12 17.6a3.6 3.6 0 0 0 3.6-3.6c0-1-.5-2-1.5-2.8-1-.8-1.8-2.1-2.1-3.4-.3 1.3-1.1 2.6-2.1 3.4-1 .8-1.5 1.8-1.5 2.8a3.6 3.6 0 0 0 3.6 3.6z" />
+            </svg>
+          </button>
+          {(tenhoCartao || cartoesParaEntrar.length > 0) && (
+            <button
+              className="btn-regras-carta"
+              title={tenhoCartao ? "Sair deste aparelho" : "Entrar no seu cartão com senha"}
+              aria-label={tenhoCartao ? "Sair deste aparelho" : "Entrar no seu cartão com senha"}
+              onClick={tenhoCartao ? () => setConfirmarSair(true) : abrirLogin}
+            >
+              {tenhoCartao ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+              )}
+            </button>
+          )}
+          <p className="resumo-num">{fmtPiso(totalHoje)}</p>
+          <p className="resumo-label">
+            {metaTotal > 0 ? `de ${fmt(metaTotal)} do time hoje` : "registrado hoje"}
+          </p>
+        </div>
+      </header>
+
+      {novidadeDesempenho && (
+        <div
+          className="modal-fundo"
+          onClick={() => {
+            localStorage.setItem("agua-novidade-desempenho-3", "1");
+            setNovidadeDesempenho(false);
+          }}
+        >
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <p className="comemoracao-emoji" aria-hidden="true">⚡</p>
+            <h2 className="nome">Novidade no ranking</h2>
+            <p className="aviso-agua-texto">
+              O ranking da semana agora mostra o seu <strong>desempenho</strong>,
+              não só a média de água. Beber conta a favor; sofrer poderes conta
+              contra.
+            </p>
+            <div className="regras-poder">
+              <p className="regras-poder-linha">💧 Cada registro de água soma pontos ao seu desempenho.</p>
+              <p className="regras-poder-linha">🌵 Ser cactificado tira <strong>4%</strong>.</p>
+              <p className="regras-poder-linha">🏜️ Ser desertificado tira <strong>8%</strong>.</p>
+              <p className="regras-poder-linha">⏳ Ser soterrado tira <strong>10%</strong>.</p>
+            </div>
+            <p className="aviso-agua-texto secundario">
+              Meta abaixo de 2 L? A penalidade dos poderes é <strong>1,5x maior</strong>
+              (o cacto tira 6%, o deserto 12%, o soterramento 15%).
+            </p>
+            <p className="aviso-agua-texto secundario">
+              Tudo fica registrado no seu histórico, com quanto cada ação somou
+              ou tirou. Ou seja: beba água e fuja dos poderes. 😄
+            </p>
+            <button
+              className="beber fechar-modal"
+              onClick={() => {
+                localStorage.setItem("agua-novidade-desempenho-3", "1");
+                setNovidadeDesempenho(false);
+              }}
+            >
+              Entendi!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {dica && (
+        <div className="dica-agua" key={dica}>
+          <span className="dica-icone" aria-hidden="true">💡</span>
+          <span>{dica}</span>
+        </div>
+      )}
+
+      {alertas.length > 0 && (
+        <div className="pilha-alertas">
+          {alertas.length > 1 && (
+            <button className="limpar-alertas" onClick={() => setAlertas([])}>
+              Fechar todas ({alertas.length})
+            </button>
+          )}
+          {alertas.map((a) => (
+            <div
+              key={a.id}
+              className={`banner-alerta ${a.tipo && a.tipo !== "sino" ? a.tipo : ""}`}
+            >
+              <span className="banner-texto">
+                {a.tipo === "carta-aviso" ? (
+                  a.frase
+                ) : a.tipo && a.tipo.startsWith("anuncio-") ? (
+                  a.frase
+                ) : a.tipo === "casamento" ? (
+                  <>
+                    💍 <strong>{a.nome}</strong> deseja: {a.frase}
+                  </>
+                ) : a.gif ? (
+                  <span className="banner-gif-bloco">
+                    <span className="banner-gif-nome">🎬 <strong>{a.nome}</strong> te mandou um GIF:</span>
+                    <img src={a.gif} alt="GIF recebido" className="banner-gif" />
+                  </span>
+                ) : (
+                  <>
+                    🔔 <strong>{a.nome}:</strong> {a.frase}
+                  </>
+                )}
+              </span>
+              <span className="banner-hora">{a.hora}</span>
+              <button
+                className="fechar-alerta"
+                aria-label="Fechar aviso"
+                title="Fechar aviso"
+                onClick={() => fecharAlerta(a.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+
+      {sinoPara && ehNoivo(sinoPara) && (
+        <div className="modal-fundo" onClick={() => setSinoPara(null)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">💍 Mensagem de casamento para {sinoPara.name}</h2>
+            <p className="sub">
+              Uma mensagem carinhosa para o noivo. Cada frase só pode ser
+              enviada uma vez pelo time, e você manda uma por hora — dê a vez aos outros.
+            </p>
+            {(() => {
+              const recarga = recargaCasamento();
+              return (
+                <div className="lista-frases">
+                  {FRASES_CASAMENTO.map((f) => {
+                    const enviada = dados.casamento && dados.casamento[f];
+                    const bloqueadaTempo = !enviada && recarga > 0;
+                    const disponivel = !enviada && !bloqueadaTempo;
+                    return (
+                      <button
+                        key={f}
+                        className={`frase frase-casamento ${disponivel ? "" : "frase-bloqueada"}`}
+                        disabled={!disponivel}
+                        onClick={() => disponivel && enviarCasamento(f)}
+                      >
+                        <span className="frase-texto">{f}</span>
+                        {enviada && (
+                          <span className="frase-status enviada">✓ enviada por {enviada.por}</span>
+                        )}
+                        {bloqueadaTempo && (
+                          <span className="frase-status espera">
+                            🔒 libera em {Math.ceil(recarga / 60000)} min
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sinoPara && !ehNoivo(sinoPara) && (
+        <div className="modal-fundo" onClick={() => { setSinoPara(null); setFraseLivre(""); }}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🔔 Tocar o sino para {sinoPara.name}</h2>
+            {podeFrasePersonalizada && (
+              <FraseLivre
+                limite={LIMITE_FRASE}
+                onEnviar={(t) => tocarSino(sinoPara, t)}
+                onEnviarGif={(url) => tocarSino(sinoPara, "", url)}
+              />
+            )}
+            <p className="sub">Escolha a mensagem:</p>
+            <div className="lista-frases">
+              {FRASES.map((f) => (
+                <button key={f} className="frase" onClick={() => tocarSino(sinoPara, f)}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            {gruposExclusivos.length > 0 && (
+              <div>
+                <p className="sub exclusivas-titulo">
+                  ✨ Exclusivas das suas conquistas
+                </p>
+                {gruposExclusivos.map((g) => (
+                  <div key={g.id}>
+                    <p className="grupo-conquista">
+                      {g.conquista && (
+                        <span className="grupo-icone">
+                          <IconeConquista conquista={g.conquista} tamanho={11} />
+                        </span>
+                      )}
+                      {g.nome}
+                    </p>
+                    <div className="lista-frases">
+                      {g.frases.map((f) => (
+                        <button
+                          key={f}
+                          className="frase exclusiva"
+                          onClick={() => tocarSino(sinoPara, f)}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {erroSalvar && (
+        <p className="aviso">
+          Não foi possível salvar o último registro. Ele continua na tela — tente
+          clicar de novo.
+        </p>
+      )}
+
+      {dados.members.length === 0 && !mostrarForm && (
+        <div className="vazio">
+          <Garrafa pct={0.35} tamanho={64} />
+          <p>Nenhuma garrafa ainda. Adicione a primeira para começar a registrar.</p>
+        </div>
+      )}
+
+      <div className="grade">
+        {membrosOrdenados.map((m) => {
+          const c = registrosHoje[m.id] || 0;
+          const extraMl = extrasHoje[m.id] || 0;
+          const donoDoCartao =
+            !m.ownerId ||
+            m.ownerId === meuDispositivo ||
+            posseExtra.includes(m.id);
+          const bateuMeta = c * m.bottleMl + extraMl >= m.goalMl;
+          const exprOlhos = expressaoDe(m);
+          return (
+            <CartaoMembro
+              key={m.id}
+              membro={m}
+              expr={exprOlhos.key}
+              tremorOlhos={exprOlhos.tremor}
+              count={c}
+              extraMl={extraMl}
+              dono={donoDoCartao}
+              noivo={nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento()}
+              mostrarSino={
+                tenhoCartao &&
+                minhasConquistas.has("primeiro-gole") &&
+                !donoDoCartao &&
+                !bateuMeta
+              }
+              alertando={alertas.some((a) => a.memberId === m.id)}
+              efeitos={(() => {
+                const ativos = efeitosDe(m);
+                /* a areia do cartão é para os OUTROS verem: no cartão do
+                   próprio soterrado ela seria redundante com a tela */
+                if (donoDoCartao && ativos.tempestade) {
+                  const { tempestade, ...resto } = ativos;
+                  return resto;
+                }
+                return ativos;
+              })()}
+              selos={CONQUISTAS.filter(
+                (c) => conquistas[m.id] && conquistas[m.id].conjunto.has(c.id)
+              )}
+              garrafaId={garrafaSelDe(m.id)}
+              garrafasDono={garrafasDe(m.id)}
+              creditoGarrafa={creditosGarrafaDe(m.id)}
+              onEscolherGarrafa={(mm) => setEscolhaGarrafa({ membroId: mm.id, manual: true })}
+              rei={!!(conquistas[m.id] && conquistas[m.id].conjunto.has("rei-da-cactificacao"))}
+              conquistaRei={reiConquista === m.id}
+              podeEditar={m.ownerId === meuDispositivo || posseExtra.includes(m.id)}
+              mostrarReivindicar={!tenhoCartao && !donoDoCartao && !!m.pinHash}
+              onEditar={abrirEdicao}
+              onReivindicar={abrirReivindicacao}
+              onConquistas={setConquistasDe}
+              onHistorico={setHistoricoDe}
+              onSino={abrirSino}
+              onExtra={abrirExtra}
+              onBeber={beber}
+              onDesfazer={desfazer}
+              onRemover={remover}
+            />
+          );
+        })}
+
+        {!tenhoCartao &&
+          (mostrarForm ? (
+          <div className="cartao form">
+            <h2 className="nome">Nova garrafa</h2>
+            <label className="campo">
+              Nome
+              <input
+                type="text"
+                value={form.name}
+                autoFocus
+                maxLength={15}
+                placeholder="Ex.: Ana (máx. 15 caracteres)"
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && adicionar()}
+              />
+            </label>
+            <label className="campo">
+              Tamanho da garrafa (ml)
+              <input
+                type="number"
+                min="1"
+                value={form.bottleMl}
+                onChange={(e) => setForm({ ...form, bottleMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[300, 500, 750, 1000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(form.bottleMl) === v ? "ativo" : ""}`}
+                  onClick={() => setForm({ ...form, bottleMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Meta diária (ml)
+              <input
+                type="number"
+                min="1"
+                value={form.goalMl}
+                onChange={(e) => setForm({ ...form, goalMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[2000, 2500, 3000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(form.goalMl) === v ? "ativo" : ""}`}
+                  onClick={() => setForm({ ...form, goalMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Ou calcule a meta pelo peso corporal (kg)
+              <div className="calculo-linha">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Ex.: 70"
+                  value={form.peso}
+                  onChange={(e) => setForm({ ...form, peso: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && calcularMeta()}
+                />
+                <button className="calcular" onClick={calcularMeta}>
+                  Calcular
+                </button>
+              </div>
+            </label>
+            <p className="dica">
+              Referência geral: 35 ml por kg. O resultado preenche a meta diária
+              acima — ajuste como quiser.
+            </p>
+            <label className="campo">
+              Senha (opcional)
+              <CampoSenha
+                placeholder="4 a 12 caracteres"
+                value={form.pin}
+                onChange={(e) => setForm({ ...form, pin: e.target.value })}
+              />
+            </label>
+            <p className="dica">
+              Com senha, você pode assumir este cartão em outros dispositivos
+              pelo link "🔑 Este cartão é meu". Sem senha, tudo funciona
+              normalmente neste dispositivo.
+            </p>
+            <div className="cartao-acoes">
+              <button className="beber" onClick={adicionar}>
+                Adicionar garrafa
+              </button>
+              <button className="desfazer" onClick={() => setMostrarForm(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="cartao adicionar" onClick={() => setMostrarForm(true)}>
+            <span className="mais">+</span>
+            <span>Adicionar garrafa</span>
+          </button>
+        ))}
+      </div>
+
+      {extraPara && (
+        <div className="modal-fundo" onClick={() => setExtraPara(null)}>
+          <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Adicionar outra medida</h2>
+            <p className="sub">
+              Soma ao dia de {extraPara.name} sem alterar a garrafa de{" "}
+              {fmt(extraPara.bottleMl)}.
+            </p>
+            <label className="campo">
+              Quantidade (ml)
+              <input
+                type="number"
+                min="1"
+                autoFocus
+                placeholder="Ex.: 200"
+                value={valorExtra}
+                onChange={(e) => setValorExtra(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && adicionarExtra()}
+              />
+            </label>
+            <div className="presets">
+              {[100, 200, 300, 500].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(valorExtra) === v ? "ativo" : ""}`}
+                  onClick={() => setValorExtra(v)}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            {((dados.extras && dados.extras[dia] && dados.extras[dia][extraPara.id]) || 0) > 0 && (
+              <button className="zerar-extra" onClick={zerarExtra}>
+                Zerar os {fmt(dados.extras[dia][extraPara.id])} avulsos de hoje
+              </button>
+            )}
+            <div className="cartao-acoes">
+              <button className="beber" onClick={adicionarExtra}>
+                Adicionar
+              </button>
+              <button className="desfazer" onClick={() => setExtraPara(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editando && (
+        <div className="modal-fundo" onClick={() => setEditando(null)}>
+          <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Editar meu cartão</h2>
+            <p className="sub">
+              Mudar a medida vale só para as próximas garrafas — o que você já
+              bebeu mantém o valor original.
+            </p>
+            <label className="campo">
+              Nome
+              <input
+                type="text"
+                value={formEd.name}
+                autoFocus
+                maxLength={15}
+                onChange={(e) => setFormEd({ ...formEd, name: e.target.value })}
+              />
+            </label>
+            <label className="campo">
+              Tamanho da garrafa (ml)
+              <input
+                type="number"
+                min="1"
+                value={formEd.bottleMl}
+                onChange={(e) => setFormEd({ ...formEd, bottleMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[300, 500, 750, 1000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(formEd.bottleMl) === v ? "ativo" : ""}`}
+                  onClick={() => setFormEd({ ...formEd, bottleMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Meta diária (ml)
+              <input
+                type="number"
+                min="1"
+                value={formEd.goalMl}
+                onChange={(e) => setFormEd({ ...formEd, goalMl: e.target.value })}
+              />
+            </label>
+            <div className="presets">
+              {[2000, 2500, 3000].map((v) => (
+                <button
+                  key={v}
+                  className={`preset ${Number(formEd.goalMl) === v ? "ativo" : ""}`}
+                  onClick={() => setFormEd({ ...formEd, goalMl: v })}
+                >
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            <label className="campo">
+              Ou calcule a meta pelo peso corporal (kg)
+              <div className="calculo-linha">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Ex.: 70"
+                  value={formEd.peso}
+                  onChange={(e) => setFormEd({ ...formEd, peso: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && calcularMetaEd()}
+                />
+                <button className="calcular" onClick={calcularMetaEd}>
+                  Calcular
+                </button>
+              </div>
+            </label>
+            <label className="campo">
+              Senha (opcional)
+              <CampoSenha
+                placeholder={
+                  editando.pinHash
+                    ? "definida — digite para trocar"
+                    : "4 a 12 caracteres"
+                }
+                value={formEd.pin}
+                onChange={(e) =>
+                  setFormEd({ ...formEd, pin: e.target.value, removerPin: false })
+                }
+              />
+            </label>
+            <p className="dica">
+              Deixe em branco para manter como está. A senha permite assumir
+              este cartão em outros dispositivos.
+            </p>
+            {editando.pinHash && (
+              <button
+                className="zerar-extra"
+                onClick={() =>
+                  setFormEd({ ...formEd, pin: "", removerPin: !formEd.removerPin })
+                }
+              >
+                {formEd.removerPin
+                  ? "A senha será removida ao salvar — clique para desfazer"
+                  : "Remover senha deste cartão"}
+              </button>
+            )}
+            <div className="cartao-acoes">
+              <button className="beber" onClick={salvarEdicao}>
+                Salvar
+              </button>
+              <button className="desfazer" onClick={() => setEditando(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {minhaCarta && !cartaAlvo && (
+        <CartaAntiSeca
+          expiraEm={Number(minhaCarta.at || 0) + 60 * 60 * 1000}
+          virada={cartaVirada}
+          onVirar={() => (cartaVirada ? setCartaAlvo(true) : setCartaVirada(true))}
+        />
+      )}
+
+      {regrasCarta && (
+        <div className="modal-fundo" onClick={() => setRegrasCarta(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🃏 Carta Anti-Seca</h2>
+            <p className="sub">
+              Uma carta que aparece sozinha, em segredo, para uma pessoa de
+              cada vez. Ela pode surgir a qualquer momento do dia.
+            </p>
+            <div className="regras-poder">
+              <p className="regras-poder-nome">Como ela chega</p>
+              <p className="regras-poder-linha">
+                • Aparece no canto da tela de <strong>uma única pessoa</strong>,
+                sorteada. Ninguém mais fica sabendo.
+              </p>
+              <p className="regras-poder-linha">
+                • Só entra no sorteio quem registrou <strong>alguma água nas
+                últimas 24 horas</strong> — quem está sumido fica de fora.
+              </p>
+              <p className="regras-poder-linha">
+                • Você tem <strong>1 hora</strong> para usá-la. Passou disso sem
+                escolher ninguém, ela se desfaz e outra aparece para alguém.
+              </p>
+              <p className="regras-poder-linha">
+                • Depois de jogada, a proteção fica de pé até alguém atacar —
+                ou até a virada do dia.
+              </p>
+
+              <p className="regras-poder-nome">O que você faz com ela</p>
+              <p className="regras-poder-linha">
+                • Escolhe <strong>alguém que não seja você</strong> para ficar
+                protegido contra o próximo cacto, deserto ou soterramento.
+              </p>
+              <p className="regras-poder-linha">
+                • A pessoa protegida <strong>não é avisada</strong> — nem ela
+                sabe que está blindada.
+              </p>
+              <p className="regras-poder-linha">
+                • Ter a carta não atrapalha em nada os seus próprios poderes.
+              </p>
+
+              <p className="regras-poder-nome">Quando alguém ataca</p>
+              <p className="regras-poder-linha">
+                • Se o atacante mira em <strong>quem você protegeu</strong>, o
+                feitiço trava no ar e ele precisa adivinhar quem jogou a carta.
+              </p>
+              <p className="regras-poder-linha">
+                • <strong>Acertou você:</strong> o efeito cai sobre a vítima e
+                sobre você.
+              </p>
+              <p className="regras-poder-linha">
+                • <strong>Errou:</strong> o feitiço volta contra ele — e o poder
+                usado fica <strong>com você</strong> até você usá-lo hoje. Enquanto
+                isso, ele fica sem o poder. Virou o dia, tudo volta ao normal.
+              </p>
+              <p className="regras-poder-linha">
+                • Quem bateu <strong>100% da meta</strong> não sofre o efeito de
+                volta, mas perde o poder do mesmo jeito.
+              </p>
+              <p className="regras-poder-linha">
+                • Se o atacante mirar em <strong>outra pessoa</strong>, nada
+                acontece: a carta se desfaz e só você é avisado.
+              </p>
+            </div>
+            <button
+              className="beber fechar-modal"
+              onClick={() => setRegrasCarta(false)}
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cartaAlvo && (
+        <div className="modal-fundo" onClick={() => setCartaAlvo(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🃏 Carta Anti-Seca</h2>
+            <p className="sub">
+              Quem você protege? Ninguém será avisado — nem quem recebe.
+            </p>
+            <div className="lista-alvos">
+              {dados.members
+                .filter((m) => !meusMembros.some((x) => x.id === m.id))
+                .map((m) => (
+                  <div key={m.id} className="alvo">
+                    <span className="alvo-nome">{m.name}</span>
+                    <button className="mini-aplicar" onClick={() => jogarCarta(m.id)}>
+                      Proteger
+                    </button>
+                  </div>
+                ))}
+            </div>
+            <button className="desfazer fechar-modal" onClick={() => setCartaAlvo(false)}>
+              Agora não
+            </button>
+          </div>
+        </div>
+      )}
+
+      {adivinhacao && (
+        <div className="modal-fundo">
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🃏 Feitiço interceptado!</h2>
+            <p className="aviso-agua-texto">
+              <strong>{adivinhacao.alvo.name}</strong> estava protegido por uma{" "}
+              <strong>Carta Anti-Seca</strong>. O seu{" "}
+              {(PODERES.find((p) => p.id === adivinhacao.poderId) || {}).nome} ficou
+              suspenso no ar e agora ameaça voltar contra você.
+            </p>
+            <p className="aviso-agua-texto secundario">
+              Só existe uma saída: descobrir <strong>quem</strong> jogou a carta.
+              Acertando, o feitiço cai sobre a vítima e sobre quem a protegeu.
+              Errando, ele cai sobre você — e o poder fica nas mãos do dono da
+              carta até ele usá-lo hoje.
+            </p>
+            <div className="lista-alvos">
+              {dados.members
+                .filter(
+                  (m) =>
+                    m.id !== adivinhacao.alvo.id &&
+                    !meusMembros.some((x) => x.id === m.id)
+                )
+                .map((m) => (
+                  <div key={m.id} className="alvo">
+                    <span className="alvo-nome">{m.name}</span>
+                    <button
+                      className="mini-aplicar"
+                      onClick={() => resolverAdivinhacao(m.id)}
+                    >
+                      Foi ele(a)
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {minhaTempestade && (
+        <Soterramento
+          mapaInicial={minhaTempestade.ef.mapa}
+          onLimpou={() => limparTempestade(minhaTempestade.id)}
+          onProgresso={(mapa) => salvarMapaAreia(minhaTempestade.id, mapa)}
+        />
+      )}
+
+      {minhaTormenta && (
+        <TempestadeCena
+          membro={minhaTormenta.membro}
+          bebido={minhaTormenta.bebido}
+          onBeber={() => beber(minhaTormenta.id)}
+          onDesfazer={() => desfazer(minhaTormenta.id)}
+          cartao={
+            <CartaoMembro
+              membro={minhaTormenta.membro}
+              expr="raiva"
+              count={registrosHoje[minhaTormenta.membro.id] || 0}
+              extraMl={extrasHoje[minhaTormenta.membro.id] || 0}
+              dono
+              efeitos={{}}
+              selos={CONQUISTAS.filter((c) => conquistas[minhaTormenta.membro.id] && conquistas[minhaTormenta.membro.id].conjunto.has(c.id))}
+              garrafaId={garrafaSelDe(minhaTormenta.membro.id)}
+              garrafasDono={garrafasDe(minhaTormenta.membro.id)}
+              creditoGarrafa={creditosGarrafaDe(minhaTormenta.membro.id)}
+              podeEditar
+              onEscolherGarrafa={(mm) => setEscolhaGarrafa({ membroId: mm.id, manual: true })}
+              onEditar={abrirEdicao}
+              onConquistas={setConquistasDe}
+              onHistorico={setHistoricoDe}
+              onExtra={abrirExtra}
+              onSino={() => {}}
+              onReivindicar={() => {}}
+              onRemover={() => {}}
+              onTrocarGarrafa={() => {}}
+              onBeber={() => beber(minhaTormenta.id)}
+              onDesfazer={() => desfazer(minhaTormenta.id)}
+              flutuante
+            />
+          }
+        />
+      )}
+
+      {(meusPoderes.length > 0 || minhasConquistas.has("hidratacao-profunda")) && (
+        <div className="barra-poderes">
+          {minhasConquistas.has("hidratacao-profunda") && (
+            <button
+              className="poder massa"
+              title="Envio em massa"
+              onClick={() => setMassaAberto(true)}
+            >
+              📢 Envio em massa
+            </button>
+          )}
+          {meusPoderes.map((p) => (
+            <button
+              key={p.id}
+              className="poder"
+              title={p.nome}
+              onClick={() => {
+                setRegrasAbertas(false);
+                setPoderAberto(p.id);
+              }}
+            >
+              {p.icone} {p.nome}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {massaAberto && (
+        <div className="modal-fundo" onClick={() => { setMassaAberto(false); setFraseLivre(""); }}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">📢 Envio em massa</h2>
+            <p className="sub">
+              A mesma provocação para o time todo. Quem já recebeu 2 sinos seus
+              nos últimos 10 minutos (ou já bateu a meta de hoje) fica de fora.
+            </p>
+            {podeFrasePersonalizada && (
+              <FraseLivre
+                limite={LIMITE_FRASE}
+                onEnviar={(t) => enviarEmMassa(t)}
+                onEnviarGif={(url) => enviarEmMassa("", url)}
+              />
+            )}
+            <div className="lista-frases">
+              {FRASES.map((f) => (
+                <button key={f} className="frase" onClick={() => enviarEmMassa(f)}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            {gruposExclusivos.length > 0 && (
+              <div>
+                <p className="sub exclusivas-titulo">
+                  ✨ Exclusivas das suas conquistas
+                </p>
+                {gruposExclusivos.map((g) => (
+                  <div key={g.id}>
+                    <p className="grupo-conquista">
+                      {g.conquista && (
+                        <span className="grupo-icone">
+                          <IconeConquista conquista={g.conquista} tamanho={11} />
+                        </span>
+                      )}
+                      {g.nome}
+                    </p>
+                    <div className="lista-frases">
+                      {g.frases.map((f) => (
+                        <button
+                          key={f}
+                          className="frase exclusiva"
+                          onClick={() => enviarEmMassa(f)}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              className="desfazer fechar-modal"
+              onClick={() => setMassaAberto(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {poderAberto && (() => {
+        const poder = PODERES.find((p) => p.id === poderAberto);
+        const alvos = dados.members.filter(
+          (m) => !(m.ownerId === meuDispositivo || posseExtra.includes(m.id))
+        );
+        return (
+          <div className="modal-fundo" onClick={() => setPoderAberto(null)}>
+            <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+              <h2 className="nome">
+                {poder.icone} {poder.nome}
+              </h2>
+              <button
+                className="link-extra link-regras"
+                onClick={() => setRegrasAbertas((v) => !v)}
+              >
+                {regrasAbertas ? "Ocultar as regras" : "📖 Saber mais sobre as regras"}
+              </button>
+              {regrasAbertas && (
+                <div className="regras-poder">
+                  {poder.regras.map((r) => (
+                    <p key={r} className="regras-poder-linha">
+                      • {r}
+                    </p>
+                  ))}
+                </div>
+              )}
+              <p className="sub">Escolha o alvo:</p>
+              <div className="lista-alvos">
+                {alvos.length === 0 && (
+                  <p className="sub">Nenhum outro cartão no time ainda.</p>
+                )}
+                {alvos.map((m) => {
+                  const st = statusPoder(poderAberto, m);
+                  return (
+                    <div key={m.id} className={`alvo ${st.ok ? "" : "inelegivel"}`}>
+                      <span className="alvo-nome">{m.name}</span>
+                      {!st.ok && <span className="alvo-motivo">{st.motivo}</span>}
+                      <button
+                        className="mini-aplicar"
+                        disabled={!st.ok}
+                        title={st.ok ? "Aplicar o poder" : st.motivo}
+                        onClick={() => st.ok && usarPoder(poderAberto, m)}
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                className="desfazer fechar-modal"
+                onClick={() => setPoderAberto(null)}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {poderesNovos.length > 0 && (
+        <div className="modal-fundo" onClick={() => setPoderesNovos([])}>
+          <div
+            className="modal-sino comemoracao poder-novo"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="comemoracao-emoji" aria-hidden="true">
+              {poderesNovos[0].icone}
+            </p>
+            <h2 className="nome">
+              Poder{poderesNovos.length > 1 ? "es" : ""} desbloqueado
+              {poderesNovos.length > 1 ? "s" : ""}!
+            </h2>
+            {poderesNovos.map((p) => (
+              <div key={p.id} className="regras-poder">
+                <p className="regras-poder-nome">
+                  {p.icone} {p.nome}
+                </p>
+                {p.regras.map((r) => (
+                  <p key={r} className="regras-poder-linha">
+                    • {r}
+                  </p>
+                ))}
+              </div>
+            ))}
+            <p className="sub">
+              Seus poderes ficam fixos na parte de baixo da tela.
+            </p>
+            <button
+              className="beber fechar-modal"
+              onClick={() => setPoderesNovos([])}
+            >
+              Usar com sabedoria 😈
+            </button>
+          </div>
+        </div>
+      )}
+
+      {conquistasNovas.length > 0 && (
+        <div className="modal-fundo" onClick={() => setConquistasNovas([])}>
+          <div
+            className="modal-sino comemoracao"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="comemoracao-emoji" aria-hidden="true">🏆</p>
+            <h2 className="nome">
+              Conquista{conquistasNovas.length > 1 ? "s" : ""} desbloqueada
+              {conquistasNovas.length > 1 ? "s" : ""}!
+            </h2>
+            <div className="lista-conquistas">
+              {conquistasNovas.map((c) => (
+                <div key={c.id} className="conquista ok">
+                  <span className="circulo-conquista modal-circulo">
+                    <IconeConquista conquista={c} tamanho={13} />
+                  </span>
+                  <span className="conquista-texto">
+                    <strong>{c.nome}</strong>
+                    <span>{c.desc}</span>
+                    {textoRecompensa(c) && (
+                      <span className="recompensa">🎁 {textoRecompensa(c)}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button
+              className="beber fechar-modal"
+              onClick={() => setConquistasNovas([])}
+            >
+              Aê! 🎉
+            </button>
+          </div>
+        </div>
+      )}
+
+      {avisoAgua && (
+        <div className="modal-fundo">
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <div className="aviso-agua-topo">
+              <span className="aviso-agua-icone" aria-hidden="true">⚠️</span>
+              <h2 className="nome">Calma no ritmo 💧</h2>
+            </div>
+            <p className="aviso-agua-texto">
+              Você registrou mais de <strong>1 litro na última hora</strong>.
+              Beber um volume grande de água em pouco tempo pode diluir o sódio
+              do sangue — um quadro chamado <strong>hiponatremia</strong>{" "}
+              (intoxicação hídrica), que em casos graves é perigoso.
+            </p>
+            <p className="aviso-agua-texto secundario">
+              Os rins processam cerca de 1 litro por hora. O ideal é espaçar os
+              goles ao longo do dia — a meta não precisa ser batida de uma vez.
+            </p>
+            <div className="caixa-atencao">
+              Sentindo dor de cabeça, náusea, inchaço ou confusão após beber
+              muita água? Procure atendimento médico.
+            </div>
+            <button
+              className="beber aviso-agua-botao"
+              onClick={() => setAvisoAgua(false)}
+            >
+              Entendi, vou espaçar
+            </button>
+            <p className="aviso-agua-nota">
+              Aviso informativo — não substitui orientação médica.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {confirmarSair && (
+        <div className="modal-fundo" onClick={() => setConfirmarSair(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={() => setConfirmarSair(false)}>×</button>
+            <h2 className="nome">Sair deste aparelho?</h2>
+            <p className="sub">
+              Você vai largar o controle dos cartões neste dispositivo e voltar a
+              ser espectador. Para controlar de novo, é só Entrar com a senha.
+            </p>
+            {nativosSemPin.length > 0 && (
+              <p className="aviso" style={{ margin: "12px 0 0" }}>
+                Atenção: {nativosSemPin.map((m) => m.name).join(", ")} {nativosSemPin.length > 1 ? "foram criados" : "foi criado"} sem senha.
+                Sem senha, não há como entrar de novo nesse(s) cartão(ões) depois de sair.
+              </p>
+            )}
+            <button className="beber fechar-modal" style={{ background: "#C0392B" }} onClick={() => { setConfirmarSair(false); executarSaida(); }}>
+              Sair
+            </button>
+            <button className="desfazer fechar-modal" onClick={() => setConfirmarSair(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {loginAberto && (
+        <div className="modal-fundo" onClick={() => setLoginAberto(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={() => setLoginAberto(false)}>×</button>
+            <h2 className="nome">🔑 Entrar</h2>
+            <p className="sub">Qual cartão é o seu? Você vai precisar da senha dele.</p>
+            <div className="lista-frases">
+              {cartoesParaEntrar.map((m) => (
+                <button
+                  key={m.id}
+                  className="frase"
+                  onClick={() => { setLoginAberto(false); abrirReivindicacao(m); }}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+            <button className="desfazer fechar-modal" onClick={() => setLoginAberto(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {reivindicando && (
+        <div className="modal-fundo" onClick={() => setReivindicando(null)}>
+          <div className="modal-sino form" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🔑 Este cartão é meu</h2>
+            <p className="sub">
+              Digite a senha de {reivindicando.name} para controlar o cartão
+              também neste dispositivo. O dispositivo original continua
+              funcionando normalmente.
+            </p>
+            <label className="campo">
+              Senha
+              <CampoSenha
+                autoFocus
+                value={pinTentativa}
+                onChange={(e) => setPinTentativa(e.target.value)}
+                onEnter={confirmarReivindicacao}
+              />
+            </label>
+            <div className="cartao-acoes">
+              <button className="beber" onClick={confirmarReivindicacao}>
+                Confirmar
+              </button>
+              <button className="desfazer" onClick={() => setReivindicando(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historicoDe && (() => {
+        const lista = (
+          (dados.historico && dados.historico[historicoDe.id]) ||
+          []
+        )
+          .filter((e) => !e.anulado)
+          /* poderes anteriores à regra de penalidade não entram */
+          .filter((e) => !(PENALIDADE[e.tipo] && e.t < PENALIDADE_DESDE));
+
+        /* agrupa por dia (mais recente primeiro) */
+        const chaveDia = (ts) => {
+          const d = new Date(ts);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        };
+        const rotuloDia = (ts) => {
+          const d = new Date(ts);
+          const hojeK = chaveDia(Date.now());
+          const ontem = new Date();
+          ontem.setDate(ontem.getDate() - 1);
+          if (chaveDia(ts) === hojeK) return "Hoje";
+          if (chaveDia(ts) === chaveDia(ontem.getTime())) return "Ontem";
+          const semana = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+          return `${semana[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+        };
+        const hora = (ts) => {
+          const d = new Date(ts);
+          return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        };
+
+        const grupos = [];
+        [...lista].sort((a, b) => b.t - a.t).forEach((e) => {
+          const k = chaveDia(e.t);
+          let g = grupos.find((x) => x.k === k);
+          if (!g) {
+            g = { k, ts: e.t, itens: [], ganho: 0, perda: 0 };
+            grupos.push(g);
+          }
+          g.itens.push(e);
+          if (typeof e.pct === "number") {
+            if (e.pct > 0) g.ganho += e.pct;
+            else g.perda += Math.abs(e.pct);
+          }
+        });
+
+        return (
+          <div className="modal-fundo" onClick={() => setHistoricoDe(null)}>
+            <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+              <h2 className="nome">📜 Histórico de {historicoDe.name}</h2>
+              {(() => {
+                const seq = conquistas[historicoDe.id]?.seqAtual || 0;
+                const rec = conquistas[historicoDe.id]?.maxUtil || 0;
+                const feitas = conquistas[historicoDe.id]?.cactosFeitos || 0;
+                return (
+                  <div className="hist-sequencia">
+                    <span>
+                      <strong>{seq}</strong> dia{seq === 1 ? "" : "s"} seguido
+                      {seq === 1 ? "" : "s"} com a meta
+                    </span>
+                    {rec > 0 && (
+                      <span className="hist-recorde">recorde: {rec}</span>
+                    )}
+                    {feitas > 0 && (
+                      <span className="hist-cactos">🌵 {feitas} cactificaç{feitas === 1 ? "ão" : "ões"} feita{feitas === 1 ? "" : "s"}</span>
+                    )}
+                  </div>
+                );
+              })()}
+              <div className="cal-navegacao">
+                <button
+                  className="cal-seta"
+                  disabled={mesHist >= 1}
+                  onClick={() => setMesHist(1)}
+                  aria-label="Mês anterior"
+                >
+                  ‹
+                </button>
+                <span className="cal-nav-label">
+                  {mesHist === 0 ? "Mês atual" : "Mês anterior"}
+                </span>
+                <button
+                  className="cal-seta"
+                  disabled={mesHist <= 0}
+                  onClick={() => setMesHist(0)}
+                  aria-label="Mês seguinte"
+                >
+                  ›
+                </button>
+              </div>
+
+              <GraficoMensal
+                membro={historicoDe}
+                intake={dados.intake}
+                extras={dados.extras || {}}
+                metas={dados.metas || {}}
+                offset={mesHist}
+              />
+
+              <CalendarioGotas
+                membro={historicoDe}
+                intake={dados.intake}
+                extras={dados.extras || {}}
+                metas={dados.metas || {}}
+                offset={mesHist}
+                ausencias={dados.ausencias || {}}
+              />
+
+              <p className="sub sub-registros">Registros — do mais recente ao mais antigo (até 100).</p>
+              <div className="lista-historico">
+                {grupos.length === 0 && (
+                  <p className="sub">Nada registrado por aqui ainda.</p>
+                )}
+                {grupos.map((g) => (
+                  <div key={g.k} className="hist-dia">
+                    <div className="hist-dia-cab">
+                      <span className="hist-dia-nome">{rotuloDia(g.ts)}</span>
+                      <span className="hist-dia-saldo">
+                        {g.ganho > 0 && (
+                          <span className="hist-pct mais">+{g.ganho}%</span>
+                        )}
+                        {g.perda > 0 && (
+                          <span className="hist-pct menos">−{g.perda}%</span>
+                        )}
+                      </span>
+                    </div>
+                    {g.itens.map((e, i) => (
+                      <div key={`${e.t}-${i}`} className="hist-item">
+                        <span className="hist-data">{hora(e.t)}</span>
+                        <span className="hist-texto">
+                          {e.tipo === "g" && `🍶 Garrafa · ${fmt(e.ml || 0)}`}
+                          {e.tipo === "e" && `💧 Medida avulsa · ${fmt(e.ml || 0)}`}
+                          {e.tipo === "cacto" && `🌵 Cactificado por ${e.por || "alguém"}`}
+                          {e.tipo === "deserto" && `🏜️ Desertificado por ${e.por || "alguém"}`}
+                          {e.tipo === "tempestade" && `⏳ Soterrado por ${e.por || "alguém"}`}
+                        </span>
+                        {typeof e.pct === "number" && e.pct !== 0 && (
+                          <span className={`hist-pct ${e.pct > 0 ? "mais" : "menos"}`}>
+                            {e.pct > 0 ? `+${e.pct}%` : `${e.pct}%`}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <button
+                className="desfazer fechar-modal"
+                onClick={() => setHistoricoDe(null)}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {animCacto && (
+        <AnimacaoBastao
+          fromId={animCacto.fromId}
+          toId={animCacto.toId}
+          mode={animCacto.mode}
+          onDone={() => {
+            if (animCacto.mode === "cacto") {
+              try { localStorage.setItem("agua-cact-anim-seen", String(animCacto.t)); } catch {}
+            }
+            setAnimCacto(null);
+          }}
+        />
+      )}
+
+      {escolhaGarrafa && (() => {
+        const m = dados.members.find((x) => x.id === escolhaGarrafa.membroId);
+        if (!m) return null;
+        const conj = conquistas[m.id] ? conquistas[m.id].conjunto : new Set();
+        const conquistasIds = CONQUISTAS_GARRAFA.filter((cid) => conj.has(cid));
+        return (
+          <ModalEscolhaGarrafa
+            membro={m}
+            creditos={creditosGarrafaDe(m.id)}
+            conquistasIds={conquistasIds}
+            donas={garrafasDe(m.id)}
+            ativa={garrafaSelDe(m.id)}
+            onAdquirir={(ids) => adquirirGarrafas(m.id, ids)}
+            onSelecionarAtiva={(id) => selecionarGarrafa(m.id, id)}
+            onFechar={() => setEscolhaGarrafa(null)}
+          />
+        );
+      })()}
+
+      {conquistasDe && (
+        <div className="modal-fundo" onClick={() => setConquistasDe(null)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Conquistas de {conquistasDe.name}</h2>
+            <p className="sub">
+              {fmt((conquistas[conquistasDe.id] || {}).totalMl || 0)} acumulados
+              · {(conquistas[conquistasDe.id] || {}).diasMeta || 0} dia
+              {((conquistas[conquistasDe.id] || {}).diasMeta || 0) !== 1 ? "s" : ""}{" "}
+              de meta batida
+            </p>
+            <div className="lista-conquistas">
+              {CONQUISTAS.map((c) => {
+                const ok =
+                  conquistas[conquistasDe.id] &&
+                  conquistas[conquistasDe.id].conjunto.has(c.id);
+                return (
+                  <div key={c.id} className={`conquista ${ok ? "ok" : "bloqueada"}`}>
+                    <span className={`circulo-conquista modal-circulo ${ok ? "" : "trancada"}`}>
+                      {ok ? (
+                        <IconeConquista conquista={c} tamanho={13} />
+                      ) : (
+                        <IconeCadeado />
+                      )}
+                    </span>
+                    <span className="conquista-texto">
+                      <strong>{c.nome}</strong>
+                      <span>
+                        {c.desc}
+                        {c.id === "incactificavel" &&
+                          !ok &&
+                          ` (${(conquistas[conquistasDe.id] || {}).cactos || 0}x cacto)`}
+                        {c.id === "rei-da-cactificacao" &&
+                          ` (${(conquistas[conquistasDe.id] || {}).cactosFeitos || 0} cactificaç${((conquistas[conquistasDe.id] || {}).cactosFeitos || 0) === 1 ? "ão" : "ões"})`}
+                      </span>
+                      {textoRecompensa(c) && (
+                        <span className="recompensa">🎁 {textoRecompensa(c)}</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              className="desfazer fechar-modal"
+              onClick={() => setConquistasDe(null)}
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {souAdmin && (
+        <div className="admin-barra">
+          <button
+            className="btn-admin-ausencias"
+            onClick={() => { setAusenciaDia(chaveDe(new Date())); setAusenciasAberto(true); }}
+          >
+            🏖️ Folgas &amp; feriados
+          </button>
+          {!testeAtivo && (
+            <button
+              className="btn-admin-ausencias btn-admin-teste"
+              onClick={() => entrarModoTeste(dados, meuDispositivo)}
+              title="Abrir um ambiente de teste isolado (nada é salvo no servidor)"
+            >
+              🧪 Ambiente de teste
+            </button>
+          )}
+        </div>
+      )}
+
+      {testeAtivo && dados && (
+        <div className="teste-barra">
+          <div className="teste-topo">
+            <span className="teste-tag">🧪 AMBIENTE DE TESTE</span>
+            <span className="teste-aviso">sandbox local desta aba • nada é salvo no servidor</span>
+            <button className="teste-sair" onClick={sairModoTeste}>Sair do teste</button>
+          </div>
+          <div className="teste-linha">
+            <label className="teste-campo">
+              <span>Ver como</span>
+              <select value={meuDispositivo} onChange={(e) => testeVerComo(e.target.value)}>
+                {dados.members.map((m) => (
+                  <option key={m.id} value={m.ownerId || ("d-teste-" + m.id)}>{m.name}</option>
+                ))}
+              </select>
+            </label>
+            <button className="teste-btn2" onClick={testeRessincronizar} title="Puxar os dados atuais do time para o sandbox">↻ Ressincronizar com produção</button>
+          </div>
+          <div className="teste-linha">
+            <label className="teste-campo">
+              <span>Poder</span>
+              <select value={tPoder} onChange={(e) => setTPoder(e.target.value)}>
+                {PODERES.map((p) => (<option key={p.id} value={p.id}>{p.icone} {p.nome}</option>))}
+              </select>
+            </label>
+            <label className="teste-campo">
+              <span>Alvo</span>
+              <select value={tAlvo || (dados.members[0] ? dados.members[0].id : "")} onChange={(e) => setTAlvo(e.target.value)}>
+                {dados.members.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
+              </select>
+            </label>
+            <button className="teste-btn" onClick={() => aplicarPoderTeste(tPoder, tAlvo || (dados.members[0] && dados.members[0].id))}>Aplicar poder</button>
+          </div>
+          <div className="teste-linha">
+            <button className="teste-btn2" onClick={() => limparEfeitosTeste(tAlvo || (dados.members[0] && dados.members[0].id))}>Limpar efeitos do alvo</button>
+            <button className="teste-btn2" onClick={() => limparEfeitosTeste("__all__")}>Limpar tudo</button>
+          </div>
+        </div>
+      )}
+
+      <HistoricoSemanal
+        members={dados.members}
+        intake={dados.intake}
+        extras={dados.extras || {}}
+        historico={dados.historico || {}}
+        onHistorico={setHistoricoDe}
+        ausencias={dados.ausencias || {}}
+      />
+
+      {souAdmin && ausenciasAberto && (() => {
+        const diaDate = new Date(ausenciaDia + "T12:00:00");
+        const deslocar = (delta) => { const d = new Date(diaDate); d.setDate(d.getDate() + delta); setAusenciaDia(chaveDe(d)); };
+        const nomeDiaSemana = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"][diaDate.getDay()];
+        const dataFmt = `${String(diaDate.getDate()).padStart(2,"0")}/${String(diaDate.getMonth()+1).padStart(2,"0")}/${diaDate.getFullYear()}`;
+        const fimDeSemana = diaDate.getDay() === 0 || diaDate.getDay() === 6;
+        const feriadoNacional = ehFeriado(diaDate);
+        const aus = dados.ausencias || {};
+        const feriadoManual = (aus.feriados || []).includes(ausenciaDia);
+        const folgasHoje = (aus.folgas && aus.folgas[ausenciaDia]) || [];
+        return (
+          <div className="modal-fundo" onClick={() => setAusenciasAberto(false)}>
+            <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-x" title="Fechar" aria-label="Fechar" onClick={() => setAusenciasAberto(false)}>×</button>
+              <h2 className="bloco-titulo" style={{ marginTop: 0 }}>🏖️ Folgas &amp; feriados</h2>
+              <p className="sub" style={{ marginTop: 2 }}>
+                Marque quem está de folga ou um feriado que o calendário não pegou. Dias marcados não contam no ranking e aparecem com selo no lugar da gota.
+              </p>
+
+              <div className="aus-navdia">
+                <button onClick={() => deslocar(-1)} aria-label="Dia anterior">‹</button>
+                <div className="aus-dia-rotulo">{nomeDiaSemana}<span>{dataFmt}</span></div>
+                <button onClick={() => deslocar(1)} aria-label="Próximo dia">›</button>
+              </div>
+
+              {fimDeSemana ? (
+                <div className="aus-nota">Fim de semana já não conta no ranking — não há o que marcar aqui.</div>
+              ) : feriadoNacional ? (
+                <div className="aus-nota">Feriado nacional (automático) — este dia já não conta para ninguém.</div>
+              ) : (
+                <>
+                  <div className="aus-feriado-linha">
+                    <div>
+                      <div className="rot">Feriado (todos)</div>
+                      <div className="sub2">O dia inteiro não conta para ninguém</div>
+                    </div>
+                    <button
+                      className={`aus-switch ${feriadoManual ? "on" : ""}`}
+                      aria-pressed={feriadoManual}
+                      aria-label="Marcar o dia como feriado"
+                      onClick={() => alternarFeriado(ausenciaDia)}
+                    />
+                  </div>
+                  {feriadoManual ? (
+                    <div className="aus-nota">Dia marcado como feriado — todo mundo fica de folga.</div>
+                  ) : (
+                    <>
+                      <div className="aus-titulo-sec">Quem está de folga</div>
+                      <div className="aus-chips">
+                        {dados.members.map((m) => {
+                          const on = folgasHoje.includes(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              className={`aus-chip ${on ? "on" : ""}`}
+                              aria-pressed={on}
+                              onClick={() => alternarFolga(ausenciaDia, m.id)}
+                            >
+                              <span className="ponto" />{m.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      <footer className="rodape">
+        Os registros são salvos automaticamente e compartilhados entre todos os
+        dispositivos. Os contadores reiniciam a cada dia — o histórico fica
+        guardado.
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<AguaTracker />);
+</script>
+</body>
+</html>
