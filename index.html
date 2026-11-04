@@ -659,7 +659,19 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .mp-bt2 { font-size: 7.5px; font-weight: 600; color: #486576; background: #eef4f6; border: 1px solid #cfe0e6; border-radius: 5px; padding: 4px 7px; text-align: center; }
 /* fullscreen (vítima): card maior + ajuda + medidor */
 .tormenta-cena .mp-nuvens { height: 8vh; }
-.tormenta-cena .mp-card { width: min(78vw, 320px); left: calc(50% - min(39vw, 160px)); bottom: 32%; }
+.tormenta-cena .mp-card { width: min(92vw, 360px); left: calc(50% - min(46vw, 180px)); bottom: 27%; animation: mpSwayFull 9s linear infinite; }
+.tormenta-cena .cartao-flutuante { width: 100%; margin: 0; box-sizing: border-box; }
+/* na tela cheia, só o card é interativo — as ondas/chuva/nuvens não bloqueiam o clique */
+.mp-palco > *:not(.mp-card) { pointer-events: none; }
+/* ondas mais largas (comprimento de onda maior) na tela cheia da vítima */
+.tormenta-cena .mp-back { -webkit-mask-size: 185px 100%; mask-size: 185px 100%; animation: flowB 5s linear infinite, mSlBfull 6.6s linear infinite; }
+.tormenta-cena .mp-f1 { -webkit-mask-size: 150px 100%; mask-size: 150px 100%; animation: flowB 3.6s linear infinite, mSlF1full 5.4s linear infinite; }
+.tormenta-cena .mp-f2 { -webkit-mask-size: 168px 100%; mask-size: 168px 100%; animation: flowC 4.8s linear infinite, mSlF2full 6s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+@keyframes mSlBfull { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -185px 0; mask-position: -185px 0; } }
+@keyframes mSlF1full { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 150px 0; mask-position: 150px 0; } }
+@keyframes mSlF2full { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -168px 0; mask-position: -168px 0; } }
+/* varredura da tela cheia: o card sai INTEIRO pela direita antes de voltar pela esquerda */
+@keyframes mpSwayFull { 0% { transform: translateX(0); animation-timing-function: ease-in-out; } 12% { transform: translateX(13%); } 26% { transform: translateX(-13%); animation-timing-function: ease-in-out; } 40% { transform: translateX(10%); } 52% { transform: translateX(-8%); animation-timing-function: cubic-bezier(.5,0,.9,.4); } 63.9% { transform: translateX(118vw); } 64% { transform: translateX(118vw); } 64.01% { transform: translateX(-118vw); animation-timing-function: cubic-bezier(.1,.5,.4,1); } 82% { transform: translateX(-6%); } 100% { transform: translateX(0); } }
 .tormenta-cena .mp-mini { border-radius: 16px; padding: 14px 16px; }
 .tormenta-cena .mp-head b { font-size: 17px; } .tormenta-cena .mp-ic { font-size: 13px; }
 .tormenta-cena .mp-sub { font-size: 11px; margin: 2px 0 8px; }
@@ -1252,7 +1264,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-04.4-teste-isolado";
+const APP_VERSION = "2026-11-04.5-card-tempestade-fiel";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2630,7 +2642,7 @@ function AreiaCartao({ mapa }) {
 /* ===== Poder Tempestade: a cena (nuvens em 3 camadas, mar com ondas, chuva,
    raios) com o card da pessoa boiando à solta. Serve contida no cartão
    (visão do time) e em tela cheia (a vítima). ===== */
-function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesfazer }) {
+function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesfazer, cartao }) {
   const cena = React.useMemo(() => {
     const rnd = (a, b) => a + Math.random() * (b - a);
     const pingos = [];
@@ -2664,20 +2676,22 @@ function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesf
         {cena.raios.map((r, i) => (<polyline key={i} className="mp-raio-ln" points={r.pts} style={{ animationDelay: r.delay + "s" }} />))}
       </svg>
       <div className="mp-mar mp-back" />
-      <div className="mp-card"><div className="mp-bob"><div className="mp-rock"><div className="mp-mini">
-        <div className="mp-head"><b>{membro.name}</b><span className="mp-ic">🔔 ×</span></div>
-        <div className="mp-sub">Garrafa de {fmt(membro.bottleMl)} · meta {fmt(meta)}</div>
-        <div className="mp-corpo">
-          <svg width={fullscreen ? 30 : 22} height={fullscreen ? 60 : 44} viewBox="0 0 60 120" aria-hidden="true">
-            <defs><clipPath id={cid}><path d={bp} /></clipPath></defs>
-            <rect x="0" y={120 - pct * 96 - 2} width="60" height="120" fill="#41C9E6" clipPath={"url(#" + cid + ")"} />
-            <path d={bp} fill="none" stroke="#0B3446" strokeWidth="2.5" />
-          </svg>
-          <div className="mp-dir"><div className="mp-vol">{fmt(bebido)}</div><div className="mp-meta">de {fmt(meta)}</div></div>
-        </div>
-        <div className="mp-barra"><i style={{ width: pct * 100 + "%" }} /></div>
-        <div className="mp-adder">{Bt}{Bt2}</div>
-      </div></div></div></div>
+      <div className="mp-card"><div className="mp-bob"><div className="mp-rock">
+        {cartao ? cartao : (<div className="mp-mini">
+          <div className="mp-head"><b>{membro.name}</b><span className="mp-ic">🔔 ×</span></div>
+          <div className="mp-sub">Garrafa de {fmt(membro.bottleMl)} · meta {fmt(meta)}</div>
+          <div className="mp-corpo">
+            <svg width={fullscreen ? 30 : 22} height={fullscreen ? 60 : 44} viewBox="0 0 60 120" aria-hidden="true">
+              <defs><clipPath id={cid}><path d={bp} /></clipPath></defs>
+              <rect x="0" y={120 - pct * 96 - 2} width="60" height="120" fill="#41C9E6" clipPath={"url(#" + cid + ")"} />
+              <path d={bp} fill="none" stroke="#0B3446" strokeWidth="2.5" />
+            </svg>
+            <div className="mp-dir"><div className="mp-vol">{fmt(bebido)}</div><div className="mp-meta">de {fmt(meta)}</div></div>
+          </div>
+          <div className="mp-barra"><i style={{ width: pct * 100 + "%" }} /></div>
+          <div className="mp-adder">{Bt}{Bt2}</div>
+        </div>)}
+      </div></div></div>
       <div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />
       <div className="mp-chuva">{cena.pingos.map((p, i) => (<span key={i} className="mp-pingo" style={{ left: p.left + "%", height: p.h + "px", animationDelay: p.delay + "s", animationDuration: p.dur + "s", opacity: p.op }} />))}</div>
       <div className="mp-nuvens">{cena.nuvens.map((nv, i) => (
@@ -2694,13 +2708,13 @@ function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesf
 }
 
 /* Tela cheia da vítima: o cenário + o "?" (explica como sair) + o medidor de escape (125%). */
-function TempestadeCena({ membro, bebido, onBeber, onDesfazer }) {
+function TempestadeCena({ membro, bebido, onBeber, onDesfazer, cartao }) {
   const [ajuda, setAjuda] = useState(false);
   const meta = membro.goalMl || 0;
   const pctHoje = meta > 0 ? bebido / meta : 0;
   return (
     <div className="tormenta-cena">
-      <PalcoTormenta membro={membro} bebido={bebido} fullscreen onBeber={onBeber} onDesfazer={onDesfazer} />
+      <PalcoTormenta membro={membro} bebido={bebido} fullscreen onBeber={onBeber} onDesfazer={onDesfazer} cartao={cartao} />
       <div className="tc-medidor">Beba 125% da meta para escapar · {Math.round(pctHoje * 100)}%</div>
       {ajuda && (
         <div className="tc-pop">
@@ -3590,7 +3604,7 @@ function OlhosGarrafa({ tipo, expr, tremor, uid }) {
   );
 }
 
-function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover }) {
+function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
   const [confirmando, setConfirmando] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
@@ -3603,8 +3617,8 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
 
   return (
     <div
-      id={`card-${membro.id}`}
-      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${tormentado ? "tormentado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""} ${conquistaRei && !noivo ? "rei-conquista" : ""}`}
+      id={flutuante ? undefined : `card-${membro.id}`}
+      className={`cartao ${flutuante ? "cartao-flutuante" : ""} ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${tormentado ? "tormentado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""} ${conquistaRei && !noivo ? "rei-conquista" : ""}`}
     >
       {rei && !noivo && <BastaoRei />}
       <div className="cartao-topo">
@@ -3835,9 +3849,16 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           <AreiaCartao mapa={efeitos.tempestade.mapa} />
         </div>
       )}
-      {tormentado && (
+      {tormentado && !flutuante && (
         <div className="palco-camada" aria-hidden="true">
-          <PalcoTormenta membro={membro} bebido={bebido} />
+          <PalcoTormenta membro={membro} bebido={bebido} cartao={
+            <CartaoMembro membro={membro} expr="raiva" count={count} extraMl={extraMl}
+              dono={false} efeitos={{}} selos={selos} garrafaId={garrafaId}
+              garrafasDono={garrafasDono} creditoGarrafa={0} podeEditar={false}
+              onSino={()=>{}} onExtra={()=>{}} onEditar={()=>{}} onReivindicar={()=>{}}
+              onConquistas={()=>{}} onHistorico={()=>{}} onBeber={()=>{}} onDesfazer={()=>{}}
+              onRemover={()=>{}} onEscolherGarrafa={null} onTrocarGarrafa={()=>{}} flutuante />
+          } />
         </div>
       )}
       {mostrarReivindicar && (
@@ -7159,6 +7180,33 @@ function AguaTracker() {
           bebido={minhaTormenta.bebido}
           onBeber={() => beber(minhaTormenta.id)}
           onDesfazer={() => desfazer(minhaTormenta.id)}
+          cartao={
+            <CartaoMembro
+              membro={minhaTormenta.membro}
+              expr="raiva"
+              count={registrosHoje[minhaTormenta.membro.id] || 0}
+              extraMl={extrasHoje[minhaTormenta.membro.id] || 0}
+              dono
+              efeitos={{}}
+              selos={CONQUISTAS.filter((c) => conquistas[minhaTormenta.membro.id] && conquistas[minhaTormenta.membro.id].conjunto.has(c.id))}
+              garrafaId={garrafaSelDe(minhaTormenta.membro.id)}
+              garrafasDono={garrafasDe(minhaTormenta.membro.id)}
+              creditoGarrafa={creditosGarrafaDe(minhaTormenta.membro.id)}
+              podeEditar
+              onEscolherGarrafa={(mm) => setEscolhaGarrafa({ membroId: mm.id, manual: true })}
+              onEditar={abrirEdicao}
+              onConquistas={setConquistasDe}
+              onHistorico={setHistoricoDe}
+              onExtra={abrirExtra}
+              onSino={() => {}}
+              onReivindicar={() => {}}
+              onRemover={() => {}}
+              onTrocarGarrafa={() => {}}
+              onBeber={() => beber(minhaTormenta.id)}
+              onDesfazer={() => desfazer(minhaTormenta.id)}
+              flutuante
+            />
+          }
         />
       )}
 
