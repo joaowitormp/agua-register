@@ -609,15 +609,16 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 }
 
 /* Tempestade de areia */
-.tempestade { position: fixed; inset: 0; z-index: 90; }
+.tempestade { position: fixed; inset: 0; z-index: 91; }
 .tempestade-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
 .tempestade-topo { z-index: 91; cursor: grab; touch-action: none; }
 .tempestade-topo:active { cursor: grabbing; }
 .tempestade-medidor {
-  position: fixed; z-index: 92; left: 50%; bottom: 22px; transform: translateX(-50%);
-  color: #4A2F10; font-size: 20px; font-weight: 800; letter-spacing: 0.2px;
+  position: fixed; z-index: 94; left: 50%; bottom: 22px; transform: translateX(-50%);
+  color: #3A2708; font-size: 18px; font-weight: 800; letter-spacing: 0.2px;
   pointer-events: none; white-space: nowrap;
-  text-shadow: 0 1px 0 rgba(255, 245, 220, 0.85), 0 0 14px rgba(255, 245, 220, 0.9);
+  background: rgba(233, 206, 159, 0.94); border: 1px solid rgba(120, 86, 38, 0.35);
+  padding: 7px 16px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 /* ===== Poder Tempestade (tormenta): cena contida no card (observador) e fullscreen (vítima) ===== */
 .cartao.tormentado .nome { color: #FFFFFF; position: relative; z-index: 4; }
@@ -726,7 +727,7 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   z-index: 2;
 }
 .areia-camada {
-  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 4;
   pointer-events: none; overflow: hidden; border-radius: 16px;
   contain: strict; /* garante que a areia jamais escape do cartão */
 }
@@ -1305,7 +1306,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-04.10-becker-xl-areia-escura-teste-toggle";
+const APP_VERSION = "2026-11-04.11-soter-sobreposicao-medidor";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2664,11 +2665,13 @@ function Soterramento({ mapaInicial, onLimpou, onProgresso, escura = false }) {
   if (encerrado) return null;
 
   return (
-    <div className={"tempestade" + (escura ? " escura" : "")}>
-      <canvas ref={refAreia} className="tempestade-canvas" />
-      <canvas ref={refAnim} className="tempestade-canvas tempestade-topo" />
+    <React.Fragment>
+      <div className={"tempestade" + (escura ? " escura" : "")}>
+        <canvas ref={refAreia} className="tempestade-canvas" />
+        <canvas ref={refAnim} className="tempestade-canvas tempestade-topo" />
+      </div>
       <div className="tempestade-medidor">Tela soterrada: {restante}%</div>
-    </div>
+    </React.Fragment>
   );
 }
 
@@ -2727,7 +2730,7 @@ function NuvensOndasOverlay({ fullscreen = false }) {
 /* ===== Poder Tempestade: a cena (nuvens em 3 camadas, mar com ondas, chuva,
    raios) com o card da pessoa boiando à solta. Serve contida no cartão
    (visão do time) e em tela cheia (a vítima). ===== */
-function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesfazer, cartao }) {
+function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesfazer, cartao, semCeu = false }) {
   const cena = React.useMemo(() => {
     const rnd = (a, b) => a + Math.random() * (b - a);
     const pingos = [];
@@ -2784,29 +2787,29 @@ function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesf
           <div className="mp-adder">{Bt}{Bt2}</div>
         </div>)}
       </div></div></div>
-      <div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />{fullscreen && <div className="mp-mar mp-f3" />}
+      {!semCeu && <React.Fragment><div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />{fullscreen && <div className="mp-mar mp-f3" />}</React.Fragment>}
       <div className="mp-chuva">{cena.pingos.map((p, i) => (<span key={i} className="mp-pingo" style={{ left: p.left + "%", height: p.h + "px", animationDelay: p.delay + "s", animationDuration: p.dur + "s", opacity: p.op }} />))}</div>
-      <div className="mp-nuvens">{cena.nuvens.map((nv, i) => (
+      {!semCeu && <div className="mp-nuvens">{cena.nuvens.map((nv, i) => (
         <div key={i} className={"mp-nuv " + clsN[i]}>
           <svg viewBox="0 0 100 20" preserveAspectRatio="none">
             <rect x="0" y="-12" width="100" height="18" fill={nv.tone} />
             {nv.lobos.map((l, j) => (<ellipse key={j} cx={l.cx} cy={l.cy} rx={l.rx} ry={l.ry} fill={nv.tone} />))}
           </svg>
         </div>
-      ))}</div>
+      ))}</div>}
       <div className="mp-flash" />
     </div>
   );
 }
 
 /* Tela cheia da vítima: o cenário + o "?" (explica como sair) + o medidor de escape (125%). */
-function TempestadeCena({ membro, bebido, onBeber, onDesfazer, cartao }) {
+function TempestadeCena({ membro, bebido, onBeber, onDesfazer, cartao, semCeu = false }) {
   const [ajuda, setAjuda] = useState(false);
   const meta = membro.goalMl || 0;
   const pctHoje = meta > 0 ? bebido / meta : 0;
   return (
     <div className="tormenta-cena">
-      <PalcoTormenta membro={membro} bebido={bebido} fullscreen onBeber={onBeber} onDesfazer={onDesfazer} cartao={cartao} />
+      <PalcoTormenta membro={membro} bebido={bebido} fullscreen onBeber={onBeber} onDesfazer={onDesfazer} cartao={cartao} semCeu={semCeu} />
       <div className="tc-medidor">Beba 125% da meta para escapar · {Math.round(pctHoje * 100)}%</div>
       {ajuda && (
         <div className="tc-pop">
@@ -3936,17 +3939,17 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           Adicionar outra medida
         </button>
       )}
+      {tormentado && !flutuante && (
+        <div className="palco-camada" aria-hidden="true">
+          <PalcoTormenta membro={membro} bebido={bebido} semCeu={soterrado} />
+        </div>
+      )}
       {soterrado && (
         <div className="areia-camada" aria-hidden="true">
           <AreiaCartao mapa={efeitos.tempestade.mapa} escura={tormentado} />
         </div>
       )}
       {soterrado && tormentado && !flutuante && <NuvensOndasOverlay />}
-      {tormentado && !flutuante && !soterrado && (
-        <div className="palco-camada" aria-hidden="true">
-          <PalcoTormenta membro={membro} bebido={bebido} />
-        </div>
-      )}
       {mostrarReivindicar && (
         <button className="link-extra" onClick={() => onReivindicar(membro)}>
           🔑 Este cartão é meu
@@ -7266,10 +7269,11 @@ function AguaTracker() {
 
       {minhaTempestade && minhaTormenta && <NuvensOndasOverlay fullscreen />}
 
-      {minhaTormenta && !minhaTempestade && (
+      {minhaTormenta && (
         <TempestadeCena
           membro={minhaTormenta.membro}
           bebido={minhaTormenta.bebido}
+          semCeu={!!minhaTempestade}
           onBeber={() => beber(minhaTormenta.id)}
           onDesfazer={() => desfazer(minhaTormenta.id)}
           cartao={
