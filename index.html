@@ -623,14 +623,14 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .cartao.tormentado .nome { color: #FFFFFF; position: relative; z-index: 4; }
 .palco-camada { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; z-index: 3; pointer-events: none; }
 .tormenta-cena { position: fixed; inset: 0; z-index: 90; overflow: hidden; }
-.mp-palco { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, #143040, #0a1a26); }
+.mp-palco { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, #143040, #0a1a26); contain: layout paint style; }
 .palco-camada .mp-palco { border-radius: 16px; }
 .mp-dark { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(10,22,30,.25), rgba(6,20,30,.5)); }
 .mp-raios { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .mp-raios svg { width: 100%; height: 100%; overflow: visible; }
 .mp-raio-ln { fill: none; stroke: #e6f4ff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(200,235,255,1)); opacity: 0; vector-effect: non-scaling-stroke; animation: raioFlash 6s linear infinite; }
 /* clarão ao lado da estrutura do raio: surge com o raio, cresce e some ~1s depois */
-.mp-raio-glow { fill: none; stroke: #d2ecff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 7px rgba(190,228,255,.95)) drop-shadow(0 0 16px rgba(150,210,255,.6)); opacity: 0; transform-box: fill-box; transform-origin: center; animation: raioGlow 6s linear infinite; }
+.mp-raio-glow { fill: none; stroke: #d2ecff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 6px rgba(190,228,255,.9)); opacity: 0; transform-box: fill-box; transform-origin: center; animation: raioGlow 6s linear infinite; }
 .mp-nuvens { position: absolute; top: -8px; left: -30%; width: 160%; height: 42px; z-index: 5; }
 .mp-nuv { position: absolute; inset: 0; } .mp-nuv svg { width: 100%; height: 100%; display: block; }
 .mp-nb { animation: mpDriftA 9s ease-in-out infinite alternate; }
@@ -639,12 +639,12 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .mp-chuva { position: absolute; inset: 0; z-index: 4; }
 .mp-pingo { position: absolute; top: -12px; width: 1.5px; background: linear-gradient(#e2f2fa, rgba(226,242,250,0)); border-radius: 2px; animation: csCai linear infinite; }
 .mp-mar { position: absolute; left: 0; width: 100%; bottom: 0; background-size: 240% 240%; -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x; }
-.mp-back { height: 30%; z-index: 1; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 72px 100%; mask-size: 72px 100%; background-image: linear-gradient(120deg, #0E3D52, #082736, #0E3D52); animation: flowB 5s linear infinite, mSlB 5.5s linear infinite; }
-.mp-f1 { height: 26%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 58px 100%; mask-size: 58px 100%; background-image: linear-gradient(60deg, #15536E, #1E6E92, #0B3A52); animation: flowB 3.6s linear infinite, mSlF1 4.4s linear infinite; }
-.mp-f2 { height: 34%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 64px 100%; mask-size: 64px 100%; background-image: linear-gradient(95deg, #0B3A52, #06202E, #0B3A52); opacity: 1; transform-origin: bottom; animation: flowC 4.8s linear infinite, mSlF2 5s linear infinite, mpSwell 3.2s ease-in-out infinite; }
-.mp-f3 { height: 24%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2090%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2040%20Q%2022.5%2010%2045%2040%20Q%2067.5%2070%2090%2040%20L90%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2090%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2040%20Q%2022.5%2010%2045%2040%20Q%2067.5%2070%2090%2040%20L90%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 150px 100%; mask-size: 150px 100%; -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x; background-image: linear-gradient(90deg, #0A3446, #04161F, #0A3446); opacity: 1; transform-origin: bottom; animation: flowC 4s linear infinite, mSlF3 5.4s linear infinite, mpSwellBig 2.8s ease-in-out infinite; }
-.mp-flash { position: absolute; inset: 0; z-index: 6; background: radial-gradient(70% 45% at 50% 0, rgba(255,255,255,.9), transparent 72%); mix-blend-mode: screen; opacity: 0; animation: csFlash 5s linear infinite; }
-.mp-card { position: absolute; left: 21%; width: 58%; bottom: 17%; z-index: 2; animation: mpSway 9s linear infinite; }
+.mp-back { height: 30%; z-index: 1; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 72px 100%; mask-size: 72px 100%; background-image: linear-gradient(120deg, #0E3D52, #082736, #0E3D52); animation: mSlB 5.5s linear infinite; }
+.mp-f1 { height: 26%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 58px 100%; mask-size: 58px 100%; background-image: linear-gradient(60deg, #15536E, #1E6E92, #0B3A52); animation: mSlF1 4.4s linear infinite; }
+.mp-f2 { height: 34%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 64px 100%; mask-size: 64px 100%; background-image: linear-gradient(95deg, #0B3A52, #06202E, #0B3A52); opacity: 1; transform-origin: bottom; animation: mSlF2 5s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.mp-f3 { height: 24%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2090%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2040%20Q%2022.5%2010%2045%2040%20Q%2067.5%2070%2090%2040%20L90%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2090%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2040%20Q%2022.5%2010%2045%2040%20Q%2067.5%2070%2090%2040%20L90%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 150px 100%; mask-size: 150px 100%; -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x; background-image: linear-gradient(90deg, #0A3446, #04161F, #0A3446); opacity: 1; transform-origin: bottom; animation: mSlF3 5.4s linear infinite, mpSwellBig 2.8s ease-in-out infinite; }
+.mp-flash { position: absolute; inset: 0; z-index: 6; background: radial-gradient(70% 45% at 50% 0, rgba(255,255,255,.85), transparent 72%); opacity: 0; animation: csFlash 5s linear infinite; }
+.mp-card { position: absolute; left: 21%; width: 58%; bottom: 17%; z-index: 2; animation: mpSway 9s linear infinite; will-change: transform; }
 .mp-bob { animation: mpBob 3.2s ease-in-out infinite; }
 .mp-rock { animation: mpRock 5.2s ease-in-out infinite; transform-origin: center bottom; }
 .mp-mini { background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 9px; padding: 7px 8px; box-shadow: 0 10px 20px rgba(0,0,0,.45); }
@@ -667,9 +667,9 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 /* na tela cheia, só o card é interativo — as ondas/chuva/nuvens não bloqueiam o clique */
 .mp-palco > *:not(.mp-card) { pointer-events: none; }
 /* ondas mais largas (comprimento de onda maior) na tela cheia da vítima */
-.tormenta-cena .mp-back { -webkit-mask-size: 185px 100%; mask-size: 185px 100%; animation: flowB 5s linear infinite, mSlBfull 6.6s linear infinite; }
-.tormenta-cena .mp-f1 { -webkit-mask-size: 150px 100%; mask-size: 150px 100%; animation: flowB 3.6s linear infinite, mSlF1full 5.4s linear infinite; }
-.tormenta-cena .mp-f2 { -webkit-mask-size: 168px 100%; mask-size: 168px 100%; animation: flowC 4.8s linear infinite, mSlF2full 6s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.tormenta-cena .mp-back { -webkit-mask-size: 185px 100%; mask-size: 185px 100%; animation: mSlBfull 6.6s linear infinite; }
+.tormenta-cena .mp-f1 { -webkit-mask-size: 150px 100%; mask-size: 150px 100%; animation: mSlF1full 5.4s linear infinite; }
+.tormenta-cena .mp-f2 { -webkit-mask-size: 168px 100%; mask-size: 168px 100%; animation: mSlF2full 6s linear infinite, mpSwell 3.2s ease-in-out infinite; }
 @keyframes mSlBfull { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -185px 0; mask-position: -185px 0; } }
 @keyframes mSlF1full { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 150px 0; mask-position: 150px 0; } }
 @keyframes mSlF2full { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -168px 0; mask-position: -168px 0; } }
@@ -734,8 +734,8 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 /* Nuvens + ondas da frente que sobrepõem a areia (tempestade + soterramento juntos) */
 .no-overlay { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; border-radius: 16px; }
 .no-overlay.full { position: fixed; z-index: 93; border-radius: 0; }
-.no-overlay.full .mp-f1 { -webkit-mask-size: 150px 100%; mask-size: 150px 100%; animation: flowB 3.6s linear infinite, mSlF1full 5.4s linear infinite; }
-.no-overlay.full .mp-f2 { -webkit-mask-size: 168px 100%; mask-size: 168px 100%; animation: flowC 4.8s linear infinite, mSlF2full 6s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.no-overlay.full .mp-f1 { -webkit-mask-size: 150px 100%; mask-size: 150px 100%; animation: mSlF1full 5.4s linear infinite; }
+.no-overlay.full .mp-f2 { -webkit-mask-size: 168px 100%; mask-size: 168px 100%; animation: mSlF2full 6s linear infinite, mpSwell 3.2s ease-in-out infinite; }
 .no-overlay.full .mp-nuvens { height: 10vh; }
 
 /* Histórico individual */
@@ -1298,7 +1298,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-04.8-zoacao-janela-poder";
+const APP_VERSION = "2026-11-04.9-becker-maior-perf-tempestade";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2196,7 +2196,8 @@ function GarrafaBecker({ pct, tamanho = 92 }) {
   const cheia = p >= 1;
   const uid = React.useMemo(() => "bk" + (_bkSeq++), []);
   const yTop = BK_YF - p * (BK_YF - BK_YT);
-  const h = Math.round((tamanho * 4095) / 3944);
+  const tam = Math.round(tamanho * 1.15); /* frasco um pouco maior que as outras garrafas */
+  const h = Math.round((tam * 4095) / 3944);
   const seeds = React.useMemo(() => {
     const a = [];
     for (let i = 0; i < 7; i++) a.push({ cx: 1800 + Math.random() * 520, cyBase: 3050 + Math.random() * 280, r: 24 + Math.random() * 30, riseRand: Math.random() * 160, dur: (2.6 + Math.random() * 2).toFixed(2), del: (Math.random() * 3).toFixed(2) });
@@ -2220,7 +2221,7 @@ function GarrafaBecker({ pct, tamanho = 92 }) {
     return <circle key={i} className={cheia ? "bk-bolha-s" : "bk-bolha"} cx={b.cx.toFixed(0)} cy={b.cyBase.toFixed(0)} r={b.r.toFixed(0)} fill={cheia ? "#CFF1F9" : "#BFEBF5"} style={st} />;
   }) : null;
   return (
-    <div className="becker-wrap" style={{ width: tamanho + "px", height: h + "px" }}>
+    <div className="becker-wrap" style={{ width: tam + "px", height: h + "px" }}>
       {cheia && (
         <div className="bk-plume">
           {fonte.map((f, i) => (
@@ -2228,7 +2229,7 @@ function GarrafaBecker({ pct, tamanho = 92 }) {
           ))}
         </div>
       )}
-      <svg className="svgbk" width={tamanho} height={h} viewBox="0 0 3944 4095" aria-hidden="true">
+      <svg className="svgbk" width={tam} height={h} viewBox="0 0 3944 4095" aria-hidden="true">
         <defs>
           <clipPath id={uid}><path d={BK_WHITE} /></clipPath>
           <linearGradient id={uid + "g"} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={grad[0]} /><stop offset="1" stopColor={grad[1]} /></linearGradient>
@@ -2723,7 +2724,7 @@ function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesf
   const cena = React.useMemo(() => {
     const rnd = (a, b) => a + Math.random() * (b - a);
     const pingos = [];
-    const nP = fullscreen ? 280 : 46;
+    const nP = fullscreen ? 150 : 44;
     for (let i = 0; i < nP; i++) pingos.push({
       left: fullscreen ? rnd(-10, 140) : rnd(-6, 102),
       delay: rnd(0, 1.2),
