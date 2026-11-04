@@ -629,17 +629,20 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .mp-raios { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .mp-raios svg { width: 100%; height: 100%; overflow: visible; }
 .mp-raio-ln { fill: none; stroke: #e6f4ff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(200,235,255,1)); opacity: 0; vector-effect: non-scaling-stroke; animation: raioFlash 6s linear infinite; }
-.mp-nuvens { position: absolute; top: -8px; left: -16%; width: 132%; height: 42px; z-index: 5; }
+/* clarão ao lado da estrutura do raio: surge com o raio, cresce e some ~1s depois */
+.mp-raio-glow { fill: none; stroke: #d2ecff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 7px rgba(190,228,255,.95)) drop-shadow(0 0 16px rgba(150,210,255,.6)); opacity: 0; transform-box: fill-box; transform-origin: center; animation: raioGlow 6s linear infinite; }
+.mp-nuvens { position: absolute; top: -8px; left: -30%; width: 160%; height: 42px; z-index: 5; }
 .mp-nuv { position: absolute; inset: 0; } .mp-nuv svg { width: 100%; height: 100%; display: block; }
-.mp-nb { animation: mpDriftA 5s ease-in-out infinite alternate; }
-.mp-nm { animation: mpDriftB 7s ease-in-out infinite alternate-reverse; }
-.mp-nf { animation: mpDriftC 4s ease-in-out infinite alternate; }
+.mp-nb { animation: mpDriftA 9s ease-in-out infinite alternate; }
+.mp-nm { animation: mpDriftB 13s ease-in-out infinite alternate-reverse; }
+.mp-nf { animation: mpDriftC 7s ease-in-out infinite alternate; }
 .mp-chuva { position: absolute; inset: 0; z-index: 4; }
 .mp-pingo { position: absolute; top: -12px; width: 1.5px; background: linear-gradient(#e2f2fa, rgba(226,242,250,0)); border-radius: 2px; animation: csCai linear infinite; }
 .mp-mar { position: absolute; left: 0; width: 100%; bottom: 0; background-size: 240% 240%; -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x; }
 .mp-back { height: 30%; z-index: 1; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 72px 100%; mask-size: 72px 100%; background-image: linear-gradient(120deg, #0E3D52, #082736, #0E3D52); animation: flowB 5s linear infinite, mSlB 5.5s linear infinite; }
 .mp-f1 { height: 26%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 58px 100%; mask-size: 58px 100%; background-image: linear-gradient(60deg, #15536E, #1E6E92, #0B3A52); animation: flowB 3.6s linear infinite, mSlF1 4.4s linear infinite; }
-.mp-f2 { height: 34%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 64px 100%; mask-size: 64px 100%; background-image: linear-gradient(95deg, #0B3A52, #06202E, #0B3A52); opacity: .94; transform-origin: bottom; animation: flowC 4.8s linear infinite, mSlF2 5s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.mp-f2 { height: 34%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 64px 100%; mask-size: 64px 100%; background-image: linear-gradient(95deg, #0B3A52, #06202E, #0B3A52); opacity: 1; transform-origin: bottom; animation: flowC 4.8s linear infinite, mSlF2 5s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.mp-f3 { height: 24%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2090%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2040%20Q%2022.5%2010%2045%2040%20Q%2067.5%2070%2090%2040%20L90%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2090%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2040%20Q%2022.5%2010%2045%2040%20Q%2067.5%2070%2090%2040%20L90%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 150px 100%; mask-size: 150px 100%; -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x; background-image: linear-gradient(90deg, #0A3446, #04161F, #0A3446); opacity: 1; transform-origin: bottom; animation: flowC 4s linear infinite, mSlF3 5.4s linear infinite, mpSwellBig 2.8s ease-in-out infinite; }
 .mp-flash { position: absolute; inset: 0; z-index: 6; background: radial-gradient(70% 45% at 50% 0, rgba(255,255,255,.9), transparent 72%); mix-blend-mode: screen; opacity: 0; animation: csFlash 5s linear infinite; }
 .mp-card { position: absolute; left: 21%; width: 58%; bottom: 17%; z-index: 2; animation: mpSway 9s linear infinite; }
 .mp-bob { animation: mpBob 3.2s ease-in-out infinite; }
@@ -692,13 +695,22 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 @keyframes mpBob { 0% { transform: translateY(9px); } 50% { transform: translateY(-11px); } 100% { transform: translateY(9px); } }
 @keyframes mpRock { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 @keyframes mpSway { 0% { transform: translateX(0); animation-timing-function: ease-in-out; } 12% { transform: translateX(16%); } 26% { transform: translateX(-16%); animation-timing-function: ease-in-out; } 40% { transform: translateX(12%); } 52% { transform: translateX(-10%); animation-timing-function: cubic-bezier(.5,0,.9,.4); } 64% { transform: translateX(165%); } 64.01% { transform: translateX(-165%); animation-timing-function: cubic-bezier(.1,.5,.4,1); } 82% { transform: translateX(-7%); } 100% { transform: translateX(0); } }
-@keyframes mpDriftA { 0% { transform: translateX(-7px); } 100% { transform: translateX(7px); } }
-@keyframes mpDriftB { 0% { transform: translateX(6px); } 100% { transform: translateX(-8px); } }
-@keyframes mpDriftC { 0% { transform: translateX(-8px); } 100% { transform: translateX(8px); } }
+@keyframes mpDriftA { 0% { transform: translateX(-5%); } 100% { transform: translateX(6%); } }
+@keyframes mpDriftB { 0% { transform: translateX(7%); } 100% { transform: translateX(-6%); } }
+@keyframes mpDriftC { 0% { transform: translateX(-8%); } 100% { transform: translateX(7%); } }
 @keyframes mpSwell { 0% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-5px) scaleY(1.2); } 100% { transform: translateY(0) scaleY(1); } }
 @keyframes mSlB { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -72px 0; mask-position: -72px 0; } }
 @keyframes mSlF1 { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 58px 0; mask-position: 58px 0; } }
 @keyframes mSlF2 { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -64px 0; mask-position: -64px 0; } }
+@keyframes mSlF3 { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -150px 0; mask-position: -150px 0; } }
+@keyframes mpSwellBig { 0% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-18px) scaleY(1.4); } 100% { transform: translateY(0) scaleY(1); } }
+/* chuva da tela cheia: cai a tela inteira e mais inclinada */
+@keyframes csCaiFull { 0% { transform: translate(0, -10vh) rotate(26deg); } 100% { transform: translate(-52vh, 126vh) rotate(26deg); } }
+.tormenta-cena .mp-pingo { animation-name: csCaiFull; width: 2px; }
+/* clarão do raio: surge com o raio, cresce e some ~1s depois do raio sumir */
+@keyframes raioGlow { 0%,7% { opacity: 0; transform: scale(.92); } 8% { opacity: .9; transform: scale(1); } 13% { opacity: .55; transform: scale(1.08); } 25% { opacity: 0; transform: scale(1.16); } 25.5% { opacity: 0; transform: scale(.92); } 26% { opacity: .8; transform: scale(1); } 31% { opacity: .5; transform: scale(1.09); } 43% { opacity: 0; transform: scale(1.17); } 100% { opacity: 0; transform: scale(.92); } }
+/* observador: card compacto da vítima, um pouco menor */
+.palco-camada .mp-card { width: 50%; left: 25%; }
 .cartao.soterrado { border-color: #C79A55; }
 /* Nome da vítima soterrada: tom um pouco mais escuro que a textura da areia
    (que vai de #E9CE9F a #CBA470) com sombra interna — parece gravado na areia.
@@ -1264,7 +1276,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-04.5-card-tempestade-fiel";
+const APP_VERSION = "2026-11-04.6-tempestade-chuva-mar-raio";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2646,8 +2658,14 @@ function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesf
   const cena = React.useMemo(() => {
     const rnd = (a, b) => a + Math.random() * (b - a);
     const pingos = [];
-    const nP = fullscreen ? 90 : 46;
-    for (let i = 0; i < nP; i++) pingos.push({ left: rnd(-6, 102), delay: rnd(0, 0.9), dur: rnd(0.28, 0.48), h: rnd(10, 19), op: rnd(0.55, 0.9) });
+    const nP = fullscreen ? 280 : 46;
+    for (let i = 0; i < nP; i++) pingos.push({
+      left: fullscreen ? rnd(-10, 140) : rnd(-6, 102),
+      delay: rnd(0, 1.2),
+      dur: fullscreen ? rnd(0.7, 1.15) : rnd(0.28, 0.48),
+      h: fullscreen ? rnd(16, 30) : rnd(10, 19),
+      op: fullscreen ? rnd(0.6, 0.95) : rnd(0.55, 0.9),
+    });
     const nuvem = (tone, n, cyMin, cyMax, ryMin, ryMax) => {
       const l = [];
       for (let i = 0; i < n; i++) l.push({ cx: (i * 100) / (n - 1) + rnd(-4, 4), cy: rnd(cyMin, cyMax), rx: rnd(11, 17), ry: rnd(ryMin, ryMax) });
@@ -2673,6 +2691,7 @@ function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesf
     <div className="mp-palco">
       <div className="mp-dark" />
       <svg className="mp-raios" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {cena.raios.map((r, i) => (<polyline key={"g" + i} className="mp-raio-glow" points={r.pts} style={{ animationDelay: r.delay + "s" }} />))}
         {cena.raios.map((r, i) => (<polyline key={i} className="mp-raio-ln" points={r.pts} style={{ animationDelay: r.delay + "s" }} />))}
       </svg>
       <div className="mp-mar mp-back" />
@@ -2692,7 +2711,7 @@ function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesf
           <div className="mp-adder">{Bt}{Bt2}</div>
         </div>)}
       </div></div></div>
-      <div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />
+      <div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />{fullscreen && <div className="mp-mar mp-f3" />}
       <div className="mp-chuva">{cena.pingos.map((p, i) => (<span key={i} className="mp-pingo" style={{ left: p.left + "%", height: p.h + "px", animationDelay: p.delay + "s", animationDuration: p.dur + "s", opacity: p.op }} />))}</div>
       <div className="mp-nuvens">{cena.nuvens.map((nv, i) => (
         <div key={i} className={"mp-nuv " + clsN[i]}>
@@ -3851,14 +3870,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
       )}
       {tormentado && !flutuante && (
         <div className="palco-camada" aria-hidden="true">
-          <PalcoTormenta membro={membro} bebido={bebido} cartao={
-            <CartaoMembro membro={membro} expr="raiva" count={count} extraMl={extraMl}
-              dono={false} efeitos={{}} selos={selos} garrafaId={garrafaId}
-              garrafasDono={garrafasDono} creditoGarrafa={0} podeEditar={false}
-              onSino={()=>{}} onExtra={()=>{}} onEditar={()=>{}} onReivindicar={()=>{}}
-              onConquistas={()=>{}} onHistorico={()=>{}} onBeber={()=>{}} onDesfazer={()=>{}}
-              onRemover={()=>{}} onEscolherGarrafa={null} onTrocarGarrafa={()=>{}} flutuante />
-          } />
+          <PalcoTormenta membro={membro} bebido={bebido} />
         </div>
       )}
       {mostrarReivindicar && (
