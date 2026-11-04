@@ -619,6 +619,74 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   pointer-events: none; white-space: nowrap;
   text-shadow: 0 1px 0 rgba(255, 245, 220, 0.85), 0 0 14px rgba(255, 245, 220, 0.9);
 }
+/* ===== Poder Tempestade (tormenta): cena contida no card (observador) e fullscreen (vítima) ===== */
+.cartao.tormentado .nome { color: #FFFFFF; position: relative; z-index: 4; }
+.palco-camada { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; z-index: 3; pointer-events: none; }
+.tormenta-cena { position: fixed; inset: 0; z-index: 90; overflow: hidden; }
+.mp-palco { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, #143040, #0a1a26); }
+.palco-camada .mp-palco { border-radius: 16px; }
+.mp-dark { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(10,22,30,.25), rgba(6,20,30,.5)); }
+.mp-raios { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.mp-raios svg { width: 100%; height: 100%; overflow: visible; }
+.mp-raio-ln { fill: none; stroke: #e6f4ff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(200,235,255,1)); opacity: 0; vector-effect: non-scaling-stroke; animation: raioFlash 6s linear infinite; }
+.mp-nuvens { position: absolute; top: -8px; left: -16%; width: 132%; height: 42px; z-index: 5; }
+.mp-nuv { position: absolute; inset: 0; } .mp-nuv svg { width: 100%; height: 100%; display: block; }
+.mp-nb { animation: mpDriftA 5s ease-in-out infinite alternate; }
+.mp-nm { animation: mpDriftB 7s ease-in-out infinite alternate-reverse; }
+.mp-nf { animation: mpDriftC 4s ease-in-out infinite alternate; }
+.mp-chuva { position: absolute; inset: 0; z-index: 4; }
+.mp-pingo { position: absolute; top: -12px; width: 1.5px; background: linear-gradient(#e2f2fa, rgba(226,242,250,0)); border-radius: 2px; animation: csCai linear infinite; }
+.mp-mar { position: absolute; left: 0; width: 100%; bottom: 0; background-size: 240% 240%; -webkit-mask-repeat: repeat-x; mask-repeat: repeat-x; }
+.mp-back { height: 30%; z-index: 1; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2072%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2025%20Q%2018%208%2036%2025%20Q%2054%2042%2072%2025%20L72%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 72px 100%; mask-size: 72px 100%; background-image: linear-gradient(120deg, #0E3D52, #082736, #0E3D52); animation: flowB 5s linear infinite, mSlB 5.5s linear infinite; }
+.mp-f1 { height: 26%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2058%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2023%20Q%2014.5%208%2029%2023%20Q%2043.5%2038%2058%2023%20L58%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 58px 100%; mask-size: 58px 100%; background-image: linear-gradient(60deg, #15536E, #1E6E92, #0B3A52); animation: flowB 3.6s linear infinite, mSlF1 4.4s linear infinite; }
+.mp-f2 { height: 34%; z-index: 3; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%20360'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M0%2026%20Q%2016%208%2032%2026%20Q%2048%2044%2064%2026%20L64%20360%20L0%20360%20Z'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E"); -webkit-mask-size: 64px 100%; mask-size: 64px 100%; background-image: linear-gradient(95deg, #0B3A52, #06202E, #0B3A52); opacity: .94; transform-origin: bottom; animation: flowC 4.8s linear infinite, mSlF2 5s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.mp-flash { position: absolute; inset: 0; z-index: 6; background: radial-gradient(70% 45% at 50% 0, rgba(255,255,255,.9), transparent 72%); mix-blend-mode: screen; opacity: 0; animation: csFlash 5s linear infinite; }
+.mp-card { position: absolute; left: 21%; width: 58%; bottom: 17%; z-index: 2; animation: mpSway 9s linear infinite; }
+.mp-bob { animation: mpBob 3.2s ease-in-out infinite; }
+.mp-rock { animation: mpRock 5.2s ease-in-out infinite; transform-origin: center bottom; }
+.mp-mini { background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 9px; padding: 7px 8px; box-shadow: 0 10px 20px rgba(0,0,0,.45); }
+.mp-head { display: flex; justify-content: space-between; align-items: center; }
+.mp-head b { font-size: 10px; font-weight: 800; color: #15303d; }
+.mp-ic { font-size: 7px; color: #6a8595; letter-spacing: 1px; }
+.mp-sub { font-size: 6.5px; color: #3e5e6e; margin: 1px 0 4px; }
+.mp-corpo { display: flex; gap: 6px; align-items: center; }
+.mp-dir { flex: 1; min-width: 0; }
+.mp-vol { font-size: 13px; font-weight: 800; color: #0e6f8e; line-height: 1; }
+.mp-meta { font-size: 6.5px; color: #3e5e6e; margin-top: 1px; }
+.mp-barra { height: 4px; border-radius: 999px; background: #E4F2F7; overflow: hidden; margin: 5px 0; } .mp-barra i { display: block; height: 100%; background: linear-gradient(90deg, #41C9E6, #0F8BB0); }
+.mp-adder { display: flex; gap: 4px; }
+.mp-bt { flex: 1; font-size: 7.5px; font-weight: 700; color: #fff; background: #0F8BB0; border-radius: 5px; padding: 4px; text-align: center; }
+.mp-bt2 { font-size: 7.5px; font-weight: 600; color: #486576; background: #eef4f6; border: 1px solid #cfe0e6; border-radius: 5px; padding: 4px 7px; text-align: center; }
+/* fullscreen (vítima): card maior + ajuda + medidor */
+.tormenta-cena .mp-nuvens { height: 8vh; }
+.tormenta-cena .mp-card { width: min(78vw, 320px); left: calc(50% - min(39vw, 160px)); bottom: 32%; }
+.tormenta-cena .mp-mini { border-radius: 16px; padding: 14px 16px; }
+.tormenta-cena .mp-head b { font-size: 17px; } .tormenta-cena .mp-ic { font-size: 13px; }
+.tormenta-cena .mp-sub { font-size: 11px; margin: 2px 0 8px; }
+.tormenta-cena .mp-vol { font-size: 24px; } .tormenta-cena .mp-meta { font-size: 11px; }
+.tormenta-cena .mp-barra { height: 7px; margin: 9px 0; }
+.tormenta-cena .mp-bt { font-size: 13px; padding: 9px; border-radius: 9px; } .tormenta-cena .mp-bt2 { font-size: 13px; padding: 9px 14px; border-radius: 9px; }
+.tc-ajuda { position: fixed; right: 16px; bottom: 14px; z-index: 95; width: 34px; height: 34px; border-radius: 50%; background: rgba(15,139,176,.24); border: 1px solid rgba(65,201,230,.5); color: #7fcfe6; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 17px; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.55); }
+.tc-pop { position: fixed; right: 16px; bottom: 58px; z-index: 95; width: 258px; background: rgba(9,16,23,.97); border: 1px solid rgba(65,201,230,.32); border-radius: 14px; padding: 14px 16px; box-shadow: 0 16px 40px rgba(0,0,0,.65); color: #d3e2ea; }
+.tc-pop h4 { margin: 0 0 7px; font-size: 13.5px; font-weight: 800; color: #7fcfe6; }
+.tc-pop p { margin: 0 0 8px; font-size: 12px; line-height: 1.5; } .tc-pop p:last-child { margin: 0; }
+.tc-pop .saida { font-weight: 700; color: #8fe0b4; }
+.tc-medidor { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 94; font-size: 14px; font-weight: 800; color: #cfe6ef; background: rgba(9,20,28,.82); border: 1px solid rgba(65,201,230,.3); border-radius: 999px; padding: 8px 16px; pointer-events: none; }
+@keyframes csCai { 0% { transform: translate(0,-14px) rotate(20deg); } 100% { transform: translate(-34px,270px) rotate(20deg); } }
+@keyframes csFlash { 0%,7%,9%,100% { opacity: 0; } 8% { opacity: .9; } 8.6% { opacity: .2; } 30%,30.6% { opacity: 0; } 30.3% { opacity: .8; } }
+@keyframes raioFlash { 0%,7.6%,9.4%,25.6%,100% { opacity: 0; } 8% { opacity: 1; } 8.5% { opacity: .15; } 8.9% { opacity: .9; } 9.2% { opacity: 0; } 26% { opacity: .85; } 26.4% { opacity: 0; } }
+@keyframes flowB { 0% { background-position: 100% 0%; } 100% { background-position: 0% 100%; } }
+@keyframes flowC { 0% { background-position: 0% 100%; } 100% { background-position: 100% 0%; } }
+@keyframes mpBob { 0% { transform: translateY(9px); } 50% { transform: translateY(-11px); } 100% { transform: translateY(9px); } }
+@keyframes mpRock { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes mpSway { 0% { transform: translateX(0); animation-timing-function: ease-in-out; } 12% { transform: translateX(16%); } 26% { transform: translateX(-16%); animation-timing-function: ease-in-out; } 40% { transform: translateX(12%); } 52% { transform: translateX(-10%); animation-timing-function: cubic-bezier(.5,0,.9,.4); } 64% { transform: translateX(165%); } 64.01% { transform: translateX(-165%); animation-timing-function: cubic-bezier(.1,.5,.4,1); } 82% { transform: translateX(-7%); } 100% { transform: translateX(0); } }
+@keyframes mpDriftA { 0% { transform: translateX(-7px); } 100% { transform: translateX(7px); } }
+@keyframes mpDriftB { 0% { transform: translateX(6px); } 100% { transform: translateX(-8px); } }
+@keyframes mpDriftC { 0% { transform: translateX(-8px); } 100% { transform: translateX(8px); } }
+@keyframes mpSwell { 0% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-5px) scaleY(1.2); } 100% { transform: translateY(0) scaleY(1); } }
+@keyframes mSlB { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -72px 0; mask-position: -72px 0; } }
+@keyframes mSlF1 { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: 58px 0; mask-position: 58px 0; } }
+@keyframes mSlF2 { from { -webkit-mask-position: 0 0; mask-position: 0 0; } to { -webkit-mask-position: -64px 0; mask-position: -64px 0; } }
 .cartao.soterrado { border-color: #C79A55; }
 /* Nome da vítima soterrada: tom um pouco mais escuro que a textura da areia
    (que vai de #E9CE9F a #CBA470) com sombra interna — parece gravado na areia.
@@ -702,9 +770,25 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .cal-traco { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; color: #C5D6DE; font-weight: 700; }
 .cal-icone { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; }
 /* Painel admin de folgas & feriados */
-.admin-barra { display: flex; justify-content: flex-end; margin: 10px 0 -2px; }
+.admin-barra { display: flex; justify-content: flex-end; gap: 8px; margin: 10px 0 -2px; flex-wrap: wrap; }
 .btn-admin-ausencias { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 600; color: #0F8BB0; background: #EAF6FA; border: 1px solid #CDE7F0; border-radius: 999px; padding: 7px 14px; cursor: pointer; }
 .btn-admin-ausencias:hover { background: #DCEFF6; }
+.btn-admin-teste { color: #8A5A00; background: #FFF4DE; border-color: #F3DDA8; }
+.btn-admin-teste:hover { background: #FCEBC4; }
+/* Barra do ambiente de teste (fixa no rodapé) */
+.teste-barra { position: fixed; left: 50%; transform: translateX(-50%); top: 12px; z-index: 9995; width: min(680px, calc(100vw - 24px)); background: #0B2430; color: #EAF6FA; border: 1px solid #1D4458; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.45); padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; max-height: calc(100vh - 24px); overflow: auto; }
+.teste-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.teste-tag { font-weight: 800; font-size: 13px; letter-spacing: .3px; }
+.teste-aviso { font-size: 12px; color: #9FC4D4; flex: 1 1 auto; }
+.teste-sair { font: inherit; font-size: 13px; font-weight: 700; color: #0B2430; background: #FFC24B; border: none; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.teste-sair:hover { background: #FFD477; }
+.teste-linha { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.teste-campo { display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 700; color: #9FC4D4; flex: 1 1 140px; }
+.teste-campo select { font: inherit; font-size: 13px; font-weight: 600; color: #0B2430; background: #FFFFFF; border: 1px solid #1D4458; border-radius: 10px; padding: 7px 9px; cursor: pointer; }
+.teste-btn { font: inherit; font-size: 13px; font-weight: 700; color: #FFFFFF; background: #0F8BB0; border: none; border-radius: 10px; padding: 8px 16px; cursor: pointer; }
+.teste-btn:hover { background: #0C7696; }
+.teste-btn2 { font: inherit; font-size: 12.5px; font-weight: 600; color: #EAF6FA; background: #163A4C; border: 1px solid #27576E; border-radius: 10px; padding: 7px 12px; cursor: pointer; }
+.teste-btn2:hover { background: #1D4A60; }
 .aus-navdia { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 14px; }
 .aus-navdia button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #D4E6EE; background: #fff; color: #0F8BB0; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .aus-navdia button:hover { background: #EAF6FA; }
@@ -918,13 +1002,84 @@ const { useState, useEffect, useCallback, useRef } = React;
 
 /* Dados centrais: salvos no Vercel Blob através da API /api/dados,
    compartilhados entre todos os dispositivos que abrirem o site */
+/* ===================== Ambiente de teste (somente admin) =====================
+   Um SANDBOX local e isolado por aba: ao entrar, tira-se uma foto dos dados
+   reais; a partir daí todas as leituras/gravações ficam só no sessionStorage
+   desta aba — NADA é enviado ao servidor. "Ver como" recarrega assumindo a
+   identidade de outro usuário. Sair descarta o sandbox e volta ao real.
+   Isolado de propósito: os testes nunca tocam os dados do time. */
+const TESTE_FLAG_KEY = "agua-teste-on";
+const TESTE_DADOS_KEY = "agua-teste-dados";
+const TESTE_VERCOMO_KEY = "agua-teste-vercomo";
+const TESTE_DONO_KEY = "agua-teste-dono";
+let testeAtivo = false;
+try { testeAtivo = sessionStorage.getItem(TESTE_FLAG_KEY) === "1"; } catch {}
+/* No ambiente de teste, o localStorage também fica ISOLADO: um espelho em
+   memória semeado com uma cópia do real. Assim NENHUMA ação do teste
+   (cooldowns de poder, marcadores de "visto"/premiação, identidade em
+   login/reivindicar, etc.) grava no navegador de verdade — tudo some junto
+   com a aba e nunca influencia o painel principal. O isolamento do servidor
+   (storage.set) já garante, à parte, que nada vaza para outros usuários. */
+if (testeAtivo) {
+  try {
+    const _realLS = window.localStorage;
+    const _mem = Object.create(null);
+    for (let i = 0; i < _realLS.length; i++) { const k = _realLS.key(i); _mem[k] = _realLS.getItem(k); }
+    const _shim = {
+      getItem: (k) => (Object.prototype.hasOwnProperty.call(_mem, k) ? _mem[k] : null),
+      setItem: (k, v) => { _mem[k] = String(v); },
+      removeItem: (k) => { delete _mem[k]; },
+      clear: () => { Object.keys(_mem).forEach((k) => delete _mem[k]); },
+      key: (i) => { const ks = Object.keys(_mem); return i < ks.length ? ks[i] : null; },
+    };
+    Object.defineProperty(_shim, "length", { get: () => Object.keys(_mem).length });
+    Object.defineProperty(window, "localStorage", { configurable: true, value: _shim });
+  } catch (e) { /* se o navegador não deixar sobrescrever, o servidor já está isolado */ }
+}
+const testeLerDados = () => { try { return sessionStorage.getItem(TESTE_DADOS_KEY) || "{}"; } catch { return "{}"; } };
+const testeGravarDados = (v) => { try { sessionStorage.setItem(TESTE_DADOS_KEY, v); } catch {} };
+function entrarModoTeste(dadosAtuais, donoId) {
+  try {
+    sessionStorage.setItem(TESTE_DADOS_KEY, JSON.stringify(dadosAtuais || {}));
+    sessionStorage.setItem(TESTE_DONO_KEY, donoId || "");
+    sessionStorage.setItem(TESTE_FLAG_KEY, "1");
+    sessionStorage.removeItem(TESTE_VERCOMO_KEY);
+  } catch {}
+  location.reload();
+}
+function sairModoTeste() {
+  try {
+    sessionStorage.removeItem(TESTE_FLAG_KEY);
+    sessionStorage.removeItem(TESTE_DADOS_KEY);
+    sessionStorage.removeItem(TESTE_VERCOMO_KEY);
+    sessionStorage.removeItem(TESTE_DONO_KEY);
+  } catch {}
+  location.reload();
+}
+function testeVerComo(deviceId) {
+  try {
+    if (deviceId) sessionStorage.setItem(TESTE_VERCOMO_KEY, deviceId);
+    else sessionStorage.removeItem(TESTE_VERCOMO_KEY);
+  } catch {}
+  location.reload();
+}
+async function testeRessincronizar() {
+  try {
+    const r = await fetch("/api/dados", { cache: "no-store" });
+    if (r.ok) { testeGravarDados(await r.text()); }
+  } catch {}
+  location.reload();
+}
+
 const storage = {
   get: async (k) => {
+    if (testeAtivo) return { key: k, value: testeLerDados() };
     const r = await fetch("/api/dados", { cache: "no-store" });
     if (!r.ok) throw new Error("Falha ao carregar os dados");
     return { key: k, value: await r.text() };
   },
   set: async (k, v) => {
+    if (testeAtivo) { testeGravarDados(v); return { key: k, value: v }; }
     const r = await fetch("/api/dados", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -937,7 +1092,7 @@ const storage = {
 /* Identidade anônima deste navegador/dispositivo: quem cria uma garrafa
    vira "dono" dela e só ele pode registrar ou desfazer */
 const DEVICE_KEY = "agua-device-id";
-const meuDispositivo = (() => {
+let meuDispositivo = (() => {
   let id = localStorage.getItem(DEVICE_KEY);
   if (!id) {
     id = `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -945,6 +1100,16 @@ const meuDispositivo = (() => {
   }
   return id;
 })();
+/* identidade real deste navegador (não muda com o "ver como" do teste) */
+const meuDispositivoReal = meuDispositivo;
+/* no ambiente de teste, "ver como" assume a identidade de outro usuário:
+   todo o painel passa a renderizar do ponto de vista dele */
+if (testeAtivo) {
+  try {
+    const vc = sessionStorage.getItem(TESTE_VERCOMO_KEY);
+    if (vc) meuDispositivo = vc;
+  } catch {}
+}
 
 /* PIN opcional: portabilidade do cartão entre dispositivos.
    Só a impressão digital (SHA-256) do PIN é gravada — nunca o PIN.
@@ -1067,6 +1232,19 @@ const PODERES = [
       "Tira 10% do desempenho semanal de quem recebe (15% se a meta for abaixo de 2 L).",
     ],
   },
+  {
+    id: "tormenta",
+    conquista: "rei-dos-mares",
+    icone: "⛈️",
+    nome: "Tempestade",
+    regras: [
+      "Use em quem está há 4h ou mais sem registrar água (relógio a partir das 8h, seg–sex).",
+      "A tela da vítima vira um mar revolto: o cartão é jogado pelas ondas, sob chuva e raios — só ela vê por inteiro; o time vê a tempestade contida no cartão dela.",
+      "Para escapar, ela precisa beber 125% da meta do dia.",
+      "Some sozinha na virada do dia. O poder tem recarga de 2 horas entre usos.",
+      "Tira 12% do desempenho semanal de quem recebe (18% se a meta for abaixo de 2 L).",
+    ],
+  },
 ];
 
 const KEY = "agua-tracker-v1";
@@ -1074,7 +1252,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-03.3-surpresa-vence-dormindo";
+const APP_VERSION = "2026-11-04.4-teste-isolado";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -1231,6 +1409,7 @@ const CONQUISTAS = [
   { id: "semana-molhada", nome: "Semana Molhada", desc: "Semana perfeita: meta batida de segunda a sexta.", recompensaFrases: true, paths: ["M8 2v4", "M16 2v4", "M3 10h18", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"] },
   { id: "mare-alta", nome: "Maré Alta", desc: "Meta batida 10 dias úteis seguidos.", recompensa: "Poder: Desertificação 🏜️", paths: ["M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"] },
   { id: "tsunami-de-foco", nome: "Tsunami de Foco", desc: "Meta batida 30 dias úteis seguidos.", recompensa: "Poder: Soterramento ⏳", paths: ["M2 19h20", "M4 19c0-8 5-13 11-13 4 0 7 2.8 7 6 0 2.6-2 4.6-4.6 4.6-2 0-3.6-1.4-3.6-3.2 0-1.4 1-2.4 2.4-2.4"] },
+  { id: "rei-dos-mares", nome: "Rei dos Mares", desc: "Meta batida 50 dias úteis seguidos.", recompensa: "Poder: Tempestade ⛈️ +1 garrafa", paths: ["M2 9c.6.5 1.2 1 2.5 1C7 10 7 8 9.5 8c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M2 15c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1", "M7 6l1.5-3 1.5 2 1.5-2 1.5 3"] },
   { id: "pe-no-podio", nome: "Pé no Pódio", desc: "Fechou uma semana no top 3 do ranking.", recompensaFrases: true, paths: ["M12 2a6 6 0 1 0 0 12 6 6 0 1 0 0-12", "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"] },
   { id: "soberano-da-torneira", nome: "Soberano da Torneira", desc: "Fechou uma semana em 1º lugar.", recompensa: "+1 garrafa", recompensaFrases: true, paths: ["M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z", "M5 21h14"] },
   { id: "dinastia-da-gota", nome: "Dinastia da Gota", desc: "1º lugar por 3 semanas seguidas.", recompensaFrases: true, paths: ["M6 9H4.5a2.5 2.5 0 0 1 0-5H6", "M18 9h1.5a2.5 2.5 0 0 0 0-5H18", "M4 22h16", "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22", "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22", "M18 2H6v7a6 6 0 0 0 12 0V2Z"] },
@@ -1514,6 +1693,7 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia, car
     if (r.maxUtil >= 3) c.add("pingo-de-disciplina");
     if (r.maxUtil >= 10) c.add("mare-alta");
     if (r.maxUtil >= 30) c.add("tsunami-de-foco");
+    if (r.maxUtil >= 50) c.add("rei-dos-mares");
     const posicoes = posicoesPorMembro[m.id];
     if (posicoes.some((p) => p.pos <= 3)) c.add("pe-no-podio");
     if (posicoes.some((p) => p.pos === 1)) c.add("soberano-da-torneira");
@@ -1599,7 +1779,7 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia, car
     const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
     let ultimoPoder = 0;
     (historico[m.id] || []).forEach((e) => {
-      if (e && !e.anulado && (e.tipo === "cacto" || e.tipo === "deserto" || e.tipo === "tempestade")) {
+      if (e && !e.anulado && (e.tipo === "cacto" || e.tipo === "deserto" || e.tipo === "tempestade" || e.tipo === "tormenta")) {
         ultimoPoder = Math.max(ultimoPoder, Number(e.t) || 0);
       }
     });
@@ -1956,16 +2136,76 @@ function GarrafaAquario({ pct, tamanho }) {
     style={{ height: (tamanho ? (tamanho*112/92) : 112) + "px", width: "auto" }}
     dangerouslySetInnerHTML={{ __html: html }} />;
 }
+/* Becker (béquer de laboratório): cilindro reto, bico de escoamento e
+   graduação. Desenho geométrico limpo, no mesmo estilo da garrafa Padrão. */
+function GarrafaBecker({ pct, tamanho = 92 }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const alturaAgua = 79 * p;
+  const yAgua = 121 - alturaAgua;
+  const cheia = p >= 1;
+  const cor = cheia ? "#0FA36B" : "#0B3446";
+  return (
+    <svg
+      width={tamanho}
+      height={(tamanho * 130) / 92}
+      viewBox="0 0 92 130"
+      aria-hidden="true"
+    >
+      <defs>
+        <clipPath id="corpo-becker">
+          <path d="M23 42 H69 V114 Q69 121 62 121 H30 Q23 121 23 114 Z" />
+        </clipPath>
+        <linearGradient id="agua-becker" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#41C9E6" />
+          <stop offset="100%" stopColor="#0F8BB0" />
+        </linearGradient>
+      </defs>
+      <g clipPath="url(#corpo-becker)">
+        <rect x="18" y={yAgua} width="56" height={alturaAgua + 6} fill="url(#agua-becker)">
+          <animate
+            attributeName="y"
+            values={`${yAgua + 1.5};${yAgua - 1.5};${yAgua + 1.5}`}
+            dur="3s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      </g>
+      <path
+        d="M57 61 H66 M57 76 H66 M57 91 H66 M57 106 H66"
+        stroke={cor}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        opacity="0.4"
+      />
+      <path
+        d="M22 40 V114 Q22 122 30 122 H62 Q70 122 70 114 V40"
+        fill="none"
+        stroke={cor}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 40 H60 L66 35 Q68 33.5 70 35 L74 40"
+        fill="none"
+        stroke={cor}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 const GARRAFAS = [
   { id: "padrao", nome: "Padrão", Comp: Garrafa },
   { id: "esportiva", nome: "Esportiva", Comp: GarrafaEsportiva },
   { id: "aquario", nome: "Aquário", Comp: GarrafaAquario },
   { id: "galao", nome: "Galão", Comp: GarrafaGalao },
   { id: "longneck", nome: "Long-neck", Comp: GarrafaLongneck },
-]; 
+  { id: "becker", nome: "Becker", Comp: GarrafaBecker },
+];
 const GARRAFA_POR_ID = Object.fromEntries(GARRAFAS.map((g) => [g.id, g]));
 /* Conquistas que dão direito a +1 garrafa */
-const CONQUISTAS_GARRAFA = ["correnteza-colossal", "a-cartada-certeira", "represa-billings", "soberano-da-torneira"];
+const CONQUISTAS_GARRAFA = ["correnteza-colossal", "a-cartada-certeira", "represa-billings", "soberano-da-torneira", "rei-dos-mares"];
 function GarrafaSel({ id, pct, tamanho }) {
   const g = GARRAFA_POR_ID[id] || GARRAFA_POR_ID["padrao"];
   const Comp = g.Comp;
@@ -1987,7 +2227,7 @@ function GarrafaSel({ id, pct, tamanho }) {
 const AREIA_COLS = 24;
 
 /* Penalidade de cada poder no desempenho semanal de quem sofre (em %) */
-const PENALIDADE = { cacto: 4, deserto: 8, tempestade: 10 };
+const PENALIDADE = { cacto: 4, deserto: 8, tempestade: 10, tormenta: 12 };
 /* As penalidades no desempenho só valem para poderes aplicados a partir
    desta atualização — nada do que aconteceu antes desconta nada. O marco
    é o momento em que esta versão entrou no ar */
@@ -2385,6 +2625,93 @@ function AreiaCartao({ mapa }) {
     desenharMonte(ctx, alturas, L, A, criarTextura(L, A));
   }, [mapa]);
   return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
+}
+
+/* ===== Poder Tempestade: a cena (nuvens em 3 camadas, mar com ondas, chuva,
+   raios) com o card da pessoa boiando à solta. Serve contida no cartão
+   (visão do time) e em tela cheia (a vítima). ===== */
+function PalcoTormenta({ membro, bebido = 0, fullscreen = false, onBeber, onDesfazer }) {
+  const cena = React.useMemo(() => {
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const pingos = [];
+    const nP = fullscreen ? 90 : 46;
+    for (let i = 0; i < nP; i++) pingos.push({ left: rnd(-6, 102), delay: rnd(0, 0.9), dur: rnd(0.28, 0.48), h: rnd(10, 19), op: rnd(0.55, 0.9) });
+    const nuvem = (tone, n, cyMin, cyMax, ryMin, ryMax) => {
+      const l = [];
+      for (let i = 0; i < n; i++) l.push({ cx: (i * 100) / (n - 1) + rnd(-4, 4), cy: rnd(cyMin, cyMax), rx: rnd(11, 17), ry: rnd(ryMin, ryMax) });
+      return { tone, lobos: l };
+    };
+    const nuvens = [nuvem("#3B4951", 8, 5, 10, 9, 14), nuvem("#55646D", 10, 4, 9, 8, 12), nuvem("#7E929C", 12, 3, 8, 7, 11)];
+    const raios = [];
+    for (let k = 0; k < 2; k++) {
+      let x = rnd(12, 88), y = 0, pts = x.toFixed(0) + ",0";
+      for (let s = 0; s < 14; s++) { x += rnd(-5, 5); y += 100 / 14; pts += " " + x.toFixed(1) + "," + y.toFixed(1); }
+      raios.push({ pts, delay: k * 0.09 });
+    }
+    return { pingos, nuvens, raios };
+  }, [fullscreen]);
+  const meta = membro.goalMl || 0;
+  const pct = meta > 0 ? Math.max(0, Math.min(1, bebido / meta)) : 0;
+  const clsN = ["mp-nb", "mp-nm", "mp-nf"];
+  const bp = "M22 6 h16 v8 q0 4 4 7 q6 5 6 14 v68 q0 7 -7 7 h-22 q-7 0 -7 -7 v-68 q0 -9 6 -14 q4 -3 4 -7 v-8 z";
+  const cid = "cbt-" + membro.id;
+  const Bt = fullscreen && onBeber ? <button className="mp-bt" onClick={onBeber}>Bebi 1 garrafa</button> : <div className="mp-bt">Bebi 1 garrafa</div>;
+  const Bt2 = fullscreen && onDesfazer ? <button className="mp-bt2" onClick={onDesfazer}>Desfazer</button> : <div className="mp-bt2">Desfazer</div>;
+  return (
+    <div className="mp-palco">
+      <div className="mp-dark" />
+      <svg className="mp-raios" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {cena.raios.map((r, i) => (<polyline key={i} className="mp-raio-ln" points={r.pts} style={{ animationDelay: r.delay + "s" }} />))}
+      </svg>
+      <div className="mp-mar mp-back" />
+      <div className="mp-card"><div className="mp-bob"><div className="mp-rock"><div className="mp-mini">
+        <div className="mp-head"><b>{membro.name}</b><span className="mp-ic">🔔 ×</span></div>
+        <div className="mp-sub">Garrafa de {fmt(membro.bottleMl)} · meta {fmt(meta)}</div>
+        <div className="mp-corpo">
+          <svg width={fullscreen ? 30 : 22} height={fullscreen ? 60 : 44} viewBox="0 0 60 120" aria-hidden="true">
+            <defs><clipPath id={cid}><path d={bp} /></clipPath></defs>
+            <rect x="0" y={120 - pct * 96 - 2} width="60" height="120" fill="#41C9E6" clipPath={"url(#" + cid + ")"} />
+            <path d={bp} fill="none" stroke="#0B3446" strokeWidth="2.5" />
+          </svg>
+          <div className="mp-dir"><div className="mp-vol">{fmt(bebido)}</div><div className="mp-meta">de {fmt(meta)}</div></div>
+        </div>
+        <div className="mp-barra"><i style={{ width: pct * 100 + "%" }} /></div>
+        <div className="mp-adder">{Bt}{Bt2}</div>
+      </div></div></div></div>
+      <div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />
+      <div className="mp-chuva">{cena.pingos.map((p, i) => (<span key={i} className="mp-pingo" style={{ left: p.left + "%", height: p.h + "px", animationDelay: p.delay + "s", animationDuration: p.dur + "s", opacity: p.op }} />))}</div>
+      <div className="mp-nuvens">{cena.nuvens.map((nv, i) => (
+        <div key={i} className={"mp-nuv " + clsN[i]}>
+          <svg viewBox="0 0 100 20" preserveAspectRatio="none">
+            <rect x="0" y="-12" width="100" height="18" fill={nv.tone} />
+            {nv.lobos.map((l, j) => (<ellipse key={j} cx={l.cx} cy={l.cy} rx={l.rx} ry={l.ry} fill={nv.tone} />))}
+          </svg>
+        </div>
+      ))}</div>
+      <div className="mp-flash" />
+    </div>
+  );
+}
+
+/* Tela cheia da vítima: o cenário + o "?" (explica como sair) + o medidor de escape (125%). */
+function TempestadeCena({ membro, bebido, onBeber, onDesfazer }) {
+  const [ajuda, setAjuda] = useState(false);
+  const meta = membro.goalMl || 0;
+  const pctHoje = meta > 0 ? bebido / meta : 0;
+  return (
+    <div className="tormenta-cena">
+      <PalcoTormenta membro={membro} bebido={bebido} fullscreen onBeber={onBeber} onDesfazer={onDesfazer} />
+      <div className="tc-medidor">Beba 125% da meta para escapar · {Math.round(pctHoje * 100)}%</div>
+      {ajuda && (
+        <div className="tc-pop">
+          <h4>⛈️ Poder Tempestade</h4>
+          <p>Um temporal tomou seu card: seu desempenho cai <b>12%</b> e você fica à deriva no mar revolto.</p>
+          <p className="saida">Para escapar: beba 125% da sua meta de hoje — aí a tempestade passa.</p>
+        </div>
+      )}
+      <div className="tc-ajuda" onClick={() => setAjuda((v) => !v)}>?</div>
+    </div>
+  );
 }
 
 /* Carta Anti-Seca: aparece só para o sorteado, com contador de validade.
@@ -3100,6 +3427,7 @@ const EYE_POS = {
   aquario:  {top:"34%", left:"66%", w:"50%"},
   galao:    {top:"43%", left:"65%", w:"52%"},
   longneck: {top:"48%", left:"66%", w:"78%"},
+  becker:   {top:"52%", left:"52%", w:"54%"},
   cacto:    {top:"46%", left:"57%", w:"28%"},
 };
 const INK="#0B3446", IRIS="#0F8BB0", IRIS2="#41C9E6", SCLERA="#FFFFFF", LID="#DCEAF2";
@@ -3271,11 +3599,12 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
   const cactificado = !!efeitos.cacto;
   const desertico = !!efeitos.deserto;
   const soterrado = !!efeitos.tempestade;
+  const tormentado = !!efeitos.tormenta;
 
   return (
     <div
       id={`card-${membro.id}`}
-      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""} ${conquistaRei && !noivo ? "rei-conquista" : ""}`}
+      className={`cartao ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${tormentado ? "tormentado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""} ${conquistaRei && !noivo ? "rei-conquista" : ""}`}
     >
       {rei && !noivo && <BastaoRei />}
       <div className="cartao-topo">
@@ -3504,6 +3833,11 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
       {soterrado && (
         <div className="areia-camada" aria-hidden="true">
           <AreiaCartao mapa={efeitos.tempestade.mapa} />
+        </div>
+      )}
+      {tormentado && (
+        <div className="palco-camada" aria-hidden="true">
+          <PalcoTormenta membro={membro} bebido={bebido} />
         </div>
       )}
       {mostrarReivindicar && (
@@ -4002,6 +4336,8 @@ function AguaTracker() {
   const aberturaRef = React.useRef(Date.now()); // âncora da zoação "na abertura do painel"
   const [ausenciasAberto, setAusenciasAberto] = useState(false); // painel admin de folgas/feriados
   const [ausenciaDia, setAusenciaDia] = useState(() => chaveDe(new Date())); // dia escolhido no painel (YYYY-MM-DD)
+  const [tPoder, setTPoder] = useState("tormenta"); // ambiente de teste: poder selecionado
+  const [tAlvo, setTAlvo] = useState(""); // ambiente de teste: alvo selecionado
   useEffect(() => { const id = setInterval(() => setTickExpr((t) => t + 1), 20000); return () => clearInterval(id); }, []);
   const [editando, setEditando] = useState(null); // membro em edição (só o próprio cartão)
   const [formEd, setFormEd] = useState({ name: "", bottleMl: 500, goalMl: 2000, peso: "", pin: "", removerPin: false });
@@ -4787,6 +5123,11 @@ function AguaTracker() {
         if (!ef.limpo) ativos[tipo] = ef;
         return;
       }
+      if (tipo === "tormenta") {
+        /* Tempestade: só passa quando a vítima bebe 125% da meta (ou na virada do dia) */
+        if (!ef.limpo && pctMeta < 1.25) ativos[tipo] = ef;
+        return;
+      }
       /* cura única para todos os efeitos: só a meta batida liberta */
       const curado = pctMeta >= 1;
       if (curado) return; /* meta batida liberta, sem exceção */
@@ -4800,7 +5141,7 @@ function AguaTracker() {
   const horasExigidas = (poderId, alvo) => {
     let h;
     if (poderId === "cacto") h = alvo.bottleMl > 900 ? 4 : 3;
-    else if (poderId === "deserto" || poderId === "tempestade") h = 4;
+    else if (poderId === "deserto" || poderId === "tempestade" || poderId === "tormenta") h = 4;
     else h = 1;
     /* Muralha de Água: +30 min de tolerância enquanto a conquista estiver ativa */
     if (conquistas[alvo.id] && conquistas[alvo.id].conjunto.has("muralha-de-agua")) h += 0.5;
@@ -4818,7 +5159,7 @@ function AguaTracker() {
     dados.members.forEach((v) => {
       ((dados.historico && dados.historico[v.id]) || []).forEach((e) => {
         if (!e || e.anulado) return;
-        if (!["cacto", "deserto", "tempestade"].includes(e.tipo)) return;
+        if (!["cacto", "deserto", "tempestade", "tormenta"].includes(e.tipo)) return;
         if (nomeNormalizado(e.por || "") !== nomeM) return;
         if (chaveDe(new Date(Number(e.t) || 0)) !== dia) return;
         if (Number(e.t) > t) t = Number(e.t);
@@ -4891,6 +5232,18 @@ function AguaTracker() {
     return null;
   })();
 
+  const minhaTormenta = (() => {
+    for (const m of meusMembros) {
+      const ef = efeitosDe(m).tormenta;
+      if (ef) {
+        const c = registrosHoje[m.id] || 0;
+        const e = extrasHoje[m.id] || 0;
+        return { id: m.id, membro: m, ef, bebido: c * m.bottleMl + e };
+      }
+    }
+    return null;
+  })();
+
   /* Tela limpa: marca o efeito como resolvido para que os tornadinhos
      sumam também na visão dos colegas */
   /* Aplica um efeito de poder a um cartão qualquer (usado pelo rebote) */
@@ -4912,6 +5265,36 @@ function AguaTracker() {
       por: autorNome,
       pct: -penalidadeEfetiva(poderId, alvoM ? alvoM.goalMl : 0),
     });
+  };
+
+  /* ===== Ambiente de teste: aplicar/limpar poderes sem restrição ===== */
+  const aplicarPoderTeste = (poderId, alvoId) => {
+    if (!poderId || !alvoId || !dados) return;
+    const novo = structuredClone(dados);
+    aplicarEfeito(novo, alvoId, poderId, "Modo teste", Date.now());
+    /* o soterramento/tempestade só "saem" via limpo/virada — no teste
+       garantimos que começam ativos limpando qualquer marca de limpo */
+    if (novo.efeitos && novo.efeitos[alvoId] && novo.efeitos[alvoId][poderId]) {
+      novo.efeitos[alvoId][poderId].limpo = false;
+    }
+    persistir(novo);
+    const alvoM = dados.members.find((m) => m.id === alvoId);
+    const pod = PODERES.find((p) => p.id === poderId);
+    setToast(`🧪 ${pod ? pod.nome : poderId} aplicado em ${alvoM ? alvoM.name : "alvo"}.`);
+  };
+  const limparEfeitosTeste = (alvoId) => {
+    if (!dados) return;
+    const novo = structuredClone(dados);
+    if (!novo.efeitos) novo.efeitos = {};
+    if (alvoId === "__all__") {
+      novo.efeitos = {};
+      setToast("🧪 Todos os efeitos foram limpos.");
+    } else if (alvoId) {
+      delete novo.efeitos[alvoId];
+      const alvoM = dados.members.find((m) => m.id === alvoId);
+      setToast(`🧪 Efeitos de ${alvoM ? alvoM.name : "alvo"} limpos.`);
+    }
+    persistir(novo);
   };
 
   /* Resolve o palpite do atacante que esbarrou na Carta Anti-Seca */
@@ -5085,7 +5468,7 @@ function AguaTracker() {
         motivo: `você está ${rotulo} — bata a meta e se livre disso antes de atacar alguém`,
       };
     }
-    const RECARGAS = { cacto: 3600000, deserto: 3600000, tempestade: 2 * 3600000 };
+    const RECARGAS = { cacto: 3600000, deserto: 3600000, tempestade: 2 * 3600000, tormenta: 2 * 3600000 };
     if (RECARGAS[poderId]) {
       const ultimoUso = Number(
         localStorage.getItem(`agua-${poderId}-cooldown`) || 0
@@ -5178,7 +5561,7 @@ function AguaTracker() {
     } catch {}
     const agora = Date.now();
     let horasAnuncio = 1;
-    if (["cacto", "deserto", "tempestade"].includes(poderId)) {
+    if (["cacto", "deserto", "tempestade", "tormenta"].includes(poderId)) {
       const oito = new Date();
       oito.setHours(8, 0, 0, 0);
       const utilHoje = ehDiaUtil(new Date());
@@ -6770,6 +7153,15 @@ function AguaTracker() {
         />
       )}
 
+      {minhaTormenta && (
+        <TempestadeCena
+          membro={minhaTormenta.membro}
+          bebido={minhaTormenta.bebido}
+          onBeber={() => beber(minhaTormenta.id)}
+          onDesfazer={() => desfazer(minhaTormenta.id)}
+        />
+      )}
+
       {(meusPoderes.length > 0 || minhasConquistas.has("hidratacao-profunda")) && (
         <div className="barra-poderes">
           {minhasConquistas.has("hidratacao-profunda") && (
@@ -7351,6 +7743,55 @@ function AguaTracker() {
           >
             🏖️ Folgas &amp; feriados
           </button>
+          {!testeAtivo && (
+            <button
+              className="btn-admin-ausencias btn-admin-teste"
+              onClick={() => entrarModoTeste(dados, meuDispositivo)}
+              title="Abrir um ambiente de teste isolado (nada é salvo no servidor)"
+            >
+              🧪 Ambiente de teste
+            </button>
+          )}
+        </div>
+      )}
+
+      {testeAtivo && dados && (
+        <div className="teste-barra">
+          <div className="teste-topo">
+            <span className="teste-tag">🧪 AMBIENTE DE TESTE</span>
+            <span className="teste-aviso">sandbox local desta aba • nada é salvo no servidor</span>
+            <button className="teste-sair" onClick={sairModoTeste}>Sair do teste</button>
+          </div>
+          <div className="teste-linha">
+            <label className="teste-campo">
+              <span>Ver como</span>
+              <select value={meuDispositivo} onChange={(e) => testeVerComo(e.target.value)}>
+                {dados.members.map((m) => (
+                  <option key={m.id} value={m.ownerId || ("d-teste-" + m.id)}>{m.name}</option>
+                ))}
+              </select>
+            </label>
+            <button className="teste-btn2" onClick={testeRessincronizar} title="Puxar os dados atuais do time para o sandbox">↻ Ressincronizar com produção</button>
+          </div>
+          <div className="teste-linha">
+            <label className="teste-campo">
+              <span>Poder</span>
+              <select value={tPoder} onChange={(e) => setTPoder(e.target.value)}>
+                {PODERES.map((p) => (<option key={p.id} value={p.id}>{p.icone} {p.nome}</option>))}
+              </select>
+            </label>
+            <label className="teste-campo">
+              <span>Alvo</span>
+              <select value={tAlvo || (dados.members[0] ? dados.members[0].id : "")} onChange={(e) => setTAlvo(e.target.value)}>
+                {dados.members.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
+              </select>
+            </label>
+            <button className="teste-btn" onClick={() => aplicarPoderTeste(tPoder, tAlvo || (dados.members[0] && dados.members[0].id))}>Aplicar poder</button>
+          </div>
+          <div className="teste-linha">
+            <button className="teste-btn2" onClick={() => limparEfeitosTeste(tAlvo || (dados.members[0] && dados.members[0].id))}>Limpar efeitos do alvo</button>
+            <button className="teste-btn2" onClick={() => limparEfeitosTeste("__all__")}>Limpar tudo</button>
+          </div>
         </div>
       )}
 
