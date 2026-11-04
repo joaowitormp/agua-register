@@ -731,6 +731,12 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   contain: strict; /* garante que a areia jamais escape do cartão */
 }
 .areia-cartao { width: 100%; height: 100%; display: block; }
+/* Nuvens + ondas da frente que sobrepõem a areia (tempestade + soterramento juntos) */
+.no-overlay { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; border-radius: 16px; }
+.no-overlay.full { position: fixed; z-index: 93; border-radius: 0; }
+.no-overlay.full .mp-f1 { -webkit-mask-size: 150px 100%; mask-size: 150px 100%; animation: flowB 3.6s linear infinite, mSlF1full 5.4s linear infinite; }
+.no-overlay.full .mp-f2 { -webkit-mask-size: 168px 100%; mask-size: 168px 100%; animation: flowC 4.8s linear infinite, mSlF2full 6s linear infinite, mpSwell 3.2s ease-in-out infinite; }
+.no-overlay.full .mp-nuvens { height: 10vh; }
 
 /* Histórico individual */
 .lista-historico {
@@ -1016,6 +1022,22 @@ canvas.prem-cacos { position: fixed; inset: 0; z-index: 15; pointer-events: none
 .garrafa-olhos { position: relative; display: inline-flex; }
 .olhos-garrafa { position: absolute; transform: translate(-50%,-50%); pointer-events: none; z-index: 4; }
 .olhos-garrafa svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+/* ===== Becker (Erlenmeyer) — bolhas + erupcao ===== */
+.becker-wrap{position:relative;display:inline-block;overflow:visible;vertical-align:bottom;}
+.svgbk{position:relative;z-index:1;display:block;overflow:visible;}
+.bk-bolha{transform-box:fill-box;transform-origin:center;animation-name:bkSobe;animation-timing-function:ease-in;animation-iteration-count:infinite;animation-delay:var(--d);opacity:0;}
+@keyframes bkSobe{0%{transform:translateY(0) scale(.45);opacity:0}12%{opacity:.8}78%{opacity:.5}100%{transform:translateY(var(--rise)) scale(1);opacity:0}}
+.bk-bolha-s{transform-box:fill-box;transform-origin:center;animation:bkIncha 5s ease-in-out infinite;animation-delay:var(--d);opacity:0;}
+@keyframes bkIncha{0%,10%{transform:translateY(0) scale(.55);opacity:0}15%{opacity:.78}42%{transform:translateY(var(--rise)) scale(1.75);opacity:.9}52%{transform:translateY(calc(var(--rise)*1.12)) scale(1.95);opacity:0}53%,100%{opacity:0}}
+.bk-plume{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;animation:bkPlumeGate 5s linear infinite;}
+@keyframes bkPlumeGate{0%,21%{opacity:0}24%{opacity:1}49%{opacity:1}54%{opacity:0}100%{opacity:0}}
+.bk-pb{position:absolute;border-radius:50%;transform-origin:center;opacity:0;background:radial-gradient(circle at 34% 30%, #e6f9fd, #39b4d4 60%, #0F8BB0);box-shadow:0 0 4px rgba(31,163,198,.5);animation-name:bkSurge;animation-timing-function:ease-out;animation-iteration-count:infinite;}
+@keyframes bkSurge{0%{transform:translate(0,8px) scale(.18);opacity:0}16%{opacity:1}42%{transform:translate(var(--dx2),var(--up)) scale(1);opacity:1}100%{transform:translate(calc(var(--dx2)*1.4),var(--down)) scale(.55);opacity:0}}
+.bk-rim{position:absolute;inset:0;z-index:3;pointer-events:none;}
+.bk-rb{position:absolute;top:15%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#bfeef8,#2aa6c8);opacity:0;animation:bkRimK 5s infinite;animation-delay:var(--d);}
+@keyframes bkRimK{0%{transform:translateY(-3px) scale(.6);opacity:0}2%{opacity:.95}12%{transform:translateY(22px) scale(1);opacity:0}13%{opacity:0}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){.bk-pb,.bk-rb,.bk-bolha,.bk-bolha-s,.bk-plume{animation:none}.bk-pb,.bk-rb{opacity:0}}
 </style>
 </head>
 <body>
@@ -1276,7 +1298,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-04.6-tempestade-chuva-mar-raio";
+const APP_VERSION = "2026-11-04.8-zoacao-janela-poder";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -2160,65 +2182,79 @@ function GarrafaAquario({ pct, tamanho }) {
     style={{ height: (tamanho ? (tamanho*112/92) : 112) + "px", width: "auto" }}
     dangerouslySetInnerHTML={{ __html: html }} />;
 }
-/* Becker (béquer de laboratório): cilindro reto, bico de escoamento e
-   graduação. Desenho geométrico limpo, no mesmo estilo da garrafa Padrão. */
+/* Becker — Erlenmeyer do preview: água enche por dentro, bolhas sobem
+   continuamente e, na meta batida, uma erupção de fonte de bolhas transborda
+   pela boca. Fica verde quando cheio. */
+const BK_OUT = `M2403.64 784.32C2401.88 784.24 2400.36 785.6 2400.24 787.36C2399.16 805.24 2398.64 821.8 2398.72 837.12C2399.88 1070.56 2400.04 1316.16 2399.24 1573.96C2399.16 1603.24 2398.12 1636.72 2408.12 1663.24C2415.68 1683.28 2426.76 1706.08 2441.4 1731.56C2474.4 1789 2509.28 1850.84 2546.04 1917.04C2584.08 1985.6 2623.16 2055.76 2663.24 2127.56C2682.64 2162.36 2701.92 2199.64 2722.64 2235.48C2748.96 2281.04 2774.68 2326.52 2799.84 2371.96C2867.08 2493.4 2932.56 2610.68 2996.36 2723.84C3024.4 2773.6 3047.36 2824.52 3058.28 2881.08C3075.36 2969.56 3070.72 3055.32 3044.28 3138.36C3016.04 3227.08 2960.44 3310.08 2894.32 3377.56C2813.44 3460.04 2694.92 3522.2 2579.72 3522C2244 3521.44 1900.96 3521.2 1550.6 3521.24C1523.72 3521.24 1500.4 3519.48 1480.68 3515.96C1443.2 3509.28 1406 3496.44 1369 3477.36C1324.68 3454.52 1286.92 3428.6 1255.72 3399.64C1206.16 3353.6 1164.4 3298.76 1130.48 3235.2C1099.2 3176.56 1080.96 3114.8 1075.8 3049.92C1066.8 2937.12 1090.6 2839.56 1145.68 2746.6C1175.72 2695.88 1204.28 2643.88 1233.44 2593C1246.36 2570.48 1259.44 2547.28 1272.68 2523.32C1335.16 2410.32 1408.8 2278.44 1493.6 2127.68C1509.2 2099.96 1523.96 2073.96 1537.88 2049.68C1558.72 2013.32 1579.12 1976.84 1599.04 1940.2C1611.48 1917.36 1624.56 1894.16 1638.28 1870.6C1666.16 1822.64 1694.68 1771.4 1723.76 1716.8C1741.2 1684.12 1746.36 1656.32 1746.08 1616C1744.2 1342.2 1743.6 1067.8 1744.28 792.88C1744.32 790.52 1742.48 788.56 1740.12 788.4C1697.92 785.4 1669.12 765.68 1653.64 729.32C1634.96 685.44 1668.68 631.72 1716.08 631.48C1974.08 630.24 2216.04 629.92 2442 630.56C2447.96 630.56 2455.76 634.04 2465.48 641C2485.4 655.28 2496.28 672.92 2498.16 693.92C2499.84 712.84 2495.76 729.76 2485.88 744.68C2467.08 773.04 2439.68 786.28 2403.64 784.32Z`;
+const BK_DARK = `M1792.52 751.84C1792.48 750.84 1791.68 750.04 1790.68 750.04C1775.04 750.16 1758.96 750.04 1742.48 749.68C1728.04 749.4 1716.84 745.28 1708.88 737.32C1689.32 717.84 1692.52 681.56 1726.08 682.28C1752 682.84 1776.64 683.24 1800 683.44C1990.92 685 2181.88 685 2372.84 683.4C2391.76 683.24 2410.56 682.28 2429.44 684C2434.4 684.44 2438.4 686.56 2441.48 690.32C2453.36 704.84 2449.6 722.28 2435.36 733C2412.96 749.84 2384.8 748.52 2358.36 748.16C2355.76 748.12 2353.64 750.24 2353.64 752.84C2354.16 840.52 2354.24 929.24 2353.88 1019C2353.84 1037.16 2353.76 1056.16 2353.68 1076C2353.08 1287.04 2353.08 1471.36 2353.72 1629C2353.76 1642.96 2357.04 1658.84 2363.56 1676.56C2367.4 1687 2374.6 1701.32 2385.12 1719.56C2435.36 1806.56 2495.96 1913.88 2566.88 2041.52C2610.52 2120 2654.08 2198.52 2697.56 2277.12C2710 2299.64 2721.48 2320.08 2731.96 2338.36C2767.28 2400 2801.2 2461.24 2833.8 2522.12C2882.64 2613.36 2939 2703.76 2981.52 2785.8C3006.24 2833.52 3020.72 2887.88 3025 2948.88C3029.76 3016.92 3020.32 3082.92 2996.6 3146.96C2970.04 3218.72 2931.52 3281.64 2881 3335.72C2865.88 3351.92 2847.6 3368.72 2826.2 3386.16C2764.48 3436.44 2682.96 3474.64 2602.92 3481.52C2587.52 3482.84 2561 3483.44 2523.36 3483.32C2191.16 3482.4 1874.88 3482.44 1574.44 3483.52C1541.92 3483.64 1514.96 3481.84 1493.6 3478.08C1456.64 3471.6 1419.52 3458.8 1382.24 3439.72C1301.48 3398.44 1238.88 3336.68 1190.48 3260.12C1143.24 3185.36 1118.72 3102.84 1116.92 3012.56C1115.04 2917.2 1139.96 2831.08 1189.48 2752.08C1235.32 2678.96 1277.6 2601.32 1321.44 2523.6C1359.96 2455.24 1397.44 2388.16 1433.84 2322.32C1459.4 2276.08 1487.24 2228.96 1513.28 2182.32C1561.72 2095.64 1611.68 2005.84 1663.16 1912.92C1696.16 1853.36 1733.4 1792.76 1765.2 1733.24C1780.48 1704.56 1794.12 1674.64 1794.12 1640.92C1794.08 1390.32 1793.84 1145.68 1793.4 907C1793.28 851.12 1793 799.4 1792.52 751.84Z`;
+const BK_WHITE = `M1819 735.5C1818.96 734.954 1813.98 733.585 1813.05 733.585C1798.49 733.651 1783.51 733.585 1768.17 733.389C1754.72 733.236 1733.47 731.451 1726.06 727.107C1707.84 716.478 1709.31 696.853 1740.56 697.246C1764.69 697.552 1799.98 697.137 1821.73 697.246C1999.51 698.097 2177.34 698.097 2355.16 697.224C2372.77 697.137 2390.28 696.613 2407.86 697.552C2412.48 697.792 2423.19 699.556 2426.06 701.607C2437.12 709.53 2426.63 718.439 2413.37 724.288C2392.52 733.476 2366.29 732.756 2341.67 732.56C2339.25 732.538 2324.5 737.081 2324.5 738.5C2324.98 786.341 2321.39 1003.55 2321.06 1089.11C2321.02 1106.42 2321.13 1130.7 2321.06 1149.61C2320.5 1350.76 2320.46 1523.85 2321.06 1674.11C2321.09 1687.41 2340.44 1703.42 2346.51 1720.31C2350.09 1730.26 2356.8 1743.91 2366.59 1761.3C2413.37 1844.22 2469.8 1946.51 2535.84 2068.17C2576.48 2142.97 2617.05 2217.82 2657.53 2292.73C2669.12 2314.2 2679.81 2333.68 2689.57 2351.1C2722.46 2409.85 2754.04 2468.22 2784.4 2526.25C2829.88 2613.22 2882.36 2699.38 2921.96 2777.58C2944.97 2823.06 2973.07 2871.97 2977.06 2930.11C2981.49 2994.96 2976.64 3062.07 2954.56 3123.11C2929.82 3191.5 2888.6 3254.56 2841.56 3306.11C2827.48 3321.55 2807.98 3339.48 2788.06 3356.11C2730.58 3404.03 2643.94 3434.14 2569.41 3440.7C2555.06 3441.95 2530.37 3442.53 2495.32 3442.41C2185.98 3441.53 1891.46 3441.57 1611.69 3442.6C1581.41 3442.72 1556.3 3441 1536.41 3437.42C1502 3431.24 1467.43 3419.04 1432.71 3400.85C1357.51 3361.51 1282.63 3311.08 1237.56 3238.11C1193.57 3166.85 1171.73 3081.16 1170.06 2995.11C1168.31 2904.22 1207.1 2820.73 1253.22 2745.44C1295.9 2675.74 1335.27 2601.74 1376.1 2527.66C1411.97 2462.51 1446.87 2398.57 1480.76 2335.81C1504.57 2291.74 1530.49 2246.83 1554.74 2202.37C1599.85 2119.76 1646.37 2034.16 1694.31 1945.6C1725.04 1888.83 1759.71 1831.07 1789.32 1774.34C1803.55 1747 1828.5 1718.64 1828.5 1686.5C1828.46 1447.64 1819.41 1216.5 1819 989C1818.89 935.738 1819.45 761.45 1819 735.5Z`;
+const BK_SHINE = [`M1987.64 754.001C1988.32 812.921 1988.4 900.241 1987.96 1016C1987.6 1114.56 1988.28 1312.88 1990.04 1611C1990.24 1639.08 1987.48 1667.8 1981.76 1697.12C1976.12 1726.08 1963.64 1752.04 1944.24 1774.96C1925.36 1797.32 1893.08 1807.72 1868.96 1788.32C1842.64 1767.12 1873.56 1711.52 1884.96 1688.36C1888.52 1681.16 1891.6 1671.96 1892.52 1664C1894.88 1644.36 1895.96 1626.68 1895.76 1611C1895.2 1560.64 1895.04 1512.64 1895.28 1466.96C1896 1325.64 1896.04 1185.64 1895.4 1046.96C1895 964.001 1896.16 883.201 1895.52 797.401C1895.4 784.001 1894.12 771.001 1893.88 757.801C1893.84 756.401 1894.4 755.321 1895.56 754.481C1897.2 753.321 1899.4 753.041 1902.16 753.601L1987.64 754.001Z`,`M2381.68 2150.68C2410.84 2216.56 2438.68 2283.32 2465.12 2350.96C2468.32 2359.12 2470.64 2368.44 2472.08 2378.92C2474.4 2395.88 2444.24 2406.88 2431.96 2403.56C2428.64 2402.64 2425.68 2400.12 2423.08 2396C2414.4 2382.12 2408.72 2372.08 2406.04 2365.92C2381.04 2308.68 2353 2245.6 2321.92 2176.76C2318.32 2168.8 2314.8 2161.2 2311.32 2153.96C2300.96 2127 2290.24 2100.48 2279.12 2074.36C2246.28 1997.36 2213.64 1918.52 2181.12 1837.88C2167.48 1804 2155.6 1771.12 2145.48 1739.24C2137.28 1713.24 2130.52 1681.8 2138.04 1655.28C2146.32 1626.24 2180.72 1611.24 2201.56 1639.48C2204.88 1644 2206.44 1649.12 2206.2 1654.84C2205.2 1677.44 2206.08 1702.88 2212.44 1724.8C2220.44 1752.44 2229.24 1779.32 2240.16 1807C2274.84 1894.8 2312.92 1988.16 2354.36 2087.16C2363.12 2108.16 2372.24 2129.32 2381.68 2150.68Z`,`M2470.64 2585.76C2460.36 2561.28 2447.12 2535.76 2445.44 2508.8C2444.84 2499.12 2452.36 2492.2 2459.04 2486.56C2467.84 2479.2 2477.72 2476.24 2488.64 2477.68C2490.04 2477.88 2491.2 2478.44 2492.2 2479.4C2496.92 2483.92 2500.6 2489.04 2503.24 2494.76C2526.92 2546.08 2549.24 2596.24 2570.16 2645.24C2593.92 2700.88 2617.88 2754.2 2641.96 2809.32C2655.8 2840.92 2672.52 2872.24 2685.24 2903.56C2693.04 2922.76 2689.16 2938 2673.6 2949.24C2658.44 2960.2 2638.96 2958.44 2627.2 2942.64C2620.56 2933.68 2614.72 2923.16 2609.72 2911.04C2588.12 2858.72 2565.92 2804.84 2542.4 2751.76C2517.96 2696.68 2494.04 2641.36 2470.64 2585.76Z`,`M2740.8 3027.2C2740.8 3057.52 2716.24 3082.08 2685.92 3082.08C2655.6 3082.08 2631.04 3057.52 2631.04 3027.2C2631.04 2996.88 2655.6 2972.32 2685.92 2972.32C2716.24 2972.32 2740.8 2996.88 2740.8 3027.2Z`];
+const BK_YT = 697, BK_YF = 3485;
+let _bkSeq = 0;
 function GarrafaBecker({ pct, tamanho = 92 }) {
-  const p = Math.max(0, Math.min(1, pct));
-  const alturaAgua = 79 * p;
-  const yAgua = 121 - alturaAgua;
+  const p = Math.max(0, Math.min(1, pct || 0));
   const cheia = p >= 1;
-  const cor = cheia ? "#0FA36B" : "#0B3446";
+  const uid = React.useMemo(() => "bk" + (_bkSeq++), []);
+  const yTop = BK_YF - p * (BK_YF - BK_YT);
+  const h = Math.round((tamanho * 4095) / 3944);
+  const seeds = React.useMemo(() => {
+    const a = [];
+    for (let i = 0; i < 7; i++) a.push({ cx: 1800 + Math.random() * 520, cyBase: 3050 + Math.random() * 280, r: 24 + Math.random() * 30, riseRand: Math.random() * 160, dur: (2.6 + Math.random() * 2).toFixed(2), del: (Math.random() * 3).toFixed(2) });
+    return a;
+  }, [uid]);
+  const fonte = React.useMemo(() => {
+    const a = [];
+    for (let i = 0; i < 22; i++) a.push({ jx: (Math.random() * 2 - 1) * 6, up: -(24 + Math.random() * 50), down: 16 + Math.random() * 26, dx2: (Math.random() * 2 - 1) * 9, sz: (6 + Math.random() * 8).toFixed(0), dur: (1.0 + Math.random() * 0.6).toFixed(2), del: (Math.random() * 1.3).toFixed(2) });
+    return a;
+  }, [uid]);
+  const rim = React.useMemo(() => {
+    const a = [];
+    for (let i = 0; i < 7; i++) a.push({ dx: (Math.random() * 2 - 1) * 12, del: (Math.random() * 0.25).toFixed(2), sz: (5 + Math.random() * 4).toFixed(0) });
+    return a;
+  }, [uid]);
+  const grad = cheia ? ["#2FBF8F", "#0FA36B"] : ["#41C9E6", "#0F8BB0"];
+  const bolhasEl = p > 0 ? seeds.map((b, i) => {
+    const rise = -(b.cyBase - (yTop + 140)) - b.riseRand;
+    const st = { "--rise": rise.toFixed(0) + "px", "--d": b.del + "s" };
+    if (!cheia) st.animationDuration = b.dur + "s";
+    return <circle key={i} className={cheia ? "bk-bolha-s" : "bk-bolha"} cx={b.cx.toFixed(0)} cy={b.cyBase.toFixed(0)} r={b.r.toFixed(0)} fill={cheia ? "#CFF1F9" : "#BFEBF5"} style={st} />;
+  }) : null;
   return (
-    <svg
-      width={tamanho}
-      height={(tamanho * 130) / 92}
-      viewBox="0 0 92 130"
-      aria-hidden="true"
-    >
-      <defs>
-        <clipPath id="corpo-becker">
-          <path d="M23 42 H69 V114 Q69 121 62 121 H30 Q23 121 23 114 Z" />
-        </clipPath>
-        <linearGradient id="agua-becker" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#41C9E6" />
-          <stop offset="100%" stopColor="#0F8BB0" />
-        </linearGradient>
-      </defs>
-      <g clipPath="url(#corpo-becker)">
-        <rect x="18" y={yAgua} width="56" height={alturaAgua + 6} fill="url(#agua-becker)">
-          <animate
-            attributeName="y"
-            values={`${yAgua + 1.5};${yAgua - 1.5};${yAgua + 1.5}`}
-            dur="3s"
-            repeatCount="indefinite"
-          />
-        </rect>
-      </g>
-      <path
-        d="M57 61 H66 M57 76 H66 M57 91 H66 M57 106 H66"
-        stroke={cor}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        opacity="0.4"
-      />
-      <path
-        d="M22 40 V114 Q22 122 30 122 H62 Q70 122 70 114 V40"
-        fill="none"
-        stroke={cor}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M16 40 H60 L66 35 Q68 33.5 70 35 L74 40"
-        fill="none"
-        stroke={cor}
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div className="becker-wrap" style={{ width: tamanho + "px", height: h + "px" }}>
+      {cheia && (
+        <div className="bk-plume">
+          {fonte.map((f, i) => (
+            <span key={i} className="bk-pb" style={{ left: "calc(52% + " + f.jx.toFixed(0) + "px)", top: "17.5%", width: f.sz + "px", height: f.sz + "px", "--up": f.up.toFixed(0) + "px", "--down": f.down.toFixed(0) + "px", "--dx2": f.dx2.toFixed(0) + "px", animationDuration: f.dur + "s", animationDelay: f.del + "s" }} />
+          ))}
+        </div>
+      )}
+      <svg className="svgbk" width={tamanho} height={h} viewBox="0 0 3944 4095" aria-hidden="true">
+        <defs>
+          <clipPath id={uid}><path d={BK_WHITE} /></clipPath>
+          <linearGradient id={uid + "g"} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={grad[0]} /><stop offset="1" stopColor={grad[1]} /></linearGradient>
+        </defs>
+        <path d={BK_OUT} fill="#CFEAF2" />
+        <path d={BK_DARK} fill="#262332" />
+        <path d={BK_WHITE} fill="#FCFCFC" />
+        {p > 0 && (
+          <g clipPath={"url(#" + uid + ")"}>
+            <rect x="0" y={yTop.toFixed(0)} width="3944" height={(BK_YF - yTop + 400).toFixed(0)} fill={"url(#" + uid + "g)"} />
+            {bolhasEl}
+          </g>
+        )}
+        {BK_SHINE.map((d, i) => (<path key={i} d={d} fill="#EFF6F7" />))}
+      </svg>
+      {cheia && (
+        <div className="bk-rim">
+          {rim.map((r, i) => (
+            <span key={i} className="bk-rb" style={{ left: "calc(52% + " + r.dx.toFixed(0) + "px)", width: r.sz + "px", height: r.sz + "px", animationDelay: r.del + "s" }} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
+
 const GARRAFAS = [
   { id: "padrao", nome: "Padrão", Comp: Garrafa },
   { id: "esportiva", nome: "Esportiva", Comp: GarrafaEsportiva },
@@ -2649,6 +2685,35 @@ function AreiaCartao({ mapa }) {
     desenharMonte(ctx, alturas, L, A, criarTextura(L, A));
   }, [mapa]);
   return <canvas ref={ref} className="areia-cartao" aria-hidden="true" />;
+}
+
+/* Só as nuvens (topo) + ondas da frente, para sobrepor ao soterramento quando
+   a pessoa está sob tempestade E soterramento ao mesmo tempo: a areia cobre
+   tudo, menos estas nuvens e ondas. */
+function NuvensOndasOverlay({ fullscreen = false }) {
+  const nuvens = React.useMemo(() => {
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const nuvem = (tone, n, cyMin, cyMax, ryMin, ryMax) => {
+      const l = [];
+      for (let i = 0; i < n; i++) l.push({ cx: (i * 100) / (n - 1) + rnd(-4, 4), cy: rnd(cyMin, cyMax), rx: rnd(11, 17), ry: rnd(ryMin, ryMax) });
+      return { tone, lobos: l };
+    };
+    return [nuvem("#3B4951", 8, 5, 10, 9, 14), nuvem("#55646D", 10, 4, 9, 8, 12), nuvem("#7E929C", 12, 3, 8, 7, 11)];
+  }, []);
+  const clsN = ["mp-nb", "mp-nm", "mp-nf"];
+  return (
+    <div className={"no-overlay" + (fullscreen ? " full" : "")} aria-hidden="true">
+      <div className="mp-mar mp-f1" /><div className="mp-mar mp-f2" />{fullscreen && <div className="mp-mar mp-f3" />}
+      <div className="mp-nuvens">{nuvens.map((nv, i) => (
+        <div key={i} className={"mp-nuv " + clsN[i]}>
+          <svg viewBox="0 0 100 20" preserveAspectRatio="none">
+            <rect x="0" y="-12" width="100" height="18" fill={nv.tone} />
+            {nv.lobos.map((l, j) => (<ellipse key={j} cx={l.cx} cy={l.cy} rx={l.rx} ry={l.ry} fill={nv.tone} />))}
+          </svg>
+        </div>
+      ))}</div>
+    </div>
+  );
 }
 
 /* ===== Poder Tempestade: a cena (nuvens em 3 camadas, mar com ondas, chuva,
@@ -3460,7 +3525,7 @@ const EYE_POS = {
   aquario:  {top:"34%", left:"66%", w:"50%"},
   galao:    {top:"43%", left:"65%", w:"52%"},
   longneck: {top:"48%", left:"66%", w:"78%"},
-  becker:   {top:"52%", left:"52%", w:"54%"},
+  becker:   {top:"67%", left:"50%", w:"40%"},
   cacto:    {top:"46%", left:"57%", w:"28%"},
 };
 const INK="#0B3446", IRIS="#0F8BB0", IRIS2="#41C9E6", SCLERA="#FFFFFF", LID="#DCEAF2";
@@ -3868,7 +3933,8 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           <AreiaCartao mapa={efeitos.tempestade.mapa} />
         </div>
       )}
-      {tormentado && !flutuante && (
+      {soterrado && tormentado && !flutuante && <NuvensOndasOverlay />}
+      {tormentado && !flutuante && !soterrado && (
         <div className="palco-camada" aria-hidden="true">
           <PalcoTormenta membro={membro} bebido={bebido} />
         </div>
@@ -5232,9 +5298,11 @@ function AguaTracker() {
       else if (!goleHoje || now - ultimoGole >= 4 * 3600 * 1000) key = "dormindo"; /* nada hoje / 4h */
       else key = "neutra";
     }
-    /* ---- zoação na abertura: sobrepõe por 20s, depois volta ao BASE ---- */
+    /* ---- zoação na abertura: sobrepõe por 20s, mas só enquanto o poder está
+       fresco (mesma janela de 20min da raiva da vítima) — senão o deboche
+       reaparecia a cada abertura muito tempo depois do uso ---- */
     const usouT = usouPoderQuando(m);
-    if (usouT > 0 && now - aberturaRef.current < 20 * 1000) { key = "zoacao"; tremor = false; }
+    if (usouT > 0 && now - usouT < 20 * 60 * 1000 && now - aberturaRef.current < 20 * 1000) { key = "zoacao"; tremor = false; }
     return { key, tremor };
   };
 
@@ -7186,7 +7254,9 @@ function AguaTracker() {
         />
       )}
 
-      {minhaTormenta && (
+      {minhaTempestade && minhaTormenta && <NuvensOndasOverlay fullscreen />}
+
+      {minhaTormenta && !minhaTempestade && (
         <TempestadeCena
           membro={minhaTormenta.membro}
           bebido={minhaTormenta.bebido}
