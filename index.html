@@ -1559,7 +1559,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.23-edit-nome-remover-setor-icone";
+const APP_VERSION = "2026-11-06.24-icone-tridente";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -5723,7 +5723,10 @@ function AguaTracker() {
     oito.setHours(8, 0, 0, 0);
     if (agora < oito) return null;
     const ult = (dados.ultimo && dados.ultimo[m.id]) || 0;
-    return Math.max(ult, oito.getTime());
+    /* quem acabou de entrar não deve nascer vulnerável: o relógio da seca
+       começa, no máximo, no momento em que o cartão foi criado */
+    const criadoEm = Number(String(m.id).replace("m-", "")) || 0;
+    return Math.max(ult, oito.getTime(), criadoEm);
   };
   const tempoSeco = (m) => {
     const b = baseSeca(m);
