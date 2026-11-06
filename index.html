@@ -72,6 +72,8 @@ body { margin: 0; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
+/* novo usuário sem card: o card de criar fica em primeiro, não por último */
+.grade .cartao-novo { order: -1; }
 /* Faixa de estatísticas do usuário, acima dos cards */
 .stats-faixa {
   max-width: 1240px; margin: 0 auto 14px;
@@ -1550,7 +1552,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.20-editar-setor";
+const APP_VERSION = "2026-11-06.21-nome-unico-confirma-recupera";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -7561,7 +7563,7 @@ function AguaTracker() {
 
         {!tenhoCartao &&
           (mostrarForm ? (
-          <div className="cartao form">
+          <div className="cartao form cartao-novo">
             <h2 className="nome">Nova garrafa</h2>
             <label className="campo">
               Nome
@@ -7658,7 +7660,7 @@ function AguaTracker() {
             </div>
           </div>
         ) : (
-          <button className="cartao adicionar" onClick={() => setMostrarForm(true)}>
+          <button className="cartao adicionar cartao-novo" onClick={() => setMostrarForm(true)}>
             <span className="mais">+</span>
             <span>Adicionar garrafa</span>
           </button>
