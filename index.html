@@ -285,6 +285,13 @@ body { margin: 0; }
   width: 100%; max-width: 470px; max-height: 92vh; overflow-y: auto;
   box-shadow: 0 16px 48px rgba(11, 52, 70, 0.3); box-sizing: border-box;
 }
+/* Guia "Como funciona" — passos ilustrados */
+.guia-plataforma .guia-passos { display: flex; flex-direction: column; gap: 14px; margin: 16px 0 4px; text-align: left; }
+.guia-passo { display: flex; align-items: center; gap: 14px; }
+.guia-ilustra { flex: 0 0 56px; width: 56px; height: 56px; background: #F2FAFC; border: 1px solid #DCEFF6; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+.guia-ilustra svg { width: 44px; height: 44px; display: block; }
+.guia-txt h3 { margin: 0 0 2px; font-size: 15px; font-weight: 800; color: #0B3446; }
+.guia-txt p { margin: 0; font-size: 13.5px; line-height: 1.45; color: #4A6675; }
 .modal-x {
   position: absolute; top: 10px; right: 10px; width: 30px; height: 30px;
   border: none; background: #F0F5F8; color: #6a8391; border-radius: 50%;
@@ -1306,7 +1313,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-04.12-rei-dos-mares-60-dias";
+const APP_VERSION = "2026-11-06.3-icone-ajuda-guia";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4420,9 +4427,7 @@ function AguaTracker() {
   const [sinoPara, setSinoPara] = useState(null);
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
   const [regrasCarta, setRegrasCarta] = useState(false); // manual da carta anti-seca
-  const [novidadeDesempenho, setNovidadeDesempenho] = useState(
-    () => !localStorage.getItem("agua-novidade-desempenho-3")
-  );
+  const [novidadeDesempenho, setNovidadeDesempenho] = useState(false); // guia "Como funciona": só abre pelo botão ⚡, nunca automático
   const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
   const [cartaAlvo, setCartaAlvo] = useState(false); // escolhendo quem proteger
   const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
@@ -4442,6 +4447,7 @@ function AguaTracker() {
   const [reiConquista, setReiConquista] = useState(null); // id do card que acabou de assumir o bastão (brilho da moldura)
   const [premiacao, setPremiacao] = useState(null); // { podio, perdedores } — overlay semanal (seg-qua)
   const premiacaoChecada = React.useRef(false); // garante checagem única por sessão
+  const guiaChecado = React.useRef(false); // garante checagem única do guia "Como funciona"
   const [tickExpr, setTickExpr] = useState(0); // relógio que reavalia as expressões dos olhos
   const aberturaRef = React.useRef(Date.now()); // âncora da zoação "na abertura do painel"
   const [ausenciasAberto, setAusenciasAberto] = useState(false); // painel admin de folgas/feriados
@@ -4976,6 +4982,21 @@ function AguaTracker() {
       pendenteRef.current = Math.max(0, pendenteRef.current - 1);
     }
   }, []);
+
+  /* ---- Guia "Como funciona" ----
+     Abre automaticamente UMA vez, só para usuário novo (ainda sem card
+     reivindicado). Quem já usa o app nunca vê automático — só pelo botão ⚡. */
+  useEffect(() => {
+    if (!dados || carregando || guiaChecado.current) return;
+    guiaChecado.current = true;
+    try {
+      if (localStorage.getItem("agua-guia-visto")) return;
+      const temCartao = dados.members.some((m) => m.ownerId === meuDispositivo || posseExtra.includes(m.id));
+      if (temCartao) return; // usuário já existente: não abre sozinho
+      localStorage.setItem("agua-guia-visto", "1");
+      setNovidadeDesempenho(true);
+    } catch (e) {}
+  }, [dados, carregando]);
 
   /* ---- Premiação semanal do pódio ----
      Exibida para cada usuário a partir de segunda 00h00 (hora local), na
@@ -6526,7 +6547,9 @@ function AguaTracker() {
             onClick={() => setNovidadeDesempenho(true)}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.3-3 4" />
+              <path d="M12 17h.01" />
             </svg>
           </button>
           <button
@@ -6570,42 +6593,88 @@ function AguaTracker() {
       </header>
 
       {novidadeDesempenho && (
-        <div
-          className="modal-fundo"
-          onClick={() => {
-            localStorage.setItem("agua-novidade-desempenho-3", "1");
-            setNovidadeDesempenho(false);
-          }}
-        >
-          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
-            <p className="comemoracao-emoji" aria-hidden="true">⚡</p>
-            <h2 className="nome">Novidade no ranking</h2>
-            <p className="aviso-agua-texto">
-              O ranking da semana agora mostra o seu <strong>desempenho</strong>,
-              não só a média de água. Beber conta a favor; sofrer poderes conta
-              contra.
-            </p>
-            <div className="regras-poder">
-              <p className="regras-poder-linha">💧 Cada registro de água soma pontos ao seu desempenho.</p>
-              <p className="regras-poder-linha">🌵 Ser cactificado tira <strong>4%</strong>.</p>
-              <p className="regras-poder-linha">🏜️ Ser desertificado tira <strong>8%</strong>.</p>
-              <p className="regras-poder-linha">⏳ Ser soterrado tira <strong>10%</strong>.</p>
+        <div className="modal-fundo" onClick={() => setNovidadeDesempenho(false)}>
+          <div className="modal-sino guia-plataforma" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">Como funciona</h2>
+            <p className="aviso-agua-texto">Um guia rápido do app de hidratação do time.</p>
+            <div className="guia-passos">
+
+              <div className="guia-passo">
+                <div className="guia-ilustra" aria-hidden="true">
+                  <svg viewBox="0 0 64 64">
+                    <rect x="26" y="6" width="12" height="5" rx="2" fill="#0B3446" />
+                    <path d="M27 11 h10 v4 q0 3 3 6 q4 4 4 9 v21 q0 3 -3 3 h-18 q-3 0 -3 -3 v-21 q0 -5 4 -9 q3 -3 3 -6 z" fill="#CFEFF7" stroke="#0B3446" strokeWidth="2" />
+                    <path d="M23 39 h18 v11 q0 3 -3 3 h-12 q-3 0 -3 -3 z" fill="#41C9E6" />
+                    <circle cx="50" cy="22" r="4.2" fill="#41C9E6" />
+                  </svg>
+                </div>
+                <div className="guia-txt">
+                  <h3>Beba e registre</h3>
+                  <p>Toque na sua garrafa sempre que beber. Cada registro aproxima você da meta do dia.</p>
+                </div>
+              </div>
+
+              <div className="guia-passo">
+                <div className="guia-ilustra" aria-hidden="true">
+                  <svg viewBox="0 0 64 64">
+                    <circle cx="32" cy="32" r="21" fill="none" stroke="#DCEFF6" strokeWidth="7" />
+                    <circle cx="32" cy="32" r="21" fill="none" stroke="#0F8BB0" strokeWidth="7" strokeLinecap="round" strokeDasharray="92 132" transform="rotate(-90 32 32)" />
+                    <text x="32" y="37" textAnchor="middle" fontSize="15" fontWeight="800" fill="#0B3446">70%</text>
+                  </svg>
+                </div>
+                <div className="guia-txt">
+                  <h3>Meta do dia</h3>
+                  <p>Cada pessoa tem uma meta de água. A barra do seu card mostra o quanto você já bebeu.</p>
+                </div>
+              </div>
+
+              <div className="guia-passo">
+                <div className="guia-ilustra" aria-hidden="true">
+                  <svg viewBox="0 0 64 64">
+                    <rect x="9" y="34" width="12" height="22" rx="2" fill="#9FD9E8" />
+                    <rect x="26" y="22" width="12" height="34" rx="2" fill="#41C9E6" />
+                    <rect x="43" y="41" width="12" height="15" rx="2" fill="#CDE7F0" />
+                    <path d="M27 19 l2.3 -5 2.7 3 2.7 -3 2.3 5 z" fill="#F4B740" />
+                  </svg>
+                </div>
+                <div className="guia-txt">
+                  <h3>Ranking por desempenho</h3>
+                  <p>O ranking da semana vale por desempenho, não só por litros: beber soma pontos, sofrer poderes desconta.</p>
+                </div>
+              </div>
+
+              <div className="guia-passo">
+                <div className="guia-ilustra" aria-hidden="true">
+                  <svg viewBox="0 0 64 64">
+                    <rect x="11" y="13" width="42" height="38" rx="7" fill="#EAF6FA" stroke="#0B3446" strokeWidth="2" />
+                    <ellipse cx="33" cy="27" rx="15" ry="7.5" fill="#7E929C" />
+                    <ellipse cx="23" cy="29" rx="7" ry="5" fill="#9BA9B2" />
+                    <path d="M31 32 l-5 9 h5 l-2.5 8 9 -11 h-5 l3.5 -6 z" fill="#F4D03F" stroke="#C99A0E" strokeWidth="1" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="guia-txt">
+                  <h3>Poderes entre colegas</h3>
+                  <p>Cacto, deserto, soterramento e tempestade atrapalham quem está bebendo pouco — e você também pode sofrê-los. Beba para escapar.</p>
+                </div>
+              </div>
+
+              <div className="guia-passo">
+                <div className="guia-ilustra" aria-hidden="true">
+                  <svg viewBox="0 0 64 64">
+                    <path d="M24 9 h6 l-2 15 h-2 z" fill="#41C9E6" />
+                    <path d="M40 9 h-6 l2 15 h2 z" fill="#0F8BB0" />
+                    <circle cx="32" cy="39" r="15" fill="#F4B740" stroke="#C98A16" strokeWidth="2" />
+                    <path d="M32 30 l2.5 5.1 5.6 .8 -4.1 4 1 5.6 -5 -2.6 -5 2.6 1 -5.6 -4.1 -4 5.6 -.8 z" fill="#FFF7E6" />
+                  </svg>
+                </div>
+                <div className="guia-txt">
+                  <h3>Conquistas e garrafas</h3>
+                  <p>Dias seguidos batendo a meta liberam conquistas, novas garrafas para colecionar e poderes mais fortes. Tudo fica no seu histórico.</p>
+                </div>
+              </div>
+
             </div>
-            <p className="aviso-agua-texto secundario">
-              Meta abaixo de 2 L? A penalidade dos poderes é <strong>1,5x maior</strong>
-              (o cacto tira 6%, o deserto 12%, o soterramento 15%).
-            </p>
-            <p className="aviso-agua-texto secundario">
-              Tudo fica registrado no seu histórico, com quanto cada ação somou
-              ou tirou. Ou seja: beba água e fuja dos poderes. 😄
-            </p>
-            <button
-              className="beber fechar-modal"
-              onClick={() => {
-                localStorage.setItem("agua-novidade-desempenho-3", "1");
-                setNovidadeDesempenho(false);
-              }}
-            >
+            <button className="beber fechar-modal" onClick={() => setNovidadeDesempenho(false)}>
               Entendi!
             </button>
           </div>
