@@ -78,10 +78,20 @@ body { margin: 0; }
   display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px;
 }
 .stat-bloco {
+  position: relative; overflow: hidden;
   background: #FFFFFF; border: 1px solid #DCEBF2; border-radius: 13px;
   padding: 10px 12px 11px; text-align: left;
   display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
   box-shadow: 0 2px 8px rgba(15, 139, 176, 0.05);
+}
+.stat-bloco.stat-melhor { border-color: #BBD6EC; box-shadow: 0 3px 12px rgba(30, 90, 140, 0.14); }
+/* Selo diagonal "O/A MELHOR" no canto superior direito */
+.stat-ribbon {
+  position: absolute; top: 11px; right: -25px; transform: rotate(45deg);
+  background: linear-gradient(180deg, #2F74B8, #1E527F);
+  color: #FFFFFF; font-size: 7.5px; font-weight: 800; letter-spacing: .5px;
+  padding: 3px 28px; text-align: center; white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28); z-index: 2;
 }
 .stat-ico { color: #AFC4CE; line-height: 0; margin-bottom: 1px; }
 .stat-ico svg { display: block; }
@@ -105,6 +115,12 @@ body { margin: 0; }
 .cartao-topo { display: flex; justify-content: space-between; align-items: flex-start; }
 .nome { margin: 0; font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
 .nome-linha { display: flex; align-items: center; gap: 5px; }
+/* Tag de setor, bem pequena, acima do nome */
+.setor-tag {
+  display: inline-block; font-size: 9px; font-weight: 800;
+  letter-spacing: .5px; text-transform: uppercase; line-height: 1.5;
+  padding: 1px 8px; border-radius: 999px; margin-bottom: 4px;
+}
 .btn-historico {
   border: none; background: transparent; color: #9FBFCC; cursor: pointer;
   padding: 3px 4px; border-radius: 6px; line-height: 1; display: inline-flex;
@@ -891,6 +907,22 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .btn-admin-teste:hover { background: #FCEBC4; }
 .btn-admin-excluidos { color: #9A3D33; background: #FCEEEC; border-color: #F3C9C2; }
 .btn-admin-excluidos:hover { background: #F8DED9; }
+.btn-admin-equipe { color: #4B4E8A; background: #EEEFFB; border-color: #D3D5F0; }
+.btn-admin-equipe:hover { background: #E2E4F6; }
+/* Editor de equipe (admin) */
+.equipe-modal { max-width: 560px; }
+.equipe-lista { display: flex; flex-direction: column; gap: 9px; margin: 14px 0 6px; max-height: 56vh; overflow: auto; }
+.equipe-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: #F6FAFC; border: 1px solid #E2EFF4; border-radius: 12px; }
+.equipe-nome { font-size: 14.5px; font-weight: 800; color: #0B3446; flex: 1 1 110px; min-width: 90px; }
+.equipe-campos { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.equipe-campo { display: flex; flex-direction: column; gap: 3px; }
+.equipe-campo > span { font-size: 10.5px; font-weight: 700; color: #6A8695; text-transform: uppercase; letter-spacing: .3px; }
+.equipe-campo select, .equipe-campo input[type="text"] { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #CFE0E8; border-radius: 9px; background: #fff; color: #0B3446; }
+.equipe-campo-setor input { width: 130px; }
+.equipe-campo-cor input[type="color"] { width: 38px; height: 34px; padding: 2px; border: 1px solid #CFE0E8; border-radius: 9px; background: #fff; cursor: pointer; }
+.equipe-preview { font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; align-self: center; }
+.equipe-acoes { display: flex; gap: 10px; margin-top: 8px; }
+.equipe-acoes .beber, .equipe-acoes .desfazer { flex: 1; }
 /* Painel de cards excluídos (recuperação pelo admin) */
 .excluidos-lista { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 4px; max-height: 50vh; overflow: auto; }
 .excluido-vazio, .excluidos-vazio { font-size: 13.5px; color: #4B7A8E; margin: 14px 0; }
@@ -1698,6 +1730,26 @@ const NOIVO_NOME = "renan";
 /* Admin das ausências (folgas e feriados manuais): só este usuário vê e usa
    o painel "Folgas & feriados". Comparado via nomeNormalizado. */
 const ADMIN_NOME = "joao witor";
+/* Gênero padrão por nome (usado no selo "O MELHOR"/"A MELHOR"). O admin pode
+   sobrescrever em cada cartão; na ausência de definição, cai neste mapa e,
+   por fim, em masculino. */
+const SEXO_POR_NOME = {
+  "joao witor": "m", "kaique": "m", "isabel": "f", "renan": "m",
+  "brielee": "f", "mahmoud": "m", "will": "m", "gui lins": "m", "marco gama": "m",
+};
+const sexoDe = (m) => (m && (m.sexo === "f" || m.sexo === "m"))
+  ? m.sexo
+  : (SEXO_POR_NOME[nomeNormalizado((m && m.name) || "")] || "m");
+/* Cor de texto legível (preto ou branco) sobre um fundo hex */
+const corContraste = (hex) => {
+  if (!hex || typeof hex !== "string") return "#FFFFFF";
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6) return "#FFFFFF";
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "#0B3446" : "#FFFFFF";
+};
 const CASAMENTO_INICIO = "2026-09-21";
 const CASAMENTO_FIM = "2026-09-25";
 const ehSemanaCasamento = () => {
@@ -3879,6 +3931,14 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
       {rei && !noivo && <BastaoRei />}
       <div className="cartao-topo">
         <div>
+          {membro.setor && (
+            <span
+              className="setor-tag"
+              style={{ background: membro.corSetor || "#0F8BB0", color: corContraste(membro.corSetor || "#0F8BB0") }}
+            >
+              {membro.setor}
+            </span>
+          )}
           <div className="nome-linha">
             <h2 className="nome">{membro.name}</h2>
             <button
@@ -4640,6 +4700,8 @@ function AguaTracker() {
   const [ausenciaDia, setAusenciaDia] = useState(() => chaveDe(new Date())); // dia escolhido no painel (YYYY-MM-DD)
   const [excluidosAberto, setExcluidosAberto] = useState(false); // painel admin de cards excluídos (recuperação)
   const [excluirConfirmaId, setExcluirConfirmaId] = useState(null); // confirmação de exclusão definitiva
+  const [equipeAberto, setEquipeAberto] = useState(false); // painel admin: sexo/setor/cor por usuário
+  const [equipeDraft, setEquipeDraft] = useState({}); // rascunho do editor de equipe
   const [tPoder, setTPoder] = useState("tormenta"); // ambiente de teste: poder selecionado
   const [tAlvo, setTAlvo] = useState(""); // ambiente de teste: alvo selecionado
   const [testeOculto, setTesteOculto] = useState(false); // barra de teste recolhida
@@ -5276,43 +5338,65 @@ function AguaTracker() {
     if (conquistas[m.id]) conquistas[m.id].conjunto.forEach((x) => minhasConquistas.add(x));
   });
 
-  /* ---- Painel de estatísticas do usuário (fileira acima dos cards) ----
-     Agrega os cartões do próprio usuário. Poderes contam as APLICAÇÕES
-     feitas por ele (autoria pelo campo "por" do histórico das vítimas). */
-  const minhasEstatisticas = (() => {
-    const meusNomes = new Set(meusMembros.map((m) => nomeNormalizado(m.name)));
-    let totalMl = 0, diasSeguidos = 0, vitorias = 0, cacto = 0;
+  /* ---- Painel de estatísticas (fileira acima dos cards) ----
+     Estatísticas de UM membro. Poderes contam as APLICAÇÕES feitas por ele
+     (autoria pelo campo "por" do histórico das vítimas). */
+  const STAT_CHAVES = ["diasSeguidos", "totalMl", "mediaDia", "vitorias", "cacto", "deserto", "soterramento", "tempestade"];
+  const estatisticasDe = (m) => {
+    const r = conquistas[m.id] || {};
     const diasAtivos = new Set();
-    meusMembros.forEach((m) => {
-      const r = conquistas[m.id];
-      if (!r) return;
-      totalMl += r.totalMl || 0;
-      diasSeguidos = Math.max(diasSeguidos, r.seqAtual || 0);
-      vitorias += r.vitorias || 0;
-      cacto += r.cactosFeitos || 0;
-      /* dias com qualquer registro, para a média diária */
-      Object.keys(dados.intake || {}).forEach((dK) => {
-        if ((dados.intake[dK] || {})[m.id] > 0) diasAtivos.add(dK);
-      });
-      Object.keys(dados.extras || {}).forEach((dK) => {
-        if ((dados.extras[dK] || {})[m.id] > 0) diasAtivos.add(dK);
-      });
-    });
-    /* desertificações, soterramentos e tempestades aplicados por mim:
-       varre o histórico de todas as vítimas atrás da minha autoria */
+    Object.keys(dados.intake || {}).forEach((dK) => { if ((dados.intake[dK] || {})[m.id] > 0) diasAtivos.add(dK); });
+    Object.keys(dados.extras || {}).forEach((dK) => { if ((dados.extras[dK] || {})[m.id] > 0) diasAtivos.add(dK); });
+    const nome = nomeNormalizado(m.name);
     let deserto = 0, soterramento = 0, tempestade = 0;
     Object.keys(dados.historico || {}).forEach((vid) => {
       (dados.historico[vid] || []).forEach((e) => {
-        if (!e || e.anulado || !e.por) return;
-        if (!meusNomes.has(nomeNormalizado(e.por))) return;
+        if (!e || e.anulado || !e.por || nomeNormalizado(e.por) !== nome) return;
         if (e.tipo === "deserto") deserto++;
         else if (e.tipo === "tempestade") soterramento++;
         else if (e.tipo === "tormenta") tempestade++;
       });
     });
-    const mediaDia = diasAtivos.size > 0 ? Math.round(totalMl / diasAtivos.size) : 0;
-    return { diasSeguidos, totalMl, mediaDia, vitorias, cacto, deserto, soterramento, tempestade };
+    const totalMl = r.totalMl || 0;
+    return {
+      diasSeguidos: r.seqAtual || 0,
+      totalMl,
+      mediaDia: diasAtivos.size > 0 ? Math.round(totalMl / diasAtivos.size) : 0,
+      vitorias: r.vitorias || 0,
+      cacto: r.cactosFeitos || 0,
+      deserto, soterramento, tempestade,
+    };
+  };
+  /* máximo do time por métrica, para marcar "O/A MELHOR" */
+  const maxTime = {};
+  STAT_CHAVES.forEach((k) => { maxTime[k] = 0; });
+  dados.members.forEach((m) => {
+    const s = estatisticasDe(m);
+    STAT_CHAVES.forEach((k) => { if (s[k] > maxTime[k]) maxTime[k] = s[k]; });
+  });
+  /* estatísticas do usuário atual: agrega seus cartões (some totais, pega o
+     melhor da sequência) para exibir na faixa */
+  const minhasEstatisticas = (() => {
+    const soma = { diasSeguidos: 0, totalMl: 0, mediaDia: 0, vitorias: 0, cacto: 0, deserto: 0, soterramento: 0, tempestade: 0 };
+    const diasAtivos = new Set();
+    meusMembros.forEach((m) => {
+      const s = estatisticasDe(m);
+      soma.totalMl += s.totalMl; soma.vitorias += s.vitorias; soma.cacto += s.cacto;
+      soma.deserto += s.deserto; soma.soterramento += s.soterramento; soma.tempestade += s.tempestade;
+      soma.diasSeguidos = Math.max(soma.diasSeguidos, s.diasSeguidos);
+      Object.keys(dados.intake || {}).forEach((dK) => { if ((dados.intake[dK] || {})[m.id] > 0) diasAtivos.add(dK); });
+      Object.keys(dados.extras || {}).forEach((dK) => { if ((dados.extras[dK] || {})[m.id] > 0) diasAtivos.add(dK); });
+    });
+    soma.mediaDia = diasAtivos.size > 0 ? Math.round(soma.totalMl / diasAtivos.size) : 0;
+    return soma;
   })();
+  /* sou o melhor do time naquela métrica? (empate no topo também marca) */
+  const souMelhorEm = {};
+  STAT_CHAVES.forEach((k) => {
+    souMelhorEm[k] = maxTime[k] > 0 && (minhasEstatisticas[k] || 0) >= maxTime[k];
+  });
+  /* gênero do usuário que vê a faixa, para "O MELHOR" / "A MELHOR" */
+  const rotuloMelhor = (sexoDe(meusMembros[0]) === "f") ? "A MELHOR" : "O MELHOR";
 
   /* ---- Garrafas colecionáveis ---- */
   const garrafasDe = (id) => {
@@ -6306,6 +6390,32 @@ function AguaTracker() {
     persistir(novo);
   };
 
+  /* Editor de equipe (admin): sexo, setor e cor da tag por usuário */
+  const abrirEquipe = () => {
+    const d = {};
+    dados.members.forEach((m) => {
+      d[m.id] = { sexo: sexoDe(m), setor: m.setor || "", corSetor: m.corSetor || "#0F8BB0" };
+    });
+    setEquipeDraft(d);
+    setEquipeAberto(true);
+  };
+  const mudarEquipe = (id, campo, valor) => {
+    setEquipeDraft((d) => ({ ...d, [id]: { ...d[id], [campo]: valor } }));
+  };
+  const salvarEquipe = () => {
+    const novo = structuredClone(dados);
+    novo.members = novo.members.map((m) => {
+      const d = equipeDraft[m.id];
+      if (!d) return m;
+      const setor = (d.setor || "").trim();
+      return { ...m, sexo: d.sexo || "m", setor, corSetor: setor ? (d.corSetor || "#0F8BB0") : (d.corSetor || "#0F8BB0") };
+    });
+    persistir(novo);
+    setEquipeAberto(false);
+    setToast("✅ Dados da equipe atualizados.");
+    setTimeout(() => setToast(null), 3500);
+  };
+
   const fecharAlerta = (id) =>
     setAlertas((lista) => lista.filter((a) => a.id !== id));
 
@@ -7154,16 +7264,17 @@ function AguaTracker() {
         <React.Fragment>
           <div className="stats-faixa" role="group" aria-label="Suas estatísticas">
             {[
-              { ico: "streak", valor: minhasEstatisticas.diasSeguidos, rot: ["Dias seguidos", "batendo meta"] },
-              { ico: "agua", valor: fmt(minhasEstatisticas.totalMl), rot: ["Total de água", "bebida"] },
-              { ico: "media", valor: fmt(minhasEstatisticas.mediaDia), rot: ["Média", "por dia"] },
-              { ico: "vitoria", valor: minhasEstatisticas.vitorias, rot: ["Vitórias em", "1º lugar"] },
-              { ico: "cacto", valor: minhasEstatisticas.cacto, rot: ["Cactificações", "aplicadas"] },
-              { ico: "deserto", valor: minhasEstatisticas.deserto, rot: ["Desertificações", "aplicadas"] },
-              { ico: "soterramento", valor: minhasEstatisticas.soterramento, rot: ["Soterramentos", "aplicados"] },
-              { ico: "tempestade", valor: minhasEstatisticas.tempestade, rot: ["Tempestades", "aplicadas"] },
+              { ico: "streak", k: "diasSeguidos", valor: minhasEstatisticas.diasSeguidos, rot: ["Dias seguidos", "batendo meta"] },
+              { ico: "agua", k: "totalMl", valor: fmt(minhasEstatisticas.totalMl), rot: ["Total de água", "bebida"] },
+              { ico: "media", k: "mediaDia", valor: fmt(minhasEstatisticas.mediaDia), rot: ["Média", "por dia"] },
+              { ico: "vitoria", k: "vitorias", valor: minhasEstatisticas.vitorias, rot: ["Vitórias em", "1º lugar"] },
+              { ico: "cacto", k: "cacto", valor: minhasEstatisticas.cacto, rot: ["Cactificações", "aplicadas"] },
+              { ico: "deserto", k: "deserto", valor: minhasEstatisticas.deserto, rot: ["Desertificações", "aplicadas"] },
+              { ico: "soterramento", k: "soterramento", valor: minhasEstatisticas.soterramento, rot: ["Soterramentos", "aplicados"] },
+              { ico: "tempestade", k: "tempestade", valor: minhasEstatisticas.tempestade, rot: ["Tempestades", "aplicadas"] },
             ].map((s) => (
-              <div className="stat-bloco" key={s.rot.join(" ")} title={s.rot.join(" ")}>
+              <div className={`stat-bloco ${souMelhorEm[s.k] ? "stat-melhor" : ""}`} key={s.rot.join(" ")} title={s.rot.join(" ")}>
+                {souMelhorEm[s.k] && <span className="stat-ribbon">{rotuloMelhor}</span>}
                 <span className="stat-ico"><StatIcone nome={s.ico} /></span>
                 <span className="stat-valor">{s.valor}</span>
                 <span className="stat-rot">
@@ -8313,6 +8424,13 @@ function AguaTracker() {
               🧪 Ambiente de teste
             </button>
           )}
+          <button
+            className="btn-admin-ausencias btn-admin-equipe"
+            onClick={abrirEquipe}
+            title="Definir sexo, setor e cor da tag de cada usuário"
+          >
+            👥 Equipe
+          </button>
           {Array.isArray(dados.excluidos) && dados.excluidos.length > 0 && (
             <button
               className="btn-admin-ausencias btn-admin-excluidos"
@@ -8387,6 +8505,64 @@ function AguaTracker() {
             <button className="beber fechar-modal" onClick={() => setExcluidosAberto(false)}>
               Fechar
             </button>
+          </div>
+        </div>
+      )}
+
+      {souAdmin && equipeAberto && (
+        <div className="modal-fundo" onClick={() => setEquipeAberto(false)}>
+          <div className="modal-sino equipe-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">👥 Equipe</h2>
+            <p className="sub">
+              Defina o sexo (usado no selo “O/A MELHOR”), o setor e a cor da tag
+              de cada usuário. Só você vê e edita isto.
+            </p>
+            <div className="equipe-lista">
+              {dados.members.map((m) => {
+                const d = equipeDraft[m.id] || { sexo: "m", setor: "", corSetor: "#0F8BB0" };
+                return (
+                  <div key={m.id} className="equipe-item">
+                    <span className="equipe-nome">{m.name}</span>
+                    <div className="equipe-campos">
+                      <label className="equipe-campo">
+                        <span>Sexo</span>
+                        <select value={d.sexo} onChange={(e) => mudarEquipe(m.id, "sexo", e.target.value)}>
+                          <option value="m">Masculino</option>
+                          <option value="f">Feminino</option>
+                        </select>
+                      </label>
+                      <label className="equipe-campo equipe-campo-setor">
+                        <span>Setor</span>
+                        <input
+                          type="text"
+                          maxLength={22}
+                          placeholder="Ex.: Marketing"
+                          value={d.setor}
+                          onChange={(e) => mudarEquipe(m.id, "setor", e.target.value)}
+                        />
+                      </label>
+                      <label className="equipe-campo equipe-campo-cor">
+                        <span>Cor</span>
+                        <input
+                          type="color"
+                          value={d.corSetor}
+                          onChange={(e) => mudarEquipe(m.id, "corSetor", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    {d.setor.trim() && (
+                      <span className="equipe-preview" style={{ background: d.corSetor, color: corContraste(d.corSetor) }}>
+                        {d.setor.trim()}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="equipe-acoes">
+              <button className="desfazer" onClick={() => setEquipeAberto(false)}>Cancelar</button>
+              <button className="beber" onClick={salvarEquipe}>Salvar</button>
+            </div>
           </div>
         </div>
       )}
