@@ -911,22 +911,57 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .btn-admin-equipe:hover { background: #E2E4F6; }
 /* Editor de equipe (admin) */
 .equipe-modal { max-width: 560px; }
-.equipe-lista { display: flex; flex-direction: column; gap: 9px; margin: 14px 0 6px; max-height: 56vh; overflow: auto; }
+.equipe-lista { display: flex; flex-direction: column; gap: 9px; margin: 14px 0 6px; overflow: visible; }
 .equipe-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: #F6FAFC; border: 1px solid #E2EFF4; border-radius: 12px; }
 .equipe-nome { font-size: 14.5px; font-weight: 800; color: #0B3446; flex: 1 1 110px; min-width: 90px; }
 .equipe-campos { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
 .equipe-campo { display: flex; flex-direction: column; gap: 3px; }
 .equipe-campo > span { font-size: 10.5px; font-weight: 700; color: #6A8695; text-transform: uppercase; letter-spacing: .3px; }
 .equipe-campo select, .equipe-campo input[type="text"] { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #CFE0E8; border-radius: 9px; background: #fff; color: #0B3446; }
-.equipe-campo-setor select { width: 150px; }
-.equipe-novosetor { display: flex; gap: 8px; margin: 12px 0 2px; }
-.equipe-novosetor input { flex: 1; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid #CFE0E8; border-radius: 10px; background: #fff; color: #0B3446; }
-.equipe-add { flex: none; font: inherit; font-size: 13px; font-weight: 700; color: #4B4E8A; background: #EEEFFB; border: 1px solid #D3D5F0; border-radius: 10px; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
-.equipe-add:hover { background: #E2E4F6; }
-.equipe-campo-cor input[type="color"] { width: 38px; height: 34px; padding: 2px; border: 1px solid #CFE0E8; border-radius: 9px; background: #fff; cursor: pointer; }
-.equipe-preview { font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; align-self: center; }
 .equipe-acoes { display: flex; gap: 10px; margin-top: 8px; }
 .equipe-acoes .beber, .equipe-acoes .desfazer { flex: 1; }
+/* Dropdown de setor, estilizado conforme o painel */
+.setor-dd { position: relative; width: 170px; }
+.setor-dd-trigger {
+  width: 100%; display: flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13px; color: #0B3446; cursor: pointer;
+  background: #fff; border: 1px solid #CFE0E8; border-radius: 9px; padding: 6px 10px;
+}
+.setor-dd-trigger:hover { border-color: #AFCFDE; }
+.setor-dd-sel { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setor-dd-vazio { flex: 1; color: #8CA6B2; text-align: left; }
+.setor-dd-seta { color: #6A8695; font-size: 11px; }
+.setor-dd-dot { width: 11px; height: 11px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.setor-dd-dot-vazio { background: #E4EEF3; }
+.setor-dd-painel {
+  position: absolute; top: calc(100% + 5px); right: 0; left: auto; z-index: 30;
+  min-width: 212px;
+  background: #fff; border: 1px solid #DCEBF2; border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(15, 139, 176, 0.18); padding: 5px;
+  max-height: 240px; overflow: auto;
+}
+.setor-dd-painel.para-cima { top: auto; bottom: calc(100% + 5px); }
+.setor-dd-opcao {
+  width: 100%; display: flex; align-items: center; gap: 8px; text-align: left;
+  font: inherit; font-size: 13px; color: #0B3446; cursor: pointer;
+  background: transparent; border: none; border-radius: 8px; padding: 8px 9px;
+}
+.setor-dd-opcao:hover { background: #F0F8FB; }
+.setor-dd-opcao.ativa { background: #EAF6FA; font-weight: 700; }
+.setor-dd-check { margin-left: auto; color: #0F8BB0; font-weight: 800; }
+.setor-dd-criar { color: #0F8BB0; font-weight: 700; border-bottom: 1px solid #EBF3F7; border-radius: 8px 8px 0 0; margin-bottom: 2px; }
+.setor-dd-criar:hover { background: #EAF6FA; }
+.setor-dd-mais { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: #D7EEF5; color: #0F8BB0; font-weight: 800; }
+.setor-dd-editor { padding: 6px; display: flex; flex-direction: column; gap: 8px; }
+.setor-dd-editor > input[type="text"] { font: inherit; font-size: 13px; padding: 7px 9px; border: 1px solid #CFE0E8; border-radius: 8px; color: #0B3446; }
+.setor-dd-editor-cor { display: flex; align-items: center; gap: 8px; }
+.setor-dd-editor-cor input[type="color"] { width: 34px; height: 30px; padding: 2px; border: 1px solid #CFE0E8; border-radius: 8px; background: #fff; cursor: pointer; flex: none; }
+.setor-dd-previa { flex: 1; min-width: 0; font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setor-dd-editor-acoes { display: flex; justify-content: flex-end; gap: 6px; }
+.setor-dd-cancelar { font: inherit; font-size: 12.5px; color: #6A8695; background: transparent; border: none; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
+.setor-dd-cancelar:hover { background: #F0F4F7; }
+.setor-dd-salvar { font: inherit; font-size: 12.5px; font-weight: 700; color: #fff; background: #0F8BB0; border: none; border-radius: 8px; padding: 6px 16px; cursor: pointer; }
+.setor-dd-salvar:hover { background: #0C7699; }
 /* Painel de cards excluídos (recuperação pelo admin) */
 .excluidos-lista { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 4px; max-height: 50vh; overflow: auto; }
 .excluido-vazio, .excluidos-vazio { font-size: 13.5px; color: #4B7A8E; margin: 14px 0; }
@@ -1467,7 +1502,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.13-melhor-equipe-setor";
+const APP_VERSION = "2026-11-06.16-setor-dd-flip";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3915,6 +3950,85 @@ function StatIcone({ nome }) {
   }
 }
 
+/* Campo de setor: dropdown customizado (estilizado conforme o painel). A 1ª
+   opção é "Criar setor", que abre um mini-editor de nome + cor dentro do campo. */
+function SetorDropdown({ value, setores, onSelecionar, onCriar }) {
+  const [aberto, setAberto] = useState(false);
+  const [modo, setModo] = useState("lista");
+  const [paraCima, setParaCima] = useState(false);
+  const [nome, setNome] = useState("");
+  const [cor, setCor] = useState("#0F8BB0");
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!aberto) return;
+    const fora = (e) => { if (ref.current && !ref.current.contains(e.target)) { setAberto(false); setModo("lista"); } };
+    document.addEventListener("mousedown", fora);
+    return () => document.removeEventListener("mousedown", fora);
+  }, [aberto]);
+  const atual = setores.find((s) => s.nome === value);
+  const alternar = () => {
+    if (!aberto && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setParaCima(r.bottom > window.innerHeight * 0.55);
+    }
+    setAberto((v) => !v); setModo("lista");
+  };
+  const criar = () => {
+    const n = nome.trim();
+    if (!n) return;
+    onCriar({ nome: n, cor });
+    setNome(""); setCor("#0F8BB0"); setModo("lista"); setAberto(false);
+  };
+  return (
+    <div className="setor-dd" ref={ref}>
+      <button type="button" className="setor-dd-trigger" onClick={alternar}>
+        {atual ? (
+          <span className="setor-dd-sel"><span className="setor-dd-dot" style={{ background: atual.cor }} />{atual.nome}</span>
+        ) : (
+          <span className="setor-dd-vazio">— Sem setor —</span>
+        )}
+        <span className="setor-dd-seta" aria-hidden="true">▾</span>
+      </button>
+      {aberto && (
+        <div className={`setor-dd-painel ${paraCima ? "para-cima" : ""}`}>
+          {modo === "lista" ? (
+            <React.Fragment>
+              <button type="button" className="setor-dd-opcao setor-dd-criar" onClick={() => setModo("criar")}>
+                <span className="setor-dd-mais" aria-hidden="true">＋</span> Criar setor
+              </button>
+              <button type="button" className="setor-dd-opcao" onClick={() => { onSelecionar(""); setAberto(false); }}>
+                <span className="setor-dd-dot setor-dd-dot-vazio" /> Sem setor
+              </button>
+              {setores.map((s) => (
+                <button type="button" key={s.nome} className={`setor-dd-opcao ${s.nome === value ? "ativa" : ""}`} onClick={() => { onSelecionar(s.nome); setAberto(false); }}>
+                  <span className="setor-dd-dot" style={{ background: s.cor }} />{s.nome}
+                  {s.nome === value && <span className="setor-dd-check" aria-hidden="true">✓</span>}
+                </button>
+              ))}
+            </React.Fragment>
+          ) : (
+            <div className="setor-dd-editor">
+              <input
+                type="text" maxLength={22} autoFocus placeholder="Nome do setor"
+                value={nome} onChange={(e) => setNome(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); criar(); } }}
+              />
+              <div className="setor-dd-editor-cor">
+                <input type="color" value={cor} onChange={(e) => setCor(e.target.value)} aria-label="Cor do setor" />
+                <span className="setor-dd-previa" style={{ background: cor, color: corContraste(cor) }}>{nome.trim() || "Setor"}</span>
+              </div>
+              <div className="setor-dd-editor-acoes">
+                <button type="button" className="setor-dd-cancelar" onClick={() => setModo("lista")}>Cancelar</button>
+                <button type="button" className="setor-dd-salvar" onClick={criar}>Salvar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avisoFechado, setAvisoFechado] = useState(false);
@@ -4706,8 +4820,7 @@ function AguaTracker() {
   const [excluirConfirmaId, setExcluirConfirmaId] = useState(null); // confirmação de exclusão definitiva
   const [equipeAberto, setEquipeAberto] = useState(false); // painel admin: sexo/setor/cor por usuário
   const [equipeDraft, setEquipeDraft] = useState({}); // rascunho do editor de equipe
-  const [equipeSetores, setEquipeSetores] = useState([]); // lista de setores (opções criadas)
-  const [equipeNovoSetor, setEquipeNovoSetor] = useState(""); // campo para criar novo setor
+  const [equipeSetores, setEquipeSetores] = useState([]); // lista de setores {nome,cor} (opções criadas)
   const [tPoder, setTPoder] = useState("tormenta"); // ambiente de teste: poder selecionado
   const [tAlvo, setTAlvo] = useState(""); // ambiente de teste: alvo selecionado
   const [testeOculto, setTesteOculto] = useState(false); // barra de teste recolhida
@@ -6401,40 +6514,44 @@ function AguaTracker() {
   const abrirEquipe = () => {
     const d = {};
     dados.members.forEach((m) => {
-      d[m.id] = { sexo: sexoDe(m), setor: m.setor || "", corSetor: m.corSetor || "#0F8BB0" };
+      d[m.id] = { sexo: sexoDe(m), setor: m.setor || "" };
     });
-    /* lista inicial = setores salvos + quaisquer setores já em uso nos cartões */
-    const lista = Array.isArray(dados.setores) ? [...dados.setores] : [];
-    dados.members.forEach((m) => {
-      const s = (m.setor || "").trim();
-      if (s && !lista.includes(s)) lista.push(s);
-    });
+    /* lista normalizada {nome,cor}: setores salvos (strings antigas ou objetos)
+       + quaisquer setores já em uso nos cartões, com a cor do próprio cartão */
+    const lista = [];
+    const push = (nome, cor) => {
+      const n = (nome || "").trim();
+      if (n && !lista.some((x) => x.nome === n)) lista.push({ nome: n, cor: cor || "#0F8BB0" });
+    };
+    (Array.isArray(dados.setores) ? dados.setores : []).forEach((s) =>
+      typeof s === "string" ? push(s) : push(s && s.nome, s && s.cor)
+    );
+    dados.members.forEach((m) => push(m.setor, m.corSetor));
     setEquipeSetores(lista);
-    setEquipeNovoSetor("");
     setEquipeDraft(d);
     setEquipeAberto(true);
   };
   const mudarEquipe = (id, campo, valor) => {
     setEquipeDraft((d) => ({ ...d, [id]: { ...d[id], [campo]: valor } }));
   };
-  const adicionarSetor = () => {
-    const nome = equipeNovoSetor.trim();
+  const adicionarSetor = (s) => {
+    const nome = (s && s.nome || "").trim();
     if (!nome) return;
-    if (equipeSetores.some((s) => s.toLowerCase() === nome.toLowerCase())) {
-      setToast("Esse setor já está na lista.");
-      setTimeout(() => setToast(null), 2500);
-      return;
-    }
-    setEquipeSetores((l) => [...l, nome]);
-    setEquipeNovoSetor("");
+    setEquipeSetores((l) =>
+      l.some((x) => x.nome.toLowerCase() === nome.toLowerCase())
+        ? l
+        : [...l, { nome, cor: (s && s.cor) || "#0F8BB0" }]
+    );
   };
   const salvarEquipe = () => {
     const novo = structuredClone(dados);
-    novo.setores = equipeSetores.slice();
+    novo.setores = equipeSetores.map((s) => ({ nome: s.nome, cor: s.cor }));
     novo.members = novo.members.map((m) => {
       const d = equipeDraft[m.id];
       if (!d) return m;
-      return { ...m, sexo: d.sexo || "m", setor: (d.setor || "").trim(), corSetor: d.corSetor || "#0F8BB0" };
+      const setor = (d.setor || "").trim();
+      const def = equipeSetores.find((s) => s.nome === setor);
+      return { ...m, sexo: d.sexo || "m", setor, corSetor: def ? def.cor : (m.corSetor || "#0F8BB0") };
     });
     persistir(novo);
     setEquipeAberto(false);
@@ -8543,20 +8660,9 @@ function AguaTracker() {
               Defina o sexo (usado no selo “O/A MELHOR”), o setor e a cor da tag
               de cada usuário. Só você vê e edita isto.
             </p>
-            <div className="equipe-novosetor">
-              <input
-                type="text"
-                maxLength={22}
-                placeholder="Criar novo setor (ex.: Marketing)"
-                value={equipeNovoSetor}
-                onChange={(e) => setEquipeNovoSetor(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarSetor(); } }}
-              />
-              <button className="equipe-add" onClick={adicionarSetor}>+ Adicionar setor</button>
-            </div>
             <div className="equipe-lista">
               {dados.members.map((m) => {
-                const d = equipeDraft[m.id] || { sexo: "m", setor: "", corSetor: "#0F8BB0" };
+                const d = equipeDraft[m.id] || { sexo: "m", setor: "" };
                 return (
                   <div key={m.id} className="equipe-item">
                     <span className="equipe-nome">{m.name}</span>
@@ -8568,29 +8674,16 @@ function AguaTracker() {
                           <option value="f">Feminino</option>
                         </select>
                       </label>
-                      <label className="equipe-campo equipe-campo-setor">
+                      <div className="equipe-campo equipe-campo-setor">
                         <span>Setor</span>
-                        <select value={d.setor} onChange={(e) => mudarEquipe(m.id, "setor", e.target.value)}>
-                          <option value="">— Sem setor —</option>
-                          {equipeSetores.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="equipe-campo equipe-campo-cor">
-                        <span>Cor</span>
-                        <input
-                          type="color"
-                          value={d.corSetor}
-                          onChange={(e) => mudarEquipe(m.id, "corSetor", e.target.value)}
+                        <SetorDropdown
+                          value={d.setor}
+                          setores={equipeSetores}
+                          onSelecionar={(nome) => mudarEquipe(m.id, "setor", nome)}
+                          onCriar={(s) => { adicionarSetor(s); mudarEquipe(m.id, "setor", s.nome); }}
                         />
-                      </label>
+                      </div>
                     </div>
-                    {d.setor.trim() && (
-                      <span className="equipe-preview" style={{ background: d.corSetor, color: corContraste(d.corSetor) }}>
-                        {d.setor.trim()}
-                      </span>
-                    )}
                   </div>
                 );
               })}
