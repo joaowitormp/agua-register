@@ -339,18 +339,40 @@ body { margin: 0; }
 }
 .bastao-rei {
   position: absolute; left: -20px; top: 50%; width: 60px; height: 150px;
-  margin-top: -75px; transform: rotate(-15deg); transform-origin: 50% 90%;
-  z-index: 6; pointer-events: none;
-  animation: bastao-flutua 3.2s ease-in-out infinite;
+  margin-top: -75px; z-index: 6; cursor: pointer;
   transition: opacity 0.3s ease;
 }
+.bastao-rei .bastao-svg {
+  width: 100%; height: 100%;
+  transform: rotate(-15deg); transform-origin: 50% 90%;
+  animation: bastao-flutua 3.2s ease-in-out infinite;
+}
+.bastao-rei:focus-visible { outline: none; }
+.bastao-rei:focus-visible .bastao-svg { filter: drop-shadow(0 0 3px rgba(62,143,176,0.8)); }
 /* durante o voo do bastão (overlay), o bastão fixo some para não duplicar */
 body.bastao-voando .bastao-rei { opacity: 0; }
 @keyframes bastao-flutua {
   0%, 100% { transform: rotate(-15deg) translateY(0); }
   50% { transform: rotate(-15deg) translateY(-9px); }
 }
-@media (max-width: 520px) { .bastao-rei { left: -14px; width: 48px; height: 120px; margin-top: -60px; } }
+/* Tooltip do bastão: sobreposto, à direita da haste, sobre o cartão */
+.bastao-tip {
+  position: absolute; left: 44px; top: 4px; z-index: 12; width: 196px;
+  background: #FFFFFF; border: 1px solid #E0D0A8; border-radius: 12px;
+  padding: 10px 12px; box-shadow: 0 12px 26px rgba(90, 70, 20, 0.22);
+  opacity: 0; visibility: hidden; transform: translateY(4px) scale(0.98);
+  transform-origin: left top; transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+.bastao-rei:hover .bastao-tip, .bastao-rei.aberto .bastao-tip, .bastao-rei:focus-visible .bastao-tip {
+  opacity: 1; visibility: visible; transform: translateY(0) scale(1);
+}
+.bastao-tip-tit { margin: 0; font-size: 12.8px; font-weight: 800; color: #6E5208; }
+.bastao-tip-sub { margin: 3px 0 0; font-size: 11.6px; line-height: 1.38; color: #8A7636; }
+@media (max-width: 520px) {
+  .bastao-rei { left: -14px; width: 48px; height: 120px; margin-top: -60px; }
+  .bastao-tip { left: 38px; width: 172px; }
+}
 /* arraste suave dos cards ao reordenar por desempenho (FLIP via JS) */
 .grade > .cartao { will-change: transform; }
 
@@ -616,7 +638,7 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .carta-palco { animation: none; }
   .carta-giro { transition: none; }
-  .bastao-rei { animation: none; transform: rotate(-15deg); }
+  .bastao-rei .bastao-svg { animation: none; transform: rotate(-15deg); }
   .cartao.rei-conquista { animation: none; }
   .cact-bastao, .cact-cacto { transition: none; }
 }
@@ -876,6 +898,37 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   40% { transform: translateX(7px) rotate(0.6deg); }
   60% { transform: translateX(-5px); }
   80% { transform: translateX(5px); }
+}
+/* Popup flutuante: sobreposto ao canto superior direito do cartão, fora
+   do fluxo (não empurra nem desloca nada na estrutura dos cards) */
+.aviso-vuln {
+  position: absolute; top: 10px; right: 10px; z-index: 30;
+  width: min(calc(100% - 20px), 332px);
+  padding: 11px 13px 12px;
+  background: linear-gradient(180deg, #FFF9EC, #FFF0D3);
+  border: 1px solid #F0CD82; border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(138, 91, 10, 0.26);
+}
+.aviso-vuln-x {
+  position: absolute; top: 5px; right: 7px;
+  border: none; background: transparent; cursor: pointer;
+  font-size: 19px; line-height: 1; color: #B07B1E; padding: 2px 5px;
+  border-radius: 8px;
+}
+.aviso-vuln-x:hover { background: rgba(176, 123, 30, 0.12); color: #7A5206; }
+.aviso-vuln-head { display: flex; gap: 9px; align-items: flex-start; padding-right: 18px; }
+.aviso-vuln-ico {
+  flex: none; width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: #FCE7B5; color: #A86B06;
+}
+.aviso-vuln-tit { margin: 1px 0 0; font-size: 12.6px; line-height: 1.38; color: #7A5206; }
+.aviso-vuln-tit b { color: #8A3B0B; font-weight: 800; }
+.aviso-vuln-poderes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.aviso-vuln-chip {
+  font-size: 11.3px; font-weight: 700; color: #8A5A0A;
+  background: #FFFFFF; border: 1px solid #F0D49A;
+  border-radius: 999px; padding: 3px 9px; white-space: nowrap;
 }
 
 .historico {
@@ -1319,7 +1372,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.4-moldura-azul-poderes-guia";
+const APP_VERSION = "2026-11-06.6-aviso-popup";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3272,7 +3325,24 @@ const BASTAO_SVG = `<svg viewBox="-60 -150 120 300" style="width:100%;height:100
     </g>
   </g></svg>`;
 function BastaoRei() {
-  return <div className="bastao-rei" aria-hidden="true" dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />;
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div
+      className={`bastao-rei ${aberto ? "aberto" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-label="Bastão da cactificação — dedicado a quem mais cactificou garrafas"
+      onClick={(e) => { e.stopPropagation(); setAberto((v) => !v); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAberto((v) => !v); } }}
+      onBlur={() => setAberto(false)}
+    >
+      <div className="bastao-svg" aria-hidden="true" dangerouslySetInnerHTML={{ __html: BASTAO_SVG }} />
+      <div className="bastao-tip" role="status">
+        <p className="bastao-tip-tit">🌵 Bastão da cactificação</p>
+        <p className="bastao-tip-sub">Dedicado a quem mais cactificou garrafas</p>
+      </div>
+    </div>
+  );
 }
 
 /* ===================== Premiação do pódio (semanal) =====================
@@ -3712,8 +3782,9 @@ function OlhosGarrafa({ tipo, expr, tremor, uid }) {
   );
 }
 
-function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
+function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
   const [confirmando, setConfirmando] = useState(false);
+  const [avisoFechado, setAvisoFechado] = useState(false);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
   const totalGarrafas = Math.max(1, Math.ceil(membro.goalMl / membro.bottleMl));
@@ -3840,6 +3911,37 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           )}
         </div>
       </div>
+
+      {dono && !flutuante && !noivo && avisoVuln && !avisoFechado && (
+        <div className="aviso-vuln" role="status">
+          <button
+            className="aviso-vuln-x"
+            onClick={() => setAvisoFechado(true)}
+            aria-label="Fechar aviso"
+            title="Fechar aviso"
+          >
+            ×
+          </button>
+          <div className="aviso-vuln-head">
+            <span className="aviso-vuln-ico" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <path d="M12 9v4" /><path d="M12 17h.01" />
+              </svg>
+            </span>
+            <p className="aviso-vuln-tit">
+              Você está há <b>{avisoVuln.texto}</b> sem beber água e está vulnerável{avisoVuln.poderes.length ? " a:" : "."}
+            </p>
+          </div>
+          {avisoVuln.poderes.length > 0 && (
+            <div className="aviso-vuln-poderes">
+              {avisoVuln.poderes.map((p) => (
+                <span key={p.nome} className="aviso-vuln-chip">{p.icone} {p.nome}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="cartao-meio">
         {dono ? (
@@ -5314,6 +5416,21 @@ function AguaTracker() {
     if (Object.keys(efeitosDe(m)).length > 0) return false;
     if (nomeNormalizado(m.name) === NOIVO_NOME && ehSemanaCasamento()) return false;
     return seco >= horasExigidas("cacto", m) * 3600000;
+  };
+  /* Aviso individual de vulnerabilidade: só o dono vê no próprio cartão.
+     Lista os poderes cujo tempo de seca exigido já foi ultrapassado —
+     a cada hora a mais, mais poderes passam a poder ser lançados nele. */
+  const avisoVulnDe = (m) => {
+    if (!estaVulneravel(m)) return null;
+    const seco = tempoSeco(m);
+    if (seco === null) return null;
+    const h = Math.floor(seco / 3600000);
+    const min = Math.floor((seco % 3600000) / 60000);
+    const texto = min > 0 ? `${h}h${String(min).padStart(2, "0")}` : `${h}h`;
+    const poderes = PODERES
+      .filter((p) => seco >= horasExigidas(p.id, m) * 3600000)
+      .map((p) => ({ icone: p.icone, nome: p.nome }));
+    return { texto, poderes };
   };
   const expressaoDe = (m) => {
     const now = Date.now();
@@ -6890,6 +7007,7 @@ function AguaTracker() {
                 !bateuMeta
               }
               alertando={alertas.some((a) => a.memberId === m.id)}
+              avisoVuln={donoDoCartao ? avisoVulnDe(m) : null}
               efeitos={(() => {
                 const ativos = efeitosDe(m);
                 /* a areia do cartão é para os OUTROS verem: no cartão do
