@@ -72,6 +72,29 @@ body { margin: 0; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
+/* Faixa de estatísticas do usuário, acima dos cards */
+.stats-faixa {
+  max-width: 1240px; margin: 0 auto 14px;
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px;
+}
+.stat-bloco {
+  background: #FFFFFF; border: 1px solid #DCEBF2; border-radius: 13px;
+  padding: 10px 12px 11px; text-align: left;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  box-shadow: 0 2px 8px rgba(15, 139, 176, 0.05);
+}
+.stat-ico { color: #AFC4CE; line-height: 0; margin-bottom: 1px; }
+.stat-ico svg { display: block; }
+.stat-valor { font-size: 20px; font-weight: 800; color: #0B3446; line-height: 1.1; }
+.stat-rot { display: flex; flex-direction: column; font-size: 10.5px; line-height: 1.2; color: #6A8695; }
+.stat-rot-linha { display: block; }
+/* Linha divisória entre a faixa e os cards */
+.stats-divisor {
+  max-width: 1240px; margin: 0 auto 16px; border: none;
+  border-top: 1px solid #D8E7EE; height: 0;
+}
+@media (max-width: 920px) { .stats-faixa { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 480px) { .stats-faixa { grid-template-columns: repeat(2, 1fr); } .stat-valor { font-size: 18px; } }
 
 .cartao {
   background: #FFFFFF; border: 1px solid #D8ECF3; border-radius: 16px;
@@ -1408,7 +1431,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.9-ajustes-descarte-guia";
+const APP_VERSION = "2026-11-06.12-stats-icones";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -1853,6 +1876,8 @@ function calcularConquistas(members, intake, extras, historico, metasPorDia, car
     const posicoes = posicoesPorMembro[m.id];
     if (posicoes.some((p) => p.pos <= 3)) c.add("pe-no-podio");
     if (posicoes.some((p) => p.pos === 1)) c.add("soberano-da-torneira");
+    /* contagem de semanas fechadas em 1º lugar — usada no painel de estatísticas */
+    r.vitorias = posicoes.filter((p) => p.pos === 1).length;
     let seguidas = 0;
     let ultimaSemana = null;
     const UMA_SEMANA = 7 * 24 * 60 * 60 * 1000;
@@ -3818,6 +3843,22 @@ function OlhosGarrafa({ tipo, expr, tremor, uid }) {
   );
 }
 
+/* Ícones de traço para a faixa de estatísticas (substituem os emojis) */
+function StatIcone({ nome }) {
+  const p = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+  switch (nome) {
+    case "streak": return <svg {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg>;
+    case "agua": return <svg {...p}><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" /></svg>;
+    case "media": return <svg {...p}><path d="M3 3v18h18" /><path d="M8 17v-5" /><path d="M13 17V8" /><path d="M18 17v-8" /></svg>;
+    case "vitoria": return <svg {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>;
+    case "cacto": return <svg {...p}><path d="M12 21V7" /><path d="M12 15H9.5A2.5 2.5 0 0 1 7 12.5V11" /><path d="M12 12h2.5A2.5 2.5 0 0 0 17 9.5V8.5" /><path d="M9 21h6" /></svg>;
+    case "deserto": return <svg {...p}><circle cx="8" cy="8" r="2.5" /><path d="M2 19c2.2-3 5-3 7.2 0" /><path d="M9 20c2.2-3 5-3 7.2 0" /></svg>;
+    case "soterramento": return <svg {...p}><path d="M5 22h14" /><path d="M5 2h14" /><path d="M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22" /><path d="M7 2v4.17a2 2 0 0 0 .59 1.41L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2" /></svg>;
+    case "tempestade": return <svg {...p}><path d="M6 16.3A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 1.2 8.8" /><path d="m13 12-3 4.5h4L11 21" /></svg>;
+    default: return null;
+  }
+}
+
 function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avisoFechado, setAvisoFechado] = useState(false);
@@ -5234,6 +5275,44 @@ function AguaTracker() {
   meusMembros.forEach((m) => {
     if (conquistas[m.id]) conquistas[m.id].conjunto.forEach((x) => minhasConquistas.add(x));
   });
+
+  /* ---- Painel de estatísticas do usuário (fileira acima dos cards) ----
+     Agrega os cartões do próprio usuário. Poderes contam as APLICAÇÕES
+     feitas por ele (autoria pelo campo "por" do histórico das vítimas). */
+  const minhasEstatisticas = (() => {
+    const meusNomes = new Set(meusMembros.map((m) => nomeNormalizado(m.name)));
+    let totalMl = 0, diasSeguidos = 0, vitorias = 0, cacto = 0;
+    const diasAtivos = new Set();
+    meusMembros.forEach((m) => {
+      const r = conquistas[m.id];
+      if (!r) return;
+      totalMl += r.totalMl || 0;
+      diasSeguidos = Math.max(diasSeguidos, r.seqAtual || 0);
+      vitorias += r.vitorias || 0;
+      cacto += r.cactosFeitos || 0;
+      /* dias com qualquer registro, para a média diária */
+      Object.keys(dados.intake || {}).forEach((dK) => {
+        if ((dados.intake[dK] || {})[m.id] > 0) diasAtivos.add(dK);
+      });
+      Object.keys(dados.extras || {}).forEach((dK) => {
+        if ((dados.extras[dK] || {})[m.id] > 0) diasAtivos.add(dK);
+      });
+    });
+    /* desertificações, soterramentos e tempestades aplicados por mim:
+       varre o histórico de todas as vítimas atrás da minha autoria */
+    let deserto = 0, soterramento = 0, tempestade = 0;
+    Object.keys(dados.historico || {}).forEach((vid) => {
+      (dados.historico[vid] || []).forEach((e) => {
+        if (!e || e.anulado || !e.por) return;
+        if (!meusNomes.has(nomeNormalizado(e.por))) return;
+        if (e.tipo === "deserto") deserto++;
+        else if (e.tipo === "tempestade") soterramento++;
+        else if (e.tipo === "tormenta") tempestade++;
+      });
+    });
+    const mediaDia = diasAtivos.size > 0 ? Math.round(totalMl / diasAtivos.size) : 0;
+    return { diasSeguidos, totalMl, mediaDia, vitorias, cacto, deserto, soterramento, tempestade };
+  })();
 
   /* ---- Garrafas colecionáveis ---- */
   const garrafasDe = (id) => {
@@ -7069,6 +7148,32 @@ function AguaTracker() {
           <Garrafa pct={0.35} tamanho={64} />
           <p>Nenhuma garrafa ainda. Adicione a primeira para começar a registrar.</p>
         </div>
+      )}
+
+      {tenhoCartao && (
+        <React.Fragment>
+          <div className="stats-faixa" role="group" aria-label="Suas estatísticas">
+            {[
+              { ico: "streak", valor: minhasEstatisticas.diasSeguidos, rot: ["Dias seguidos", "batendo meta"] },
+              { ico: "agua", valor: fmt(minhasEstatisticas.totalMl), rot: ["Total de água", "bebida"] },
+              { ico: "media", valor: fmt(minhasEstatisticas.mediaDia), rot: ["Média", "por dia"] },
+              { ico: "vitoria", valor: minhasEstatisticas.vitorias, rot: ["Vitórias em", "1º lugar"] },
+              { ico: "cacto", valor: minhasEstatisticas.cacto, rot: ["Cactificações", "aplicadas"] },
+              { ico: "deserto", valor: minhasEstatisticas.deserto, rot: ["Desertificações", "aplicadas"] },
+              { ico: "soterramento", valor: minhasEstatisticas.soterramento, rot: ["Soterramentos", "aplicados"] },
+              { ico: "tempestade", valor: minhasEstatisticas.tempestade, rot: ["Tempestades", "aplicadas"] },
+            ].map((s) => (
+              <div className="stat-bloco" key={s.rot.join(" ")} title={s.rot.join(" ")}>
+                <span className="stat-ico"><StatIcone nome={s.ico} /></span>
+                <span className="stat-valor">{s.valor}</span>
+                <span className="stat-rot">
+                  {s.rot.map((l, i) => (<span key={i} className="stat-rot-linha">{l}</span>))}
+                </span>
+              </div>
+            ))}
+          </div>
+          <hr className="stats-divisor" />
+        </React.Fragment>
       )}
 
       <div className="grade">
