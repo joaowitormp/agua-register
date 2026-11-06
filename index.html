@@ -292,6 +292,10 @@ body { margin: 0; }
 .guia-ilustra svg { width: 44px; height: 44px; display: block; }
 .guia-txt h3 { margin: 0 0 2px; font-size: 15px; font-weight: 800; color: #0B3446; }
 .guia-txt p { margin: 0; font-size: 13.5px; line-height: 1.45; color: #4A6675; }
+.guia-penal { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; }
+.guia-penal li { font-size: 13px; color: #4A6675; }
+.guia-penal li b { color: #0B3446; }
+.guia-nota { margin-top: 6px !important; font-size: 12.5px !important; color: #6E8794 !important; }
 .modal-x {
   position: absolute; top: 10px; right: 10px; width: 30px; height: 30px;
   border: none; background: #F0F5F8; color: #6a8391; border-radius: 50%;
@@ -319,6 +323,8 @@ body { margin: 0; }
               0 0 0 2px #EBC24A inset;
   transition: box-shadow 0.5s ease, border-color 0.5s ease;
 }
+/* moldura azul no card do próprio usuário (identificação) */
+.cartao.meu { border-color: #41C9E6; box-shadow: 0 4px 16px rgba(15, 139, 176, 0.12), 0 0 0 2px #41C9E6 inset; }
 /* Brilho forte APENAS na transferência do bastão: cresce acima do padrão,
    pulsa sem pausa e volta à moldura padrão — uma única vez */
 .cartao.rei-conquista { animation: rei-conquista 2.4s ease-in-out 1; }
@@ -1313,7 +1319,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.3-icone-ajuda-guia";
+const APP_VERSION = "2026-11-06.4-moldura-azul-poderes-guia";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3720,7 +3726,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
   return (
     <div
       id={flutuante ? undefined : `card-${membro.id}`}
-      className={`cartao ${flutuante ? "cartao-flutuante" : ""} ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${tormentado ? "tormentado" : ""} ${noivo ? "noivo" : ""} ${rei && !noivo ? "tem-bastao" : ""} ${conquistaRei && !noivo ? "rei-conquista" : ""}`}
+      className={`cartao ${flutuante ? "cartao-flutuante" : ""} ${dono && !flutuante ? "meu" : ""} ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${tormentado ? "tormentado" : ""} ${noivo ? "noivo" : ""}`}
     >
       {rei && !noivo && <BastaoRei />}
       <div className="cartao-topo">
@@ -6654,7 +6660,14 @@ function AguaTracker() {
                 </div>
                 <div className="guia-txt">
                   <h3>Poderes entre colegas</h3>
-                  <p>Cacto, deserto, soterramento e tempestade atrapalham quem está bebendo pouco — e você também pode sofrê-los. Beba para escapar.</p>
+                  <p>Ao bater metas você ganha poderes para aplicar em quem bebe pouco — e também pode sofrê-los. Cada um desconta do seu desempenho:</p>
+                  <ul className="guia-penal">
+                    <li>🌵 Cacto <b>−4%</b></li>
+                    <li>🏜️ Deserto <b>−8%</b></li>
+                    <li>⏳ Soterramento <b>−10%</b></li>
+                    <li>⛈️ Tempestade <b>−12%</b></li>
+                  </ul>
+                  <p className="guia-nota">Meta abaixo de 2 L? A penalidade é 1,5× maior. Beba para escapar — tudo fica no seu histórico.</p>
                 </div>
               </div>
 
