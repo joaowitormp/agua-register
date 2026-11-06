@@ -120,9 +120,9 @@ body { margin: 0; }
 .nome-linha { display: flex; align-items: center; gap: 5px; }
 /* Tag de setor, bem pequena, acima do nome */
 .setor-tag {
-  display: inline-block; font-size: 9px; font-weight: 800;
-  letter-spacing: .5px; text-transform: uppercase; line-height: 1.5;
-  padding: 1px 8px; border-radius: 999px; margin-bottom: 4px;
+  display: inline-block; font-size: 7.5px; font-weight: 800;
+  letter-spacing: .4px; text-transform: uppercase; line-height: 1.5;
+  padding: 1px 6px; border-radius: 999px; margin-bottom: 3px;
 }
 .btn-historico {
   border: none; background: transparent; color: #9FBFCC; cursor: pointer;
@@ -138,6 +138,37 @@ body { margin: 0; }
 }
 .remover:hover { background: #FDECEC; color: #C0392B; }
 .topo-acoes { display: flex; align-items: center; gap: 2px; }
+/* Menu de 3 pontinhos do card */
+.card-menu { position: relative; }
+.card-menu-btn {
+  position: relative; border: none; background: transparent; color: #5B7D8C;
+  cursor: pointer; padding: 4px 5px; border-radius: 8px; line-height: 0;
+}
+.card-menu-btn:hover { background: #EAF6FA; color: #0F8BB0; }
+.card-menu-badge {
+  position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px;
+  background: #E8663C; color: #fff; font-size: 9px; font-weight: 800;
+  border-radius: 999px; display: grid; place-items: center; padding: 0 3px;
+}
+.card-menu-painel {
+  position: absolute; top: calc(100% + 5px); right: 0; z-index: 25; min-width: 172px;
+  background: #fff; border: 1px solid #DCEBF2; border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(15, 139, 176, 0.18); padding: 5px;
+}
+.card-menu-opcao {
+  width: 100%; display: flex; align-items: center; gap: 9px; text-align: left;
+  font: inherit; font-size: 13.5px; color: #0B3446; cursor: pointer;
+  background: transparent; border: none; border-radius: 8px; padding: 9px 10px;
+}
+.card-menu-opcao:hover { background: #F0F8FB; }
+.card-menu-opcao svg { color: #5B7D8C; flex: none; }
+.card-menu-op-badge { margin-left: auto; min-width: 16px; height: 16px; background: #E8663C; color: #fff; font-size: 9px; font-weight: 800; border-radius: 999px; display: grid; place-items: center; padding: 0 4px; }
+.card-menu-excluir { color: #B4473C; }
+.card-menu-excluir:hover { background: #FCEEEC; }
+.card-menu-excluir svg { color: #C0564A; }
+.card-menu-confirma { padding: 8px 9px; }
+.card-menu-confirma p { margin: 0 0 9px; font-size: 12.5px; line-height: 1.4; color: #8A3B30; }
+.card-menu-confirma-acoes { display: flex; gap: 6px; justify-content: flex-end; }
 .sino {
   border: none; background: transparent; color: #0F8BB0; cursor: pointer;
   padding: 4px 6px; border-radius: 8px; line-height: 1;
@@ -923,6 +954,10 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .equipe-campo select, .equipe-campo input[type="text"] { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #CFE0E8; border-radius: 9px; background: #fff; color: #0B3446; }
 .equipe-acoes { display: flex; gap: 10px; margin-top: 8px; }
 .equipe-acoes .beber, .equipe-acoes .desfazer { flex: 1; }
+.equipe-excluir { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 12px; font-weight: 600; color: #B4473C; background: #FCEEEC; border: 1px solid #F3C9C2; border-radius: 9px; padding: 6px 10px; cursor: pointer; }
+.equipe-excluir:hover { background: #F8DED9; }
+.equipe-excluir svg { flex: none; }
+.equipe-excluir-confirma { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: #8A3B30; }
 /* Dropdown de setor, estilizado conforme o painel */
 .setor-dd { position: relative; width: 170px; }
 .setor-dd-trigger {
@@ -1505,7 +1540,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.17-setor-dd-editor";
+const APP_VERSION = "2026-11-06.18-selo-azul";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4035,6 +4070,14 @@ function SetorDropdown({ value, setores, onSelecionar, onCriar }) {
 function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avisoFechado, setAvisoFechado] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const menuRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!menuAberto) return;
+    const fora = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) { setMenuAberto(false); setConfirmando(false); } };
+    document.addEventListener("mousedown", fora);
+    return () => document.removeEventListener("mousedown", fora);
+  }, [menuAberto]);
   const bebido = count * membro.bottleMl + extraMl;
   const pct = membro.goalMl > 0 ? bebido / membro.goalMl : 0;
   const totalGarrafas = Math.max(1, Math.ceil(membro.goalMl / membro.bottleMl));
@@ -4062,70 +4105,12 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           )}
           <div className="nome-linha">
             <h2 className="nome">{membro.name}</h2>
-            <button
-              className="btn-historico"
-              title={`Ver histórico de ${membro.name}`}
-              aria-label={`Ver histórico de ${membro.name}`}
-              onClick={() => onHistorico(membro)}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12.5 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v4.5" />
-                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                <path d="M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
-              </svg>
-            </button>
           </div>
           <p className="sub">
             {noivo ? "🤵 De férias no casamento" : `Garrafa de ${fmt(membro.bottleMl)} · meta ${fmt(membro.goalMl)}`}
           </p>
         </div>
         <div className="topo-acoes">
-          {dono && !noivo && onEscolherGarrafa && (
-            <button
-              className="sino btn-garrafas"
-              title={creditoGarrafa > 0 ? "Você tem garrafa(s) para escolher!" : "Ver minhas garrafas"}
-              aria-label={`Ver as garrafas de ${membro.name}`}
-              onClick={() => onEscolherGarrafa(membro)}
-            >
-              <svg width="15" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 2h4" />
-                <path d="M10 2v3.2c0 .5-.2 1-.6 1.4L8 8c-.6.6-1 1.5-1 2.4V19a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-8.6c0-.9-.4-1.8-1-2.4l-1.4-1.4c-.4-.4-.6-.9-.6-1.4V2" />
-                <path d="M7 12.5h10" />
-              </svg>
-              {creditoGarrafa > 0 && <span className="garrafa-badge">{creditoGarrafa}</span>}
-            </button>
-          )}
-          {podeEditar && (
-            <button
-              className="sino"
-              title="Editar meu cartão"
-              aria-label={`Editar o cartão de ${membro.name}`}
-              onClick={() => onEditar(membro)}
-            >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
-              </svg>
-            </button>
-          )}
           {(mostrarSino || noivo) && (
             <button
               className={`sino ${noivo ? "sino-noivo" : ""}`}
@@ -4133,39 +4118,63 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
               aria-label={noivo ? `Mandar mensagem de casamento para ${membro.name}` : `Tocar o sino para ${membro.name} beber água`}
               onClick={() => onSino(membro)}
             >
-              <svg
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.7 21a2 2 0 0 1-3.4 0" />
               </svg>
             </button>
           )}
-          {confirmando ? (
-            <span className="remover-confirma">
-              Remover?
-              <button className="mini sim" onClick={() => onRemover(membro.id)}>
-                Sim
+          {dono && !noivo && !flutuante && (
+            <div className="card-menu" ref={menuRef}>
+              <button
+                className="card-menu-btn"
+                title="Opções do cartão"
+                aria-label={`Opções do cartão de ${membro.name}`}
+                onClick={() => { setMenuAberto((v) => !v); setConfirmando(false); }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
+                </svg>
+                {creditoGarrafa > 0 && <span className="card-menu-badge">{creditoGarrafa}</span>}
               </button>
-              <button className="mini" onClick={() => setConfirmando(false)}>
-                Não
-              </button>
-            </span>
-          ) : (
-            <button
-              className="remover"
-              title={`Remover ${membro.name}`}
-              onClick={() => setConfirmando(true)}
-            >
-              ×
-            </button>
+              {menuAberto && (
+                <div className="card-menu-painel">
+                  {!confirmando ? (
+                    <React.Fragment>
+                      {podeEditar && (
+                        <button className="card-menu-opcao" onClick={() => { onEditar(membro); setMenuAberto(false); }}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /></svg>
+                          Editar
+                        </button>
+                      )}
+                      {onEscolherGarrafa && (
+                        <button className="card-menu-opcao" onClick={() => { onEscolherGarrafa(membro); setMenuAberto(false); }}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2h4" /><path d="M10 2v3.2c0 .5-.2 1-.6 1.4L8 8c-.6.6-1 1.5-1 2.4V19a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-8.6c0-.9-.4-1.8-1-2.4l-1.4-1.4c-.4-.4-.6-.9-.6-1.4V2" /><path d="M7 12.5h10" /></svg>
+                          Garrafas
+                          {creditoGarrafa > 0 && <span className="card-menu-op-badge">{creditoGarrafa}</span>}
+                        </button>
+                      )}
+                      <button className="card-menu-opcao" onClick={() => { onHistorico(membro); setMenuAberto(false); }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v4.5" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" /></svg>
+                        Histórico
+                      </button>
+                      <button className="card-menu-opcao card-menu-excluir" onClick={() => setConfirmando(true)}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
+                        Excluir
+                      </button>
+                    </React.Fragment>
+                  ) : (
+                    <div className="card-menu-confirma">
+                      <p>Excluir este cartão? João Witor poderá recuperar.</p>
+                      <div className="card-menu-confirma-acoes">
+                        <button className="mini" onClick={() => setConfirmando(false)}>Cancelar</button>
+                        <button className="mini sim" onClick={() => { onRemover(membro.id); setMenuAberto(false); setConfirmando(false); }}>Excluir</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -4824,6 +4833,7 @@ function AguaTracker() {
   const [equipeAberto, setEquipeAberto] = useState(false); // painel admin: sexo/setor/cor por usuário
   const [equipeDraft, setEquipeDraft] = useState({}); // rascunho do editor de equipe
   const [equipeSetores, setEquipeSetores] = useState([]); // lista de setores {nome,cor} (opções criadas)
+  const [equipeExcluirId, setEquipeExcluirId] = useState(null); // confirmação de exclusão de usuário pelo admin
   const [tPoder, setTPoder] = useState("tormenta"); // ambiente de teste: poder selecionado
   const [tAlvo, setTAlvo] = useState(""); // ambiente de teste: alvo selecionado
   const [testeOculto, setTesteOculto] = useState(false); // barra de teste recolhida
@@ -6532,6 +6542,7 @@ function AguaTracker() {
     dados.members.forEach((m) => push(m.setor, m.corSetor));
     setEquipeSetores(lista);
     setEquipeDraft(d);
+    setEquipeExcluirId(null);
     setEquipeAberto(true);
   };
   const mudarEquipe = (id, campo, valor) => {
@@ -8687,6 +8698,20 @@ function AguaTracker() {
                         />
                       </div>
                     </div>
+                    {nomeNormalizado(m.name) !== ADMIN_NOME && (
+                      equipeExcluirId === m.id ? (
+                        <div className="equipe-excluir-confirma">
+                          <span>Excluir {m.name}?</span>
+                          <button className="mini" onClick={() => setEquipeExcluirId(null)}>Não</button>
+                          <button className="mini sim" onClick={() => { remover(m.id); setEquipeExcluirId(null); }}>Sim</button>
+                        </div>
+                      ) : (
+                        <button className="equipe-excluir" onClick={() => setEquipeExcluirId(m.id)} title={`Excluir ${m.name}`}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
+                          Excluir
+                        </button>
+                      )
+                    )}
                   </div>
                 );
               })}
