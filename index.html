@@ -918,7 +918,11 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .equipe-campo { display: flex; flex-direction: column; gap: 3px; }
 .equipe-campo > span { font-size: 10.5px; font-weight: 700; color: #6A8695; text-transform: uppercase; letter-spacing: .3px; }
 .equipe-campo select, .equipe-campo input[type="text"] { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #CFE0E8; border-radius: 9px; background: #fff; color: #0B3446; }
-.equipe-campo-setor input { width: 130px; }
+.equipe-campo-setor select { width: 150px; }
+.equipe-novosetor { display: flex; gap: 8px; margin: 12px 0 2px; }
+.equipe-novosetor input { flex: 1; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid #CFE0E8; border-radius: 10px; background: #fff; color: #0B3446; }
+.equipe-add { flex: none; font: inherit; font-size: 13px; font-weight: 700; color: #4B4E8A; background: #EEEFFB; border: 1px solid #D3D5F0; border-radius: 10px; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+.equipe-add:hover { background: #E2E4F6; }
 .equipe-campo-cor input[type="color"] { width: 38px; height: 34px; padding: 2px; border: 1px solid #CFE0E8; border-radius: 9px; background: #fff; cursor: pointer; }
 .equipe-preview { font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; align-self: center; }
 .equipe-acoes { display: flex; gap: 10px; margin-top: 8px; }
@@ -1463,7 +1467,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.12-stats-icones";
+const APP_VERSION = "2026-11-06.13-melhor-equipe-setor";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4702,6 +4706,8 @@ function AguaTracker() {
   const [excluirConfirmaId, setExcluirConfirmaId] = useState(null); // confirmação de exclusão definitiva
   const [equipeAberto, setEquipeAberto] = useState(false); // painel admin: sexo/setor/cor por usuário
   const [equipeDraft, setEquipeDraft] = useState({}); // rascunho do editor de equipe
+  const [equipeSetores, setEquipeSetores] = useState([]); // lista de setores (opções criadas)
+  const [equipeNovoSetor, setEquipeNovoSetor] = useState(""); // campo para criar novo setor
   const [tPoder, setTPoder] = useState("tormenta"); // ambiente de teste: poder selecionado
   const [tAlvo, setTAlvo] = useState(""); // ambiente de teste: alvo selecionado
   const [testeOculto, setTesteOculto] = useState(false); // barra de teste recolhida
@@ -6390,25 +6396,45 @@ function AguaTracker() {
     persistir(novo);
   };
 
-  /* Editor de equipe (admin): sexo, setor e cor da tag por usuário */
+  /* Editor de equipe (admin): sexo, setor e cor da tag por usuário.
+     Os setores são uma lista de opções criadas aqui (dados.setores). */
   const abrirEquipe = () => {
     const d = {};
     dados.members.forEach((m) => {
       d[m.id] = { sexo: sexoDe(m), setor: m.setor || "", corSetor: m.corSetor || "#0F8BB0" };
     });
+    /* lista inicial = setores salvos + quaisquer setores já em uso nos cartões */
+    const lista = Array.isArray(dados.setores) ? [...dados.setores] : [];
+    dados.members.forEach((m) => {
+      const s = (m.setor || "").trim();
+      if (s && !lista.includes(s)) lista.push(s);
+    });
+    setEquipeSetores(lista);
+    setEquipeNovoSetor("");
     setEquipeDraft(d);
     setEquipeAberto(true);
   };
   const mudarEquipe = (id, campo, valor) => {
     setEquipeDraft((d) => ({ ...d, [id]: { ...d[id], [campo]: valor } }));
   };
+  const adicionarSetor = () => {
+    const nome = equipeNovoSetor.trim();
+    if (!nome) return;
+    if (equipeSetores.some((s) => s.toLowerCase() === nome.toLowerCase())) {
+      setToast("Esse setor já está na lista.");
+      setTimeout(() => setToast(null), 2500);
+      return;
+    }
+    setEquipeSetores((l) => [...l, nome]);
+    setEquipeNovoSetor("");
+  };
   const salvarEquipe = () => {
     const novo = structuredClone(dados);
+    novo.setores = equipeSetores.slice();
     novo.members = novo.members.map((m) => {
       const d = equipeDraft[m.id];
       if (!d) return m;
-      const setor = (d.setor || "").trim();
-      return { ...m, sexo: d.sexo || "m", setor, corSetor: setor ? (d.corSetor || "#0F8BB0") : (d.corSetor || "#0F8BB0") };
+      return { ...m, sexo: d.sexo || "m", setor: (d.setor || "").trim(), corSetor: d.corSetor || "#0F8BB0" };
     });
     persistir(novo);
     setEquipeAberto(false);
@@ -8517,6 +8543,17 @@ function AguaTracker() {
               Defina o sexo (usado no selo “O/A MELHOR”), o setor e a cor da tag
               de cada usuário. Só você vê e edita isto.
             </p>
+            <div className="equipe-novosetor">
+              <input
+                type="text"
+                maxLength={22}
+                placeholder="Criar novo setor (ex.: Marketing)"
+                value={equipeNovoSetor}
+                onChange={(e) => setEquipeNovoSetor(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarSetor(); } }}
+              />
+              <button className="equipe-add" onClick={adicionarSetor}>+ Adicionar setor</button>
+            </div>
             <div className="equipe-lista">
               {dados.members.map((m) => {
                 const d = equipeDraft[m.id] || { sexo: "m", setor: "", corSetor: "#0F8BB0" };
@@ -8533,13 +8570,12 @@ function AguaTracker() {
                       </label>
                       <label className="equipe-campo equipe-campo-setor">
                         <span>Setor</span>
-                        <input
-                          type="text"
-                          maxLength={22}
-                          placeholder="Ex.: Marketing"
-                          value={d.setor}
-                          onChange={(e) => mudarEquipe(m.id, "setor", e.target.value)}
-                        />
+                        <select value={d.setor} onChange={(e) => mudarEquipe(m.id, "setor", e.target.value)}>
+                          <option value="">— Sem setor —</option>
+                          {equipeSetores.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
                       </label>
                       <label className="equipe-campo equipe-campo-cor">
                         <span>Cor</span>
