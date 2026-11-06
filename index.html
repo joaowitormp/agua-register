@@ -986,6 +986,16 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 }
 .setor-dd-opcao:hover { background: #F0F8FB; }
 .setor-dd-opcao.ativa { background: #EAF6FA; font-weight: 700; }
+/* linha de setor: opção selecionável + lápis de edição */
+.setor-dd-linha { display: flex; align-items: center; border-radius: 8px; }
+.setor-dd-linha:hover { background: #F0F8FB; }
+.setor-dd-linha.ativa { background: #EAF6FA; }
+.setor-dd-linha .setor-dd-opcao-sel { flex: 1; min-width: 0; }
+.setor-dd-linha .setor-dd-opcao-sel:hover, .setor-dd-linha.ativa .setor-dd-opcao-sel { background: transparent; }
+.setor-dd-linha.ativa .setor-dd-opcao-sel { font-weight: 700; }
+.setor-dd-editar-op { flex: none; border: none; background: transparent; color: #8CA6B2; cursor: pointer; padding: 6px 8px; border-radius: 7px; line-height: 0; }
+.setor-dd-editar-op:hover { color: #0F8BB0; background: #DCEFF6; }
+.setor-dd-editor-tit { margin: 0 2px 2px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #6A8695; }
 .setor-dd-check { margin-left: auto; color: #0F8BB0; font-weight: 800; }
 .setor-dd-criar { color: #0F8BB0; font-weight: 700; border-bottom: 1px solid #EBF3F7; border-radius: 8px 8px 0 0; margin-bottom: 2px; }
 .setor-dd-criar:hover { background: #EAF6FA; }
@@ -1540,7 +1550,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.18-selo-azul";
+const APP_VERSION = "2026-11-06.19-menu-card-equipe-excluir";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -3990,12 +4000,13 @@ function StatIcone({ nome }) {
 
 /* Campo de setor: dropdown customizado (estilizado conforme o painel). A 1ª
    opção é "Criar setor", que abre um mini-editor de nome + cor dentro do campo. */
-function SetorDropdown({ value, setores, onSelecionar, onCriar }) {
+function SetorDropdown({ value, setores, onSelecionar, onCriar, onEditarSetor }) {
   const [aberto, setAberto] = useState(false);
   const [modo, setModo] = useState("lista");
   const [paraCima, setParaCima] = useState(false);
   const [nome, setNome] = useState("");
   const [cor, setCor] = useState("#0F8BB0");
+  const [editando, setEditando] = useState(null); // nome original ao editar; null = criando
   const ref = React.useRef(null);
   React.useEffect(() => {
     if (!aberto) return;
@@ -4011,11 +4022,14 @@ function SetorDropdown({ value, setores, onSelecionar, onCriar }) {
     }
     setAberto((v) => !v); setModo("lista");
   };
-  const criar = () => {
+  const abrirCriar = () => { setEditando(null); setNome(""); setCor("#0F8BB0"); setModo("editor"); };
+  const abrirEdicao = (s, e) => { e.stopPropagation(); setEditando(s.nome); setNome(s.nome); setCor(s.cor); setModo("editor"); };
+  const salvar = () => {
     const n = nome.trim();
     if (!n) return;
-    onCriar({ nome: n, cor });
-    setNome(""); setCor("#0F8BB0"); setModo("lista"); setAberto(false);
+    if (editando) onEditarSetor && onEditarSetor(editando, { nome: n, cor });
+    else onCriar({ nome: n, cor });
+    setNome(""); setCor("#0F8BB0"); setEditando(null); setModo("lista"); setAberto(false);
   };
   return (
     <div className="setor-dd" ref={ref}>
@@ -4031,25 +4045,33 @@ function SetorDropdown({ value, setores, onSelecionar, onCriar }) {
         <div className={`setor-dd-painel ${paraCima ? "para-cima" : ""}`}>
           {modo === "lista" ? (
             <React.Fragment>
-              <button type="button" className="setor-dd-opcao setor-dd-criar" onClick={() => setModo("criar")}>
+              <button type="button" className="setor-dd-opcao setor-dd-criar" onClick={abrirCriar}>
                 <span className="setor-dd-mais" aria-hidden="true">＋</span> Criar setor
               </button>
               <button type="button" className="setor-dd-opcao" onClick={() => { onSelecionar(""); setAberto(false); }}>
                 <span className="setor-dd-dot setor-dd-dot-vazio" /> Sem setor
               </button>
               {setores.map((s) => (
-                <button type="button" key={s.nome} className={`setor-dd-opcao ${s.nome === value ? "ativa" : ""}`} onClick={() => { onSelecionar(s.nome); setAberto(false); }}>
-                  <span className="setor-dd-dot" style={{ background: s.cor }} />{s.nome}
-                  {s.nome === value && <span className="setor-dd-check" aria-hidden="true">✓</span>}
-                </button>
+                <div key={s.nome} className={`setor-dd-linha ${s.nome === value ? "ativa" : ""}`}>
+                  <button type="button" className="setor-dd-opcao setor-dd-opcao-sel" onClick={() => { onSelecionar(s.nome); setAberto(false); }}>
+                    <span className="setor-dd-dot" style={{ background: s.cor }} />{s.nome}
+                    {s.nome === value && <span className="setor-dd-check" aria-hidden="true">✓</span>}
+                  </button>
+                  {onEditarSetor && (
+                    <button type="button" className="setor-dd-editar-op" title={`Editar ${s.nome}`} aria-label={`Editar ${s.nome}`} onClick={(e) => abrirEdicao(s, e)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /></svg>
+                    </button>
+                  )}
+                </div>
               ))}
             </React.Fragment>
           ) : (
             <div className="setor-dd-editor">
+              <p className="setor-dd-editor-tit">{editando ? "Editar setor" : "Novo setor"}</p>
               <input
                 type="text" maxLength={22} autoFocus placeholder="Nome do setor"
                 value={nome} onChange={(e) => setNome(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); criar(); } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); salvar(); } }}
               />
               <div className="setor-dd-editor-cor">
                 <input type="color" value={cor} onChange={(e) => setCor(e.target.value)} aria-label="Cor do setor" />
@@ -4057,7 +4079,7 @@ function SetorDropdown({ value, setores, onSelecionar, onCriar }) {
               </div>
               <div className="setor-dd-editor-acoes">
                 <button type="button" className="setor-dd-cancelar" onClick={() => setModo("lista")}>Cancelar</button>
-                <button type="button" className="setor-dd-salvar" onClick={criar}>Salvar</button>
+                <button type="button" className="setor-dd-salvar" onClick={salvar}>Salvar</button>
               </div>
             </div>
           )}
@@ -6557,6 +6579,28 @@ function AguaTracker() {
         : [...l, { nome, cor: (s && s.cor) || "#0F8BB0" }]
     );
   };
+  /* Edita um setor já criado: renomeia/recolore na lista e acompanha todos
+     os usuários que já estavam nesse setor. Bloqueia colisão de nome. */
+  const editarSetor = (original, novo) => {
+    const nomeNovo = (novo && novo.nome || "").trim();
+    if (!nomeNovo) return;
+    const colide = equipeSetores.some(
+      (s) => s.nome !== original && s.nome.toLowerCase() === nomeNovo.toLowerCase()
+    );
+    if (colide) {
+      setToast("Já existe um setor com esse nome.");
+      setTimeout(() => setToast(null), 2500);
+      return;
+    }
+    setEquipeSetores((l) => l.map((s) => (s.nome === original ? { nome: nomeNovo, cor: novo.cor } : s)));
+    setEquipeDraft((d) => {
+      const nd = { ...d };
+      Object.keys(nd).forEach((id) => {
+        if (nd[id] && nd[id].setor === original) nd[id] = { ...nd[id], setor: nomeNovo };
+      });
+      return nd;
+    });
+  };
   const salvarEquipe = () => {
     const novo = structuredClone(dados);
     novo.setores = equipeSetores.map((s) => ({ nome: s.nome, cor: s.cor }));
@@ -8695,6 +8739,7 @@ function AguaTracker() {
                           setores={equipeSetores}
                           onSelecionar={(nome) => mudarEquipe(m.id, "setor", nome)}
                           onCriar={(s) => { adicionarSetor(s); mudarEquipe(m.id, "setor", s.nome); }}
+                          onEditarSetor={editarSetor}
                         />
                       </div>
                     </div>
