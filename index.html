@@ -1550,7 +1550,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.19-menu-card-equipe-excluir";
+const APP_VERSION = "2026-11-06.20-editar-setor";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -7094,8 +7094,17 @@ function AguaTracker() {
         (m) => nomeNormalizado(m.name) === nomeNormalizado(nome)
       )
     ) {
-      setToast(`Já existe uma garrafa com o nome "${nome}" — use outro nome`);
+      setToast(`Já existe um card com o nome "${nome}" — use outro nome`);
       setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (
+      (dados.excluidos || []).some(
+        (e) => e.membro && nomeNormalizado(e.membro.name) === nomeNormalizado(nome)
+      )
+    ) {
+      setToast(`"${nome}" é um usuário excluído — recupere-o no histórico em vez de criar outro`);
+      setTimeout(() => setToast(null), 5000);
       return;
     }
     const pin = String(form.pin || "").trim();
@@ -8650,7 +8659,8 @@ function AguaTracker() {
             <h2 className="nome">🗑️ Cards excluídos</h2>
             <p className="sub">
               Toda exclusão vem parar aqui — só você vê esta lista. Recupere um
-              cartão a qualquer momento; ele volta com todo o histórico.
+              usuário a qualquer momento; ele volta com todo o histórico e as
+              conquistas.
             </p>
             {(!dados.excluidos || dados.excluidos.length === 0) ? (
               <p className="excluidos-vazio">Nenhum card excluído no momento. 🎉</p>
@@ -8746,7 +8756,7 @@ function AguaTracker() {
                     {nomeNormalizado(m.name) !== ADMIN_NOME && (
                       equipeExcluirId === m.id ? (
                         <div className="equipe-excluir-confirma">
-                          <span>Excluir {m.name}?</span>
+                          <span>Excluir {m.name}? Fica recuperável no histórico.</span>
                           <button className="mini" onClick={() => setEquipeExcluirId(null)}>Não</button>
                           <button className="mini sim" onClick={() => { remover(m.id); setEquipeExcluirId(null); }}>Sim</button>
                         </div>
