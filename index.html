@@ -288,6 +288,7 @@ body { margin: 0; }
 /* Guia "Como funciona" — passos ilustrados */
 .guia-plataforma .guia-passos { display: flex; flex-direction: column; gap: 14px; margin: 16px 0 4px; text-align: left; }
 .guia-passo { display: flex; align-items: center; gap: 14px; }
+.guia-passo-topo { align-items: flex-start; }
 .guia-ilustra { flex: 0 0 56px; width: 56px; height: 56px; background: #F2FAFC; border: 1px solid #DCEFF6; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
 .guia-ilustra svg { width: 44px; height: 44px; display: block; }
 .guia-txt h3 { margin: 0 0 2px; font-size: 15px; font-weight: 800; color: #0B3446; }
@@ -635,6 +636,27 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   35% { transform: translateY(-6px) rotate(0.7deg); }
   70% { transform: translateY(-2px) rotate(-0.3deg); }
 }
+/* Descarte da carta anti-seca */
+.carta-descartar {
+  display: block; width: 100%; margin-top: 6px;
+  background: transparent; border: none; cursor: pointer;
+  font: inherit; font-size: 11.5px; color: #9FB0B8;
+  text-decoration: none;
+}
+.carta-descartar:hover { color: #6E8793; text-decoration: underline; text-underline-offset: 2px; }
+.carta-descartar-confirma {
+  margin-top: 12px; padding: 12px; border-radius: 12px;
+  background: #FCEEEC; border: 1px solid #F3C9C2;
+}
+.carta-descartar-pergunta { margin: 0 0 10px; font-size: 12.8px; line-height: 1.4; color: #8A3B30; }
+.carta-descartar-acoes { display: flex; gap: 8px; }
+.carta-descartar-acoes .desfazer { flex: 1; }
+.carta-descartar-sim {
+  flex: 1; border: none; border-radius: 12px; cursor: pointer;
+  font: inherit; font-weight: 700; font-size: 14px; color: #fff;
+  background: #C0564A; padding: 11px;
+}
+.carta-descartar-sim:hover { background: #A8463B; }
 @media (prefers-reduced-motion: reduce) {
   .carta-palco { animation: none; }
   .carta-giro { transition: none; }
@@ -1372,7 +1394,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.6-aviso-popup";
+const APP_VERSION = "2026-11-06.8-descarte-carta-guia";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4538,6 +4560,7 @@ function AguaTracker() {
   const [novidadeDesempenho, setNovidadeDesempenho] = useState(false); // guia "Como funciona": só abre pelo botão ⚡, nunca automático
   const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
   const [cartaAlvo, setCartaAlvo] = useState(false); // escolhendo quem proteger
+  const [confirmarDescarte, setConfirmarDescarte] = useState(false); // confirmação de descarte da carta
   const [adivinhacao, setAdivinhacao] = useState(null); // {poderId, alvo, palpite}
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
@@ -5661,6 +5684,22 @@ function AguaTracker() {
     setTimeout(() => setToast(null), 5000);
   };
 
+  /* Descarte: quem não quiser usar a carta a dispensa. A oferta some, não
+     recai na mesma pessoa, e o próximo sorteio é reagendado para mais tarde */
+  const descartarCarta = () => {
+    const novo = structuredClone(dados);
+    const eu = meusMembros[0];
+    delete novo.cartaOferta;
+    if (eu) novo.ultimaCartaPara = eu.id;
+    novo.proximaCarta = Date.now() + (1 + Math.random() * 44) * 60 * 1000;
+    persistir(novo);
+    setCartaAlvo(false);
+    setCartaVirada(false);
+    setConfirmarDescarte(false);
+    setToast("🃏 Carta anti-seca descartada. Mais tarde ela aparece para outra pessoa.");
+    setTimeout(() => setToast(null), 5000);
+  };
+
   /* Espelha o progresso da limpeza para os colegas (mapa de baixa
      resolução gravado no próprio efeito) */
   const salvarMapaAreia = (id, mapa) => {
@@ -6766,7 +6805,7 @@ function AguaTracker() {
                 </div>
               </div>
 
-              <div className="guia-passo">
+              <div className="guia-passo guia-passo-topo">
                 <div className="guia-ilustra" aria-hidden="true">
                   <svg viewBox="0 0 64 64">
                     <rect x="11" y="13" width="42" height="38" rx="7" fill="#EAF6FA" stroke="#0B3446" strokeWidth="2" />
@@ -7394,7 +7433,7 @@ function AguaTracker() {
       )}
 
       {cartaAlvo && (
-        <div className="modal-fundo" onClick={() => setCartaAlvo(false)}>
+        <div className="modal-fundo" onClick={() => { setConfirmarDescarte(false); setCartaAlvo(false); }}>
           <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">🃏 Carta Anti-Seca</h2>
             <p className="sub">
@@ -7412,9 +7451,30 @@ function AguaTracker() {
                   </div>
                 ))}
             </div>
-            <button className="desfazer fechar-modal" onClick={() => setCartaAlvo(false)}>
-              Agora não
-            </button>
+            {!confirmarDescarte ? (
+              <React.Fragment>
+                <button className="desfazer fechar-modal" onClick={() => { setConfirmarDescarte(false); setCartaAlvo(false); }}>
+                  Agora não
+                </button>
+                <button className="carta-descartar" onClick={() => setConfirmarDescarte(true)}>
+                  Não quero usar — descartar a carta
+                </button>
+              </React.Fragment>
+            ) : (
+              <div className="carta-descartar-confirma">
+                <p className="carta-descartar-pergunta">
+                  Descartar a carta? Você abre mão da proteção, e mais tarde ela aparece para outra pessoa.
+                </p>
+                <div className="carta-descartar-acoes">
+                  <button className="desfazer" onClick={() => setConfirmarDescarte(false)}>
+                    Voltar
+                  </button>
+                  <button className="carta-descartar-sim" onClick={descartarCarta}>
+                    Descartar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
