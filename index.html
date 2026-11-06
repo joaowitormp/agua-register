@@ -866,6 +866,20 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .btn-admin-ausencias:hover { background: #DCEFF6; }
 .btn-admin-teste { color: #8A5A00; background: #FFF4DE; border-color: #F3DDA8; }
 .btn-admin-teste:hover { background: #FCEBC4; }
+.btn-admin-excluidos { color: #9A3D33; background: #FCEEEC; border-color: #F3C9C2; }
+.btn-admin-excluidos:hover { background: #F8DED9; }
+/* Painel de cards excluídos (recuperação pelo admin) */
+.excluidos-lista { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 4px; max-height: 50vh; overflow: auto; }
+.excluido-vazio, .excluidos-vazio { font-size: 13.5px; color: #4B7A8E; margin: 14px 0; }
+.excluido-item { display: flex; align-items: center; gap: 12px; justify-content: space-between; padding: 11px 13px; background: #F6FAFC; border: 1px solid #E2EFF4; border-radius: 13px; flex-wrap: wrap; }
+.excluido-info { display: flex; flex-direction: column; min-width: 0; }
+.excluido-nome { font-size: 15px; font-weight: 800; color: #0B3446; }
+.excluido-meta { font-size: 11.6px; color: #6A8695; margin-top: 2px; }
+.excluido-acoes { display: flex; align-items: center; gap: 8px; }
+.excluido-recuperar { white-space: nowrap; }
+.excluido-apagar { background: transparent; border: none; cursor: pointer; font: inherit; font-size: 11.5px; color: #9FB0B8; }
+.excluido-apagar:hover { color: #B4473C; text-decoration: underline; text-underline-offset: 2px; }
+.excluido-confirma-txt { font-size: 12.5px; color: #8A3B30; font-weight: 600; }
 /* Barra do ambiente de teste (fixa no rodapé) */
 .teste-barra { position: fixed; left: 50%; transform: translateX(-50%); top: 12px; z-index: 9995; width: min(680px, calc(100vw - 24px)); background: #0B2430; color: #EAF6FA; border: 1px solid #1D4458; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.45); padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; max-height: calc(100vh - 24px); overflow: auto; }
 .teste-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1394,7 +1408,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.8-descarte-carta-guia";
+const APP_VERSION = "2026-11-06.9-ajustes-descarte-guia";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4583,6 +4597,8 @@ function AguaTracker() {
   const aberturaRef = React.useRef(Date.now()); // âncora da zoação "na abertura do painel"
   const [ausenciasAberto, setAusenciasAberto] = useState(false); // painel admin de folgas/feriados
   const [ausenciaDia, setAusenciaDia] = useState(() => chaveDe(new Date())); // dia escolhido no painel (YYYY-MM-DD)
+  const [excluidosAberto, setExcluidosAberto] = useState(false); // painel admin de cards excluídos (recuperação)
+  const [excluirConfirmaId, setExcluirConfirmaId] = useState(null); // confirmação de exclusão definitiva
   const [tPoder, setTPoder] = useState("tormenta"); // ambiente de teste: poder selecionado
   const [tAlvo, setTAlvo] = useState(""); // ambiente de teste: alvo selecionado
   const [testeOculto, setTesteOculto] = useState(false); // barra de teste recolhida
@@ -6169,9 +6185,45 @@ function AguaTracker() {
     }
   };
 
+  /* Exclusão de card é SEMPRE recuperável: o cartão sai da grade de todos,
+     mas é guardado em dados.excluidos para o admin (João Witor) recuperar.
+     Os registros/histórico seguem no objeto por id, então voltam junto na
+     recuperação. */
   const remover = (id) => {
     const novo = structuredClone(dados);
+    const alvo = novo.members.find((m) => m.id === id);
+    if (!alvo) return;
     novo.members = novo.members.filter((m) => m.id !== id);
+    if (!Array.isArray(novo.excluidos)) novo.excluidos = [];
+    novo.excluidos = novo.excluidos.filter((e) => !(e && e.membro && e.membro.id === id));
+    novo.excluidos.push({
+      membro: alvo,
+      em: Date.now(),
+      por: (meusMembros[0] && meusMembros[0].name) || "alguém",
+    });
+    persistir(novo);
+    setToast(`🗑️ ${alvo.name} foi removido — João Witor pode recuperar.`);
+    setTimeout(() => setToast(null), 4500);
+  };
+
+  /* Recuperação (só o admin usa a UI): devolve o cartão à grade com seu
+     histórico intacto, já que nada foi apagado dos registros por id. */
+  const recuperarCard = (id) => {
+    const novo = structuredClone(dados);
+    const reg = (novo.excluidos || []).find((e) => e && e.membro && e.membro.id === id);
+    if (!reg) return;
+    novo.excluidos = (novo.excluidos || []).filter((e) => !(e && e.membro && e.membro.id === id));
+    if (!novo.members.some((m) => m.id === id)) novo.members.push(reg.membro);
+    persistir(novo);
+    setToast(`♻️ ${reg.membro.name} foi recuperado para a equipe.`);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  /* Exclusão definitiva: remove do backup. A partir daqui não há volta —
+     por isso fica atrás de uma confirmação na UI. */
+  const excluirDefinitivo = (id) => {
+    const novo = structuredClone(dados);
+    novo.excluidos = (novo.excluidos || []).filter((e) => !(e && e.membro && e.membro.id === id));
     persistir(novo);
   };
 
@@ -8156,6 +8208,81 @@ function AguaTracker() {
               🧪 Ambiente de teste
             </button>
           )}
+          {Array.isArray(dados.excluidos) && dados.excluidos.length > 0 && (
+            <button
+              className="btn-admin-ausencias btn-admin-excluidos"
+              onClick={() => setExcluidosAberto(true)}
+              title="Ver e recuperar cards excluídos"
+            >
+              🗑️ Cards excluídos ({dados.excluidos.length})
+            </button>
+          )}
+        </div>
+      )}
+
+      {souAdmin && excluidosAberto && (
+        <div className="modal-fundo" onClick={() => setExcluidosAberto(false)}>
+          <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome">🗑️ Cards excluídos</h2>
+            <p className="sub">
+              Toda exclusão vem parar aqui — só você vê esta lista. Recupere um
+              cartão a qualquer momento; ele volta com todo o histórico.
+            </p>
+            {(!dados.excluidos || dados.excluidos.length === 0) ? (
+              <p className="excluidos-vazio">Nenhum card excluído no momento. 🎉</p>
+            ) : (
+              <div className="excluidos-lista">
+                {dados.excluidos
+                  .slice()
+                  .sort((a, b) => Number(b.em || 0) - Number(a.em || 0))
+                  .map((e) => {
+                    const m = e.membro || {};
+                    const quando = e.em
+                      ? new Date(e.em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) +
+                        " às " +
+                        new Date(e.em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                      : "";
+                    return (
+                      <div key={m.id} className="excluido-item">
+                        <div className="excluido-info">
+                          <span className="excluido-nome">{m.name}</span>
+                          <span className="excluido-meta">
+                            Garrafa de {fmt(m.bottleMl || 0)} · meta {fmt(m.goalMl || 0)}
+                            {quando && ` · excluído em ${quando}`}
+                            {e.por && ` por ${e.por}`}
+                          </span>
+                        </div>
+                        <div className="excluido-acoes">
+                          {excluirConfirmaId === m.id ? (
+                            <React.Fragment>
+                              <span className="excluido-confirma-txt">Apagar de vez?</span>
+                              <button className="mini sim" onClick={() => { excluirDefinitivo(m.id); setExcluirConfirmaId(null); }}>
+                                Sim
+                              </button>
+                              <button className="mini" onClick={() => setExcluirConfirmaId(null)}>
+                                Não
+                              </button>
+                            </React.Fragment>
+                          ) : (
+                            <React.Fragment>
+                              <button className="mini-aplicar excluido-recuperar" onClick={() => recuperarCard(m.id)}>
+                                ♻️ Recuperar
+                              </button>
+                              <button className="excluido-apagar" onClick={() => setExcluirConfirmaId(m.id)} title="Apagar definitivamente">
+                                Apagar de vez
+                              </button>
+                            </React.Fragment>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+            <button className="beber fechar-modal" onClick={() => setExcluidosAberto(false)}>
+              Fechar
+            </button>
+          </div>
         </div>
       )}
 
