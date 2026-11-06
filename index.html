@@ -88,11 +88,14 @@ body { margin: 0; }
 /* Selo diagonal "O/A MELHOR" no canto superior direito */
 .stat-ribbon {
   position: absolute; top: 11px; right: -25px; transform: rotate(45deg);
-  background: linear-gradient(180deg, #2F74B8, #1E527F);
+  background: #1F5FA8;
   color: #FFFFFF; font-size: 7.5px; font-weight: 800; letter-spacing: .5px;
   padding: 3px 28px; text-align: center; white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28); z-index: 2;
 }
+/* desloca o texto um pouco para frente (mesma direção da faixa) para
+   centralizá-lo na parte visível do selo no canto */
+.stat-ribbon-txt { display: inline-block; transform: translateX(5px); }
 .stat-ico { color: #AFC4CE; line-height: 0; margin-bottom: 1px; }
 .stat-ico svg { display: block; }
 .stat-valor { font-size: 20px; font-weight: 800; color: #0B3446; line-height: 1.1; }
@@ -1502,7 +1505,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.16-setor-dd-flip";
+const APP_VERSION = "2026-11-06.17-setor-dd-editor";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -7417,7 +7420,7 @@ function AguaTracker() {
               { ico: "tempestade", k: "tempestade", valor: minhasEstatisticas.tempestade, rot: ["Tempestades", "aplicadas"] },
             ].map((s) => (
               <div className={`stat-bloco ${souMelhorEm[s.k] ? "stat-melhor" : ""}`} key={s.rot.join(" ")} title={s.rot.join(" ")}>
-                {souMelhorEm[s.k] && <span className="stat-ribbon">{rotuloMelhor}</span>}
+                {souMelhorEm[s.k] && (<span className="stat-ribbon"><span className="stat-ribbon-txt">{rotuloMelhor}</span></span>)}
                 <span className="stat-ico"><StatIcone nome={s.ico} /></span>
                 <span className="stat-valor">{s.valor}</span>
                 <span className="stat-rot">
