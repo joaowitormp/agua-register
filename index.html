@@ -503,6 +503,15 @@ body.bastao-voando .bastao-rei { opacity: 0; }
   cursor: pointer; text-align: left; transition: background 0.12s ease;
 }
 .frase:hover { background: #EAF6FA; border-color: #0F8BB0; }
+.frase-elogio { border-color: #BFE6CF; background: #F3FBF6; }
+.frase-elogio:hover { background: #E6F7EE; border-color: #0FA36B; }
+.sino-abas { display: flex; gap: 8px; margin: 10px 0 14px; }
+.sino-aba {
+  flex: 1; border: 1px solid #D9E6EC; background: #F7FBFD; border-radius: 999px;
+  padding: 8px 12px; font-family: inherit; font-size: 13px; font-weight: 700;
+  color: #4B7A8E; cursor: pointer; transition: all 0.12s ease;
+}
+.sino-aba.ativa { background: #0F8BB0; border-color: #0F8BB0; color: #fff; }
 .fechar-modal { width: 100%; margin-top: 12px; }
 .aviso-agua-topo { display: flex; align-items: center; gap: 10px; }
 .aviso-agua-icone { font-size: 24px; line-height: 1; }
@@ -1581,7 +1590,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-09.30-sofrer-poder-sob-tempestade";
+const APP_VERSION = "2026-11-09.31-frases-elogios-genero";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -1638,6 +1647,32 @@ const FRASES = [
   "Emergência: colaborador operando com reservas do ano passado.",
   "Isso aqui já não é desidratação, é estilo de vida.",
   "Falta pouco para o seu cartão virar cenário de filme de faroeste.",
+  // --- Provocações novas (livres para todos, nov/2026) ---
+  "Achou que eu tava brincando?",
+  "Tira o espinho, que a água chegou.",
+  "Choveu no meu deserto. Prepara o seu.",
+  "O Atacama era aqui. Mudou de endereço — tá indo pra você.",
+  "Bati a meta e o deserto virou praia.",
+  "Saí da areia sacudindo a poeira. Senta que lá vem.",
+  "Cavei pra fora. Agora cavo a sua cova.",
+  "KKKKKKKKKK olha o atacama aí!",
+  "Oásis é miragem, {meu consagrado|minha consagrada}. Bebe algo.",
+  "Nasceu espinho onde era pra ter água. KKKK",
+  "A seca tá tão longa que já tem fuso horário.",
+  "O trono mudou de dono. Pode devolver a coroa.",
+  "Caiu do pódio igual gota no chão: rápido e sem volta.",
+  "1º lugar. A vista aqui é de oceano. A sua, de poça.",
+];
+
+/* Elogios — banco livre para todos, enviados pelo MESMO sino (contam no
+   limite de 2). Token {masc|fem} adapta ao sexo registrado do alvo;
+   {DIAS} = dias seguidos de meta do alvo. */
+const ELOGIOS = [
+  "Meta batida! {Hidratado|Hidratada} igual gente grande. 👏",
+  "{DIAS} dias seguidos batendo meta. Isso é disciplina líquida.",
+  "Falta pouco pra meta — bora fechar com chave de ouro!",
+  "Cada gole teu puxa o time pra cima. Continua!",
+  "Saiu da seca e voltou com tudo. Que exemplo!",
 ];
 
 /* Benefícios do consumo de água — exibidos um por vez, em ordem
@@ -5055,6 +5090,7 @@ function AguaTracker() {
   const [poderesNovos, setPoderesNovos] = useState([]); // popup de anúncio de poder novo
   const [alertas, setAlertas] = useState([]); // pilha de avisos de sino, fechados manualmente no X
   const [sinoPara, setSinoPara] = useState(null);
+  const [sinoAba, setSinoAba] = useState("provocar"); // "provocar" | "elogiar"
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
   const [regrasCarta, setRegrasCarta] = useState(false); // manual da carta anti-seca
   const [novidadeDesempenho, setNovidadeDesempenho] = useState(false); // guia "Como funciona": só abre pelo botão ⚡, nunca automático
@@ -5897,6 +5933,21 @@ function AguaTracker() {
     return txt
       .replace(/\{LITROS\}/g, `${meusLitros} litros`)
       .replace(/\{SEMANAS\}/g, `${meuSemanasTrono} ${meuSemanasTrono === 1 ? "semana" : "semanas"}`);
+  };
+
+  /* Resolve uma frase do sino para o ALVO: {masc|fem} pelo sexo registrado
+     do alvo e {DIAS} pela sequência atual de meta dele. Frases sem token
+     passam intactas. */
+  const resolverSino = (txt, alvo) => {
+    if (!txt || !alvo) return txt;
+    const fem = sexoDe(alvo) === "f";
+    let t = txt.replace(/\{([^{}|]*)\|([^{}]*)\}/g, (_, mm, ff) => (fem ? ff : mm));
+    if (t.indexOf("{DIAS}") !== -1) {
+      const c = conquistas[alvo.id] || {};
+      const dias = c.seqAtual || c.maxUtil || 0;
+      t = t.replace(/\{DIAS\}/g, String(dias));
+    }
+    return t;
   };
 
   /* agrupadas por conquista, para o seletor mostrar de onde cada uma veio */
@@ -7186,6 +7237,7 @@ function AguaTracker() {
       setTimeout(() => setToast(null), 4000);
       return;
     }
+    setSinoAba("provocar");
     setSinoPara(membro);
   };
 
@@ -7664,53 +7716,88 @@ function AguaTracker() {
       )}
 
       {sinoPara && !ehNoivo(sinoPara) && (
-        <div className="modal-fundo" onClick={() => { setSinoPara(null); setFraseLivre(""); }}>
+        <div className="modal-fundo" onClick={() => setSinoPara(null)}>
           <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">🔔 Tocar o sino para {sinoPara.name}</h2>
-            {podeFrasePersonalizada && (
-              <FraseLivre
-                limite={LIMITE_FRASE}
-                onEnviar={(t) => tocarSino(sinoPara, t)}
-                onEnviarGif={(url) => tocarSino(sinoPara, "", url)}
-              />
-            )}
-            <p className="sub">Escolha a mensagem:</p>
-            <div className="lista-frases">
-              {FRASES.map((f) => (
-                <button key={f} className="frase" onClick={() => tocarSino(sinoPara, f)}>
-                  {f}
-                </button>
-              ))}
+            <div className="sino-abas">
+              <button
+                className={`sino-aba ${sinoAba === "provocar" ? "ativa" : ""}`}
+                onClick={() => setSinoAba("provocar")}
+              >
+                😈 Provocar
+              </button>
+              <button
+                className={`sino-aba ${sinoAba === "elogiar" ? "ativa" : ""}`}
+                onClick={() => setSinoAba("elogiar")}
+              >
+                💧 Elogiar
+              </button>
             </div>
-            {gruposExclusivos.length > 0 && (
-              <div>
-                <p className="sub exclusivas-titulo">
-                  ✨ Exclusivas das suas conquistas
-                </p>
-                {gruposExclusivos.map((g) => (
-                  <div key={g.id}>
-                    <p className="grupo-conquista">
-                      {g.conquista && (
-                        <span className="grupo-icone">
-                          <IconeConquista conquista={g.conquista} tamanho={11} />
-                        </span>
-                      )}
-                      {g.nome}
+            {sinoAba === "provocar" ? (
+              <React.Fragment>
+                {podeFrasePersonalizada && (
+                  <FraseLivre
+                    limite={LIMITE_FRASE}
+                    onEnviar={(t) => tocarSino(sinoPara, t)}
+                    onEnviarGif={(url) => tocarSino(sinoPara, "", url)}
+                  />
+                )}
+                <p className="sub">Escolha a mensagem:</p>
+                <div className="lista-frases">
+                  {FRASES.map((f) => {
+                    const txt = resolverSino(f, sinoPara);
+                    return (
+                      <button key={f} className="frase" onClick={() => tocarSino(sinoPara, txt)}>
+                        {txt}
+                      </button>
+                    );
+                  })}
+                </div>
+                {gruposExclusivos.length > 0 && (
+                  <div>
+                    <p className="sub exclusivas-titulo">
+                      ✨ Exclusivas das suas conquistas
                     </p>
-                    <div className="lista-frases">
-                      {g.frases.map((f) => (
-                        <button
-                          key={f}
-                          className="frase exclusiva"
-                          onClick={() => tocarSino(sinoPara, f)}
-                        >
-                          {f}
-                        </button>
-                      ))}
-                    </div>
+                    {gruposExclusivos.map((g) => (
+                      <div key={g.id}>
+                        <p className="grupo-conquista">
+                          {g.conquista && (
+                            <span className="grupo-icone">
+                              <IconeConquista conquista={g.conquista} tamanho={11} />
+                            </span>
+                          )}
+                          {g.nome}
+                        </p>
+                        <div className="lista-frases">
+                          {g.frases.map((f) => (
+                            <button
+                              key={f}
+                              className="frase exclusiva"
+                              onClick={() => tocarSino(sinoPara, f)}
+                            >
+                              {f}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </React.Fragment>
+            ) : (
+              <React.Fragment>
+                <p className="sub">Mande um elogio — conta no limite de 2 sinos:</p>
+                <div className="lista-frases">
+                  {ELOGIOS.map((f) => {
+                    const txt = resolverSino(f, sinoPara);
+                    return (
+                      <button key={f} className="frase frase-elogio" onClick={() => tocarSino(sinoPara, txt)}>
+                        {txt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </React.Fragment>
             )}
             <button className="desfazer fechar-modal" onClick={() => setSinoPara(null)}>
               Cancelar
@@ -8341,7 +8428,7 @@ function AguaTracker() {
       )}
 
       {massaAberto && (
-        <div className="modal-fundo" onClick={() => { setMassaAberto(false); setFraseLivre(""); }}>
+        <div className="modal-fundo" onClick={() => setMassaAberto(false)}>
           <div className="modal-sino" onClick={(e) => e.stopPropagation()}>
             <h2 className="nome">📢 Envio em massa</h2>
             <p className="sub">
