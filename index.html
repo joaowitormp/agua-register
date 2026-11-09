@@ -1590,7 +1590,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-09.31-frases-elogios-genero";
+const APP_VERSION = "2026-11-09.32-validador-de-frases";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -6078,6 +6078,59 @@ function AguaTracker() {
       .map((p) => ({ icone: p.icone, nome: p.nome }));
     return { texto, poderes };
   };
+
+  /* ---- Validador de frases do sino ----
+     Cada frase que AFIRMA um fato (ranking, escapar de poder, seca do alvo,
+     streak, meta) só pode ser enviada se o fato for verdadeiro; as demais
+     ficam opacas. Provocações genéricas valem enquanto o alvo não bateu a
+     meta; elogios têm condição positiva própria. */
+  const valPct = (m) => {
+    const c = registrosHoje[m.id] || 0, e = extrasHoje[m.id] || 0;
+    return m.goalMl > 0 ? (c * m.bottleMl + e) / m.goalMl : 0;
+  };
+  const valPos = (id) => {
+    const i = membrosOrdenados.findIndex((x) => x.id === id);
+    return i < 0 ? 999 : i + 1;
+  };
+  const valRecebeu = (id, tipo) =>
+    ((dados.historico && dados.historico[id]) || []).some(
+      (e) => e && !e.anulado && e.tipo === tipo && chaveDe(new Date(Number(e.t) || 0)) === dia
+    );
+  const valEscapou = (m, tipo) => !!m && valRecebeu(m.id, tipo) && !efeitosDe(m)[tipo];
+  const valEscapouQualquer = (m) =>
+    ["cacto", "deserto", "tempestade", "tormenta"].some((t) => valEscapou(m, t));
+  const valSecaH = (m) => { const s = tempoSeco(m); return s === null ? 0 : s / 3600000; };
+
+  const avaliarFrase = (texto, alvo, aba) => {
+    const eu = meusMembros[0];
+    const efA = efeitosDe(alvo);
+    const seq = (conquistas[alvo.id] || {}).seqAtual || 0;
+    const R = {
+      "Achou que eu tava brincando?": { ok: valEscapouQualquer(eu), m: "só depois de você escapar de um poder" },
+      "Tira o espinho, que a água chegou.": { ok: valEscapou(eu, "cacto"), m: "só depois de você sair da cactificação" },
+      "Choveu no meu deserto. Prepara o seu.": { ok: valEscapou(eu, "deserto"), m: "só depois de você sair da desertificação" },
+      "O Atacama era aqui. Mudou de endereço — tá indo pra você.": { ok: valEscapou(eu, "deserto"), m: "só depois de você sair da desertificação" },
+      "Bati a meta e o deserto virou praia.": { ok: valPct(eu) >= 1, m: "só depois de você bater a meta de hoje" },
+      "Saí da areia sacudindo a poeira. Senta que lá vem.": { ok: valEscapou(eu, "tempestade"), m: "só depois de você se desenterrar do soterramento" },
+      "Cavei pra fora. Agora cavo a sua cova.": { ok: valEscapou(eu, "tempestade"), m: "só depois de você se desenterrar do soterramento" },
+      "KKKKKKKKKK olha o atacama aí!": { ok: !!efA.deserto, m: "só quando o alvo está desertificado" },
+      "Oásis é miragem, {meu consagrado|minha consagrada}. Bebe algo.": { ok: !!efA.deserto || valSecaH(alvo) >= 3, m: "só quando o alvo está desertificado ou há 3h+ sem água" },
+      "Nasceu espinho onde era pra ter água. KKKK": { ok: !!efA.cacto, m: "só quando o alvo está cactificado" },
+      "A seca tá tão longa que já tem fuso horário.": { ok: valSecaH(alvo) >= 3, m: "só quando o alvo está há 3h+ sem registrar água" },
+      "O trono mudou de dono. Pode devolver a coroa.": { ok: !!eu && valPos(eu.id) === 1 && valPos(alvo.id) > 1, m: "só quando você está em 1º lugar e o alvo não" },
+      "Caiu do pódio igual gota no chão: rápido e sem volta.": { ok: valPos(alvo.id) > 3, m: "só quando o alvo está fora do top 3" },
+      "1º lugar. A vista aqui é de oceano. A sua, de poça.": { ok: !!eu && valPos(eu.id) === 1 && valPos(alvo.id) > 1, m: "só quando você está em 1º lugar e o alvo não" },
+      "Meta batida! {Hidratado|Hidratada} igual gente grande. 👏": { ok: valPct(alvo) >= 1, m: "só quando o alvo bateu a meta de hoje" },
+      "{DIAS} dias seguidos batendo meta. Isso é disciplina líquida.": { ok: seq >= 3, m: "o alvo precisa de pelo menos 3 dias seguidos de meta" },
+      "Falta pouco pra meta — bora fechar com chave de ouro!": { ok: valPct(alvo) >= 0.6 && valPct(alvo) < 1, m: "só quando o alvo está perto da meta (60%+), mas ainda não bateu" },
+      "Cada gole teu puxa o time pra cima. Continua!": { ok: valPct(alvo) > 0 && valPct(alvo) < 1, m: "só quando o alvo já bebeu hoje e ainda não bateu a meta" },
+      "Saiu da seca e voltou com tudo. Que exemplo!": { ok: valEscapouQualquer(alvo), m: "só quando o alvo escapou de um poder hoje" },
+    };
+    if (R[texto]) return R[texto];
+    if (aba === "elogiar") return { ok: true, m: "" };
+    return { ok: valPct(alvo) < 1, m: "o alvo já bateu a meta de hoje" };
+  };
+
   const expressaoDe = (m) => {
     const now = Date.now();
     const efs = efeitosDe(m);
@@ -7746,8 +7799,15 @@ function AguaTracker() {
                 <div className="lista-frases">
                   {FRASES.map((f) => {
                     const txt = resolverSino(f, sinoPara);
+                    const v = avaliarFrase(f, sinoPara, "provocar");
                     return (
-                      <button key={f} className="frase" onClick={() => tocarSino(sinoPara, txt)}>
+                      <button
+                        key={f}
+                        className={`frase ${v.ok ? "" : "frase-bloqueada"}`}
+                        disabled={!v.ok}
+                        title={v.ok ? "" : "Indisponível: " + v.m}
+                        onClick={v.ok ? () => tocarSino(sinoPara, txt) : undefined}
+                      >
                         {txt}
                       </button>
                     );
@@ -7790,8 +7850,15 @@ function AguaTracker() {
                 <div className="lista-frases">
                   {ELOGIOS.map((f) => {
                     const txt = resolverSino(f, sinoPara);
+                    const v = avaliarFrase(f, sinoPara, "elogiar");
                     return (
-                      <button key={f} className="frase frase-elogio" onClick={() => tocarSino(sinoPara, txt)}>
+                      <button
+                        key={f}
+                        className={`frase frase-elogio ${v.ok ? "" : "frase-bloqueada"}`}
+                        disabled={!v.ok}
+                        title={v.ok ? "" : "Indisponível: " + v.m}
+                        onClick={v.ok ? () => tocarSino(sinoPara, txt) : undefined}
+                      >
                         {txt}
                       </button>
                     );
@@ -7870,8 +7937,7 @@ function AguaTracker() {
               mostrarSino={
                 tenhoCartao &&
                 minhasConquistas.has("primeiro-gole") &&
-                !donoDoCartao &&
-                !bateuMeta
+                !donoDoCartao
               }
               alertando={alertas.some((a) => a.memberId === m.id)}
               avisoVuln={donoDoCartao ? avisoVulnDe(m) : null}
