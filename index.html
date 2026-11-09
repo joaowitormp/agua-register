@@ -1581,7 +1581,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-09.29-conquistas-e-ataque-sob-efeito";
+const APP_VERSION = "2026-11-09.30-sofrer-poder-sob-tempestade";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -8284,7 +8284,13 @@ function AguaTracker() {
               count={registrosHoje[minhaTormenta.membro.id] || 0}
               extraMl={extrasHoje[minhaTormenta.membro.id] || 0}
               dono
-              efeitos={{}}
+              efeitos={(() => {
+                /* a cena já representa a tormenta/soterramento; mantém os
+                   OUTROS poderes (cacto/deserto) para a vítima sofrer as
+                   consequências sem anular a tempestade */
+                const { tormenta, tempestade, ...resto } = efeitosDe(minhaTormenta.membro);
+                return resto;
+              })()}
               selos={CONQUISTAS.filter((c) => conquistas[minhaTormenta.membro.id] && conquistas[minhaTormenta.membro.id].conjunto.has(c.id))}
               garrafaId={garrafaSelDe(minhaTormenta.membro.id)}
               garrafasDono={garrafasDe(minhaTormenta.membro.id)}
