@@ -668,7 +668,24 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .frase-casamento { border-color: #F2D680; background: #FFFBF0; }
 .frase-casamento:hover:not(:disabled) { background: #FFF6DA; border-color: #E8B004; }
 .frase-casamento { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
-.frase-bloqueada { opacity: 0.55; cursor: not-allowed; }
+.frase-bloqueada { opacity: 0.5; cursor: not-allowed; }
+.frase-massa { margin-bottom: 8px; }
+.frase-linha { display: flex; align-items: stretch; gap: 6px; }
+.frase-linha .frase { flex: 1; margin: 0; }
+.frase-info {
+  flex: none; width: 38px; border: 1px solid #D9E6EC; background: #F7FBFD;
+  border-radius: 10px; color: #5B7D8C; cursor: pointer; display: grid; place-items: center;
+  transition: all 0.12s ease;
+}
+.frase-info:hover { background: #EAF6FA; border-color: #0F8BB0; color: #0F8BB0; }
+.frase-info.alerta { color: #C77A1B; border-color: #E6C79A; background: #FDF6EC; }
+.massa-detalhe {
+  margin: 6px 2px 2px; padding: 8px 10px; border-radius: 10px; background: #F2F8FB;
+  border: 1px solid #DCEAF0; font-size: 12px; line-height: 1.5;
+}
+.massa-vai { margin: 0 0 4px; color: #0B6B4F; font-weight: 600; }
+.massa-vai.vazio { color: #8A5A1B; }
+.massa-fora { margin: 2px 0 0; color: #6B5230; }
 .frase-texto { }
 .frase-status { font-size: 10.5px; font-weight: 700; }
 .frase-status.enviada { color: #0FA36B; }
@@ -1590,7 +1607,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-09.32-validador-de-frases";
+const APP_VERSION = "2026-11-09.33-massa-validada";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4305,6 +4322,52 @@ function Emped({ size = "m", alvo = EMPED_ALVO, onLivre }) {
   );
 }
 
+/* Linha de frase no Envio em massa: botão de envio (opaco quando não serve a
+   ninguém) + ícone de atenção que abre quem recebe / quem fica de fora. */
+function FraseMassa({ frase, destinos, aberto, onInfo, onEnviar, exclusiva }) {
+  const { vao, fora } = destinos;
+  const bloqueada = vao.length === 0;
+  const resumo =
+    (vao.length ? `Vai para ${vao.length}: ${vao.join(", ")}. ` : "Ninguém recebe agora. ") +
+    (fora.length ? "Fora: " + fora.map((x) => `${x.nome} (${x.motivo})`).join("; ") : "");
+  return (
+    <div className="frase-massa">
+      <div className="frase-linha">
+        <button
+          className={`frase ${exclusiva ? "exclusiva" : ""} ${bloqueada ? "frase-bloqueada" : ""}`}
+          disabled={bloqueada}
+          onClick={bloqueada ? undefined : onEnviar}
+        >
+          {frase}
+        </button>
+        <button
+          type="button"
+          className={`frase-info ${bloqueada ? "alerta" : ""}`}
+          title={resumo}
+          aria-label="Quem recebe e quem fica de fora"
+          onClick={(e) => { e.stopPropagation(); onInfo(); }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><path d="M12 7v6" /><path d="M12 17h.01" />
+          </svg>
+        </button>
+      </div>
+      {aberto && (
+        <div className="massa-detalhe">
+          {vao.length > 0 ? (
+            <p className="massa-vai">✅ Vai para {vao.length}: {vao.join(", ")}</p>
+          ) : (
+            <p className="massa-vai vazio">Essa frase não se aplica a ninguém agora.</p>
+          )}
+          {fora.map((x) => (
+            <p key={x.nome} className="massa-fora">⚠️ {x.nome} — {x.motivo}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avisoFechado, setAvisoFechado] = useState(false);
@@ -5092,6 +5155,7 @@ function AguaTracker() {
   const [sinoPara, setSinoPara] = useState(null);
   const [sinoAba, setSinoAba] = useState("provocar"); // "provocar" | "elogiar"
   const [massaAberto, setMassaAberto] = useState(false); // envio em massa 📢
+  const [massaInfo, setMassaInfo] = useState(null); // frase com o detalhe de destinatários aberto
   const [regrasCarta, setRegrasCarta] = useState(false); // manual da carta anti-seca
   const [novidadeDesempenho, setNovidadeDesempenho] = useState(false); // guia "Como funciona": só abre pelo botão ⚡, nunca automático
   const [cartaVirada, setCartaVirada] = useState(false); // carta anti-seca virada?
@@ -6129,6 +6193,24 @@ function AguaTracker() {
     if (R[texto]) return R[texto];
     if (aba === "elogiar") return { ok: true, m: "" };
     return { ok: valPct(alvo) < 1, m: "o alvo já bateu a meta de hoje" };
+  };
+
+  /* Envio em massa: para uma frase, quem recebe (situação bate) e quem fica
+     de fora (com o motivo). Se ninguém recebe, a frase é descartada. */
+  const destinatariosMassa = (frase) => {
+    const vao = [], fora = [];
+    dados.members.forEach((m) => {
+      const meu = m.ownerId === meuDispositivo || posseExtra.includes(m.id);
+      if (meu || ehNoivo(m)) return; /* nem entra na conta */
+      if (toquesRecentes(m.id).length >= 2) {
+        fora.push({ nome: m.name, motivo: "já recebeu 2 sinos nos últimos 10 min" });
+        return;
+      }
+      const v = avaliarFrase(frase, m, "provocar");
+      if (v.ok) vao.push(m.name);
+      else fora.push({ nome: m.name, motivo: v.m });
+    });
+    return { vao, fora };
   };
 
   const expressaoDe = (m) => {
@@ -7374,13 +7456,12 @@ function AguaTracker() {
       const meu = m.ownerId === meuDispositivo || posseExtra.includes(m.id);
       if (meu) return false;
       if (ehNoivo(m)) return false; /* noivo fora do disparo em massa */
-      const c = registrosHoje[m.id] || 0;
-      const e = extrasHoje[m.id] || 0;
-      if (m.goalMl > 0 && c * m.bottleMl + e >= m.goalMl) return false;
-      return toquesRecentes(m.id).length < 2;
+      if (toquesRecentes(m.id).length >= 2) return false;
+      /* só vai para quem a frase faz sentido (situação confere) */
+      return avaliarFrase(frase, m, "provocar").ok;
     });
     if (alvos.length === 0) {
-      setToast("Ninguém disponível agora — todos no limite ou com a meta batida");
+      setToast("Essa frase não se aplica a ninguém agora — nada enviado");
       setTimeout(() => setToast(null), 4000);
       return;
     }
@@ -8510,9 +8591,14 @@ function AguaTracker() {
             )}
             <div className="lista-frases">
               {FRASES.map((f) => (
-                <button key={f} className="frase" onClick={() => enviarEmMassa(f)}>
-                  {f}
-                </button>
+                <FraseMassa
+                  key={f}
+                  frase={f}
+                  destinos={destinatariosMassa(f)}
+                  aberto={massaInfo === f}
+                  onInfo={() => setMassaInfo(massaInfo === f ? null : f)}
+                  onEnviar={() => enviarEmMassa(f)}
+                />
               ))}
             </div>
             {gruposExclusivos.length > 0 && (
@@ -8532,13 +8618,15 @@ function AguaTracker() {
                     </p>
                     <div className="lista-frases">
                       {g.frases.map((f) => (
-                        <button
+                        <FraseMassa
                           key={f}
-                          className="frase exclusiva"
-                          onClick={() => enviarEmMassa(f)}
-                        >
-                          {f}
-                        </button>
+                          frase={f}
+                          exclusiva
+                          destinos={destinatariosMassa(f)}
+                          aberto={massaInfo === f}
+                          onInfo={() => setMassaInfo(massaInfo === f ? null : f)}
+                          onEnviar={() => enviarEmMassa(f)}
+                        />
                       ))}
                     </div>
                   </div>
