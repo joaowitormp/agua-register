@@ -624,6 +624,24 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .cartao.desertico .barra { background: rgba(120, 78, 25, 0.18); }
 .cartao.desertico .circulo-conquista { background: rgba(255, 255, 255, 0.55); }
 
+/* ---- Empedramento (desertificação pesada) ----
+   Só muda o FUNDO do elemento para um tom arenoso que contrasta com a
+   areia do card; texto e ícones permanecem visíveis. A garrafa vira pedra
+   pela própria silhueta (filtro de tom + imprecisão), mantendo o nível de
+   água. As rachaduras ficam na camada .emped-cracks por cima. */
+.cartao.desertico .emped-host { position: relative; }
+.emped-cracks { position: absolute; inset: 0; z-index: 7; cursor: pointer; overflow: hidden; border-radius: inherit; }
+.cartao.desertico .beber.emped-host { background: #CDAE72 !important; color: #3E2A0E !important; }
+.cartao.desertico .beber.emped-host .beber-ml { color: #6E4A1E !important; }
+.cartao.desertico .desfazer.emped-host { background: #CDAE72 !important; color: #3E2A0E !important; border-color: #B98F4E !important; }
+.cartao.desertico .link-extra.emped-host { background: #CDAE72 !important; color: #3E2A0E !important; text-decoration: none !important; border-radius: 12px; }
+.cartao.desertico .card-menu-btn.emped-host { background: #CDAE72 !important; color: #3E2A0E !important; border-radius: 8px; }
+.cartao.desertico .circulo-conquista.emped-host { background: #CDAE72 !important; }
+.cartao.desertico .circulo-conquista.emped-host svg { filter: sepia(.7) saturate(1.4) brightness(.78) hue-rotate(-8deg); }
+.cartao.desertico .garrafa-btn.emped-host { filter: sepia(.8) saturate(1.2) brightness(.92) hue-rotate(-12deg) url(#emped-rough); }
+.emped-debris { position: fixed; z-index: 9999; pointer-events: none; border-radius: 2px; }
+.emped-debris.sand { border-radius: 50%; }
+
 
 /* Banners especiais */
 .banner-alerta.anuncio-cacto,
@@ -1559,7 +1577,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-06.25-seca-desde-criacao";
+const APP_VERSION = "2026-11-09.27-empedramento-deserto";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4119,6 +4137,135 @@ function SetorDropdown({ value, setores, onSelecionar, onCriar, onEditarSetor, o
   );
 }
 
+/* ================= Desertificação: empedramento =================
+   Sob desertificação, cada elemento clicável do card do dono (garrafa,
+   "Bebi", "Desfazer", medida personalizada, os 3 pontinhos e cada
+   conquista) vira pedra arenosa com rachaduras ALEATÓRIAS, interligadas e
+   de espessura variada, que crescem a cada toque e surgem em novos pontos.
+   São EMPED_ALVO toques para libertar; no último, desaba pedra e areia de
+   uma vez. Só o elemento libertado volta ao normal — os demais seguem até
+   a meta ser batida; o fundo desértico persiste. */
+const EMPED_ALVO = 20;
+const _ER = (a, b) => a + Math.random() * (b - a);
+const _EC = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+const EMPED_CRACK = "#4A3012";
+function empedMakeNet(w, h) { return { w, h, nodes: [], segs: [] }; }
+function empedSprout(net) {
+  const { w, h, nodes } = net;
+  let ax, ay;
+  if (nodes.length === 0) { ax = _ER(w * 0.2, w * 0.8); ay = _ER(h * 0.2, h * 0.8); nodes.push({ x: ax, y: ay }); }
+  else { const a = nodes[(Math.random() * nodes.length) | 0]; ax = a.x; ay = a.y; }
+  let ang = _ER(0, Math.PI * 2), x = ax, y = ay;
+  const steps = 2 + ((Math.random() * 3) | 0);
+  const w0 = _ER(1.2, 2.7);
+  for (let s = 0; s < steps; s++) {
+    ang += _ER(-0.55, 0.55);
+    const len = _ER(Math.min(w, h) * 0.12, Math.min(w, h) * 0.32);
+    const nx = _EC(x + Math.cos(ang) * len, 1, w - 1);
+    const ny = _EC(y + Math.sin(ang) * len, 1, h - 1);
+    const wseg = Math.max(0.5, w0 * (1 - s * 0.2) + _ER(-0.35, 0.35));
+    net.segs.push({ d: `M${x.toFixed(1)} ${y.toFixed(1)} L${nx.toFixed(1)} ${ny.toFixed(1)}`, w: wseg });
+    nodes.push({ x: nx, y: ny });
+    if (Math.random() < 0.55 && s > 0) {
+      const bang = ang + _ER(0.6, 1.4) * (Math.random() < 0.5 ? -1 : 1);
+      const bl = _ER(Math.min(w, h) * 0.1, Math.min(w, h) * 0.24);
+      const bx = _EC(nx + Math.cos(bang) * bl, 1, w - 1);
+      const by = _EC(ny + Math.sin(bang) * bl, 1, h - 1);
+      net.segs.push({ d: `M${nx.toFixed(1)} ${ny.toFixed(1)} L${bx.toFixed(1)} ${by.toFixed(1)}`, w: Math.max(0.5, wseg * 0.68) });
+      nodes.push({ x: bx, y: by });
+    }
+    x = nx; y = ny;
+  }
+}
+function empedGrow(net, k) { for (let i = 0; i < k; i++) empedSprout(net); }
+function empedSVG(net) {
+  const paths = net.segs.map((s) => {
+    let p = `<path d="${s.d}" fill="none" stroke="${EMPED_CRACK}" stroke-width="${s.w.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`;
+    if (s.w > 1.5) p += `<path d="${s.d}" fill="none" stroke="#EBD9AE" stroke-width="${(s.w * 0.3).toFixed(2)}" stroke-linecap="round" opacity="0.3"/>`;
+    return p;
+  }).join("");
+  const vb = `0 0 ${net.w.toFixed(0)} ${net.h.toFixed(0)}`;
+  return `<svg viewBox="${vb}" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none">${paths}</svg>`;
+}
+const EMPED_SIZE = { s: { n: 4, min: 3, max: 6 }, m: { n: 7, min: 4, max: 8 }, l: { n: 11, min: 5, max: 11 } };
+function empedDebris(px, py, size, factor) {
+  const cfg = EMPED_SIZE[size] || EMPED_SIZE.m;
+  const count = Math.round(cfg.n * factor);
+  for (let i = 0; i < count; i++) {
+    const d = document.createElement("div");
+    const sand = Math.random() < 0.45;
+    const sz = sand ? _ER(2, 3.5) : _ER(cfg.min, cfg.max);
+    d.className = "emped-debris" + (sand ? " sand" : "");
+    d.style.width = sz + "px"; d.style.height = (sand ? sz : sz * _ER(0.7, 1)) + "px";
+    d.style.left = (px - sz / 2) + "px"; d.style.top = (py - sz / 2) + "px";
+    const tone = sand ? ["#E4CE9C", "#D8BC86", "#CBB079"] : ["#B8924E", "#9C7836", "#C7A565", "#86642C"];
+    d.style.background = tone[(Math.random() * tone.length) | 0];
+    if (!sand) d.style.boxShadow = "0 1px 1px rgba(80,56,20,.4)";
+    document.body.appendChild(d);
+    const ang = _ER(-Math.PI * 0.9, -Math.PI * 0.1);
+    const spread = (size === "l" ? 1.4 : size === "m" ? 1.1 : 0.9) * (factor > 2 ? 1.7 : 1);
+    const dist = _ER(18, 52) * spread;
+    const dx = Math.cos(ang) * dist;
+    const rise = _ER(12, 40) * (size === "l" ? 1.3 : 1) * (factor > 2 ? 1.4 : 1);
+    const fall = _ER(45, 100) * (factor > 2 ? 1.4 : 1);
+    const rot = _ER(-240, 240);
+    d.animate([
+      { transform: "translate(0,0) rotate(0deg)", opacity: 1 },
+      { transform: `translate(${(dx * 0.6).toFixed(1)}px, ${(-rise).toFixed(1)}px) rotate(${(rot * 0.4).toFixed(0)}deg)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(${dx.toFixed(1)}px, ${fall.toFixed(1)}px) rotate(${rot.toFixed(0)}deg)`, opacity: 0 }
+    ], { duration: _ER(600, 900), easing: "cubic-bezier(.3,.65,.5,1)" }).onfinish = () => d.remove();
+  }
+}
+
+/* Camada de rachaduras sobre UM elemento. Mede o elemento hospedeiro
+   (parentNode), capta o clique (bloqueando a ação do botão enquanto
+   empedrado), adensa a cada toque e, ao atingir `alvo`, solta o excesso e
+   avisa o pai (onLivre) para devolver o elemento ao normal. */
+function Emped({ size = "m", alvo = EMPED_ALVO, onLivre }) {
+  const ref = React.useRef(null);
+  const netRef = React.useRef(null);
+  const clicksRef = React.useRef(0);
+  const [html, setHtml] = React.useState("");
+  React.useLayoutEffect(() => {
+    const host = ref.current && ref.current.parentNode;
+    if (!host) return;
+    const r = host.getBoundingClientRect();
+    const net = empedMakeNet(Math.max(r.width, 10), Math.max(r.height, 10));
+    empedGrow(net, 2);
+    netRef.current = net;
+    setHtml(empedSVG(net));
+  }, []);
+  const clique = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const net = netRef.current;
+    if (!net) return;
+    clicksRef.current += 1;
+    if (clicksRef.current < alvo) {
+      empedGrow(net, 2);
+      setHtml(empedSVG(net));
+      empedDebris(e.clientX, e.clientY, size, 1);
+    } else {
+      const el = ref.current;
+      if (el) {
+        const b = el.getBoundingClientRect();
+        for (let k = 0; k < 6; k++) empedDebris(b.left + _ER(0, b.width), b.top + _ER(0, b.height), size, 3.4);
+      }
+      onLivre && onLivre();
+    }
+  };
+  return (
+    <span
+      ref={ref}
+      className="emped-cracks"
+      onClick={clique}
+      onMouseDown={(e) => e.stopPropagation()}
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avisoFechado, setAvisoFechado] = useState(false);
@@ -4138,6 +4285,13 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
   const desertico = !!efeitos.deserto;
   const soterrado = !!efeitos.tempestade;
   const tormentado = !!efeitos.tormenta;
+  // Empedramento: só no card do próprio dono, enquanto a meta não é batida
+  const petrif = desertico && dono && !flutuante && !noivo && !bateu;
+  const [empLivres, setEmpLivres] = useState({});
+  React.useEffect(() => { if (!petrif) setEmpLivres({}); }, [petrif]);
+  const empAtivo = (k) => petrif && !empLivres[k];
+  const empCls = (k) => (empAtivo(k) ? " emped-host" : "");
+  const empLivrar = (k) => setEmpLivres((s) => ({ ...s, [k]: true }));
 
   return (
     <div
@@ -4145,6 +4299,16 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
       className={`cartao ${flutuante ? "cartao-flutuante" : ""} ${dono && !flutuante ? "meu" : ""} ${alertando ? "alertando" : ""} ${desertico ? "desertico" : ""} ${soterrado ? "soterrado" : ""} ${tormentado ? "tormentado" : ""} ${noivo ? "noivo" : ""}`}
     >
       {rei && !noivo && <BastaoRei />}
+      {petrif && (
+        <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+          <defs>
+            <filter id="emped-rough" x="-20%" y="-20%" width="140%" height="140%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves="2" seed="7" result="n" />
+              <feDisplacementMap in="SourceGraphic" in2="n" scale="1.8" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+          </defs>
+        </svg>
+      )}
       <div className="cartao-topo">
         <div>
           {membro.setor && (
@@ -4179,7 +4343,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           {dono && !noivo && !flutuante && (
             <div className="card-menu" ref={menuRef}>
               <button
-                className="card-menu-btn"
+                className={`card-menu-btn${empCls('menu')}`}
                 title="Opções do cartão"
                 aria-label={`Opções do cartão de ${membro.name}`}
                 onClick={() => { setMenuAberto((v) => !v); setConfirmando(false); }}
@@ -4188,6 +4352,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
                   <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
                 </svg>
                 {creditoGarrafa > 0 && <span className="card-menu-badge">{creditoGarrafa}</span>}
+                {empAtivo('menu') && <Emped size="s" onLivre={() => empLivrar('menu')} />}
               </button>
               {menuAberto && (
                 <div className="card-menu-painel">
@@ -4265,7 +4430,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
       <div className="cartao-meio">
         {dono ? (
           <button
-            className="garrafa-btn"
+            className={`garrafa-btn${empCls('garrafa')}`}
             onClick={() => onBeber(membro.id)}
             title="Registrar 1 garrafa"
             aria-label={`Registrar uma garrafa de ${fmt(membro.bottleMl)} para ${membro.name}`}
@@ -4276,6 +4441,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
                 {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} tremor={tremorOlhos} uid={membro.id} />}
               </span>
             )}
+            {empAtivo('garrafa') && <Emped size="l" onLivre={() => empLivrar('garrafa')} />}
           </button>
         ) : (
           <div className="garrafa-fixa" title="Somente quem criou esta garrafa pode registrar">
@@ -4312,8 +4478,9 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
             aria-label={`Ver conquistas de ${membro.name}`}
           >
             {selos.map((c) => (
-              <span key={c.id} className="circulo-conquista" title={c.nome}>
+              <span key={c.id} className={`circulo-conquista${empCls('conq-' + c.id)}`} title={c.nome}>
                 <IconeConquista conquista={c} />
+                {empAtivo('conq-' + c.id) && <Emped size="s" onLivre={() => empLivrar('conq-' + c.id)} />}
               </span>
             ))}
             {selos.length < CONQUISTAS.length && (
@@ -4343,17 +4510,19 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
 
       {dono && (
         <div className="cartao-acoes">
-          <button className="beber" onClick={() => onBeber(membro.id)}>
+          <button className={`beber${empCls('beber')}`} onClick={() => onBeber(membro.id)}>
             <span className="beber-texto">Bebi 1 garrafa</span>
             <span className="beber-ml">+{fmt(membro.bottleMl)}</span>
+            {empAtivo('beber') && <Emped size="l" onLivre={() => empLivrar('beber')} />}
           </button>
           <button
-            className="desfazer"
+            className={`desfazer${empCls('desfazer')}`}
             onClick={() => onDesfazer(membro.id)}
-            disabled={count === 0 && extraMl === 0}
+            disabled={(count === 0 && extraMl === 0) && !empAtivo('desfazer')}
             title="Desfazer o último registro"
           >
             Desfazer
+            {empAtivo('desfazer') && <Emped size="m" onLivre={() => empLivrar('desfazer')} />}
           </button>
         </div>
       )}
@@ -4369,8 +4538,9 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
         </p>
       )}
       {dono && (
-        <button className="link-extra" onClick={() => onExtra(membro)}>
+        <button className={`link-extra${empCls('medida')}`} onClick={() => onExtra(membro)}>
           Adicionar outra medida
+          {empAtivo('medida') && <Emped size="m" onLivre={() => empLivrar('medida')} />}
         </button>
       )}
       {tormentado && !flutuante && (
