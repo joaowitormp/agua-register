@@ -641,6 +641,10 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .cartao.desertico .garrafa-btn.emped-host { filter: sepia(.8) saturate(1.2) brightness(.92) hue-rotate(-12deg) url(#emped-rough); }
 .emped-debris { position: fixed; z-index: 9999; pointer-events: none; border-radius: 2px; }
 .emped-debris.sand { border-radius: 50%; }
+/* 1s de carência após quebrar: elemento já normal, mas um escudo
+   transparente barra cliques acidentais do embalo. */
+.emped-cooling { position: relative; }
+.emped-cooldown { position: absolute; inset: 0; z-index: 7; border-radius: inherit; cursor: default; }
 
 
 /* Banners especiais */
@@ -1577,7 +1581,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-09.27-empedramento-deserto";
+const APP_VERSION = "2026-11-09.29-conquistas-e-ataque-sob-efeito";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4288,10 +4292,29 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
   // Empedramento: só no card do próprio dono, enquanto a meta não é batida
   const petrif = desertico && dono && !flutuante && !noivo && !bateu;
   const [empLivres, setEmpLivres] = useState({});
-  React.useEffect(() => { if (!petrif) setEmpLivres({}); }, [petrif]);
+  const [empCooldown, setEmpCooldown] = useState({});
+  React.useEffect(() => { if (!petrif) { setEmpLivres({}); setEmpCooldown({}); } }, [petrif]);
   const empAtivo = (k) => petrif && !empLivres[k];
-  const empCls = (k) => (empAtivo(k) ? " emped-host" : "");
-  const empLivrar = (k) => setEmpLivres((s) => ({ ...s, [k]: true }));
+  const empCls = (k) => (empAtivo(k) ? " emped-host" : empCooldown[k] ? " emped-cooling" : "");
+  // Ao quebrar, o elemento volta ao normal, mas fica desclicável por 1s
+  // (escudo transparente) para evitar cliques acidentais do embalo.
+  const empLivrar = (k) => {
+    setEmpLivres((s) => ({ ...s, [k]: true }));
+    setEmpCooldown((s) => ({ ...s, [k]: true }));
+    setTimeout(() => setEmpCooldown((s) => { const n = { ...s }; delete n[k]; return n; }), 1000);
+  };
+  const empCamada = (k, size) => {
+    if (empAtivo(k)) return <Emped size={size} onLivre={() => empLivrar(k)} />;
+    if (empCooldown[k]) return (
+      <span
+        className="emped-cooldown"
+        aria-hidden="true"
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+        onMouseDown={(e) => e.stopPropagation()}
+      />
+    );
+    return null;
+  };
 
   return (
     <div
@@ -4352,7 +4375,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
                   <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
                 </svg>
                 {creditoGarrafa > 0 && <span className="card-menu-badge">{creditoGarrafa}</span>}
-                {empAtivo('menu') && <Emped size="s" onLivre={() => empLivrar('menu')} />}
+                {empCamada('menu', 's')}
               </button>
               {menuAberto && (
                 <div className="card-menu-painel">
@@ -4441,7 +4464,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
                 {expr && <OlhosGarrafa tipo={cactificado ? "cacto" : garrafaId} expr={expr} tremor={tremorOlhos} uid={membro.id} />}
               </span>
             )}
-            {empAtivo('garrafa') && <Emped size="l" onLivre={() => empLivrar('garrafa')} />}
+            {empCamada('garrafa', 'l')}
           </button>
         ) : (
           <div className="garrafa-fixa" title="Somente quem criou esta garrafa pode registrar">
@@ -4473,16 +4496,26 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           {bateu && <p className="status ok">Meta batida! 🎉</p>}
           <button
             className="conquistas-linha"
-            onClick={() => onConquistas(membro)}
+            onClick={petrif ? undefined : () => onConquistas(membro)}
+            style={petrif ? { cursor: "default" } : undefined}
             title={`Ver conquistas de ${membro.name}`}
             aria-label={`Ver conquistas de ${membro.name}`}
           >
-            {selos.map((c) => (
-              <span key={c.id} className={`circulo-conquista${empCls('conq-' + c.id)}`} title={c.nome}>
-                <IconeConquista conquista={c} />
-                {empAtivo('conq-' + c.id) && <Emped size="s" onLivre={() => empLivrar('conq-' + c.id)} />}
-              </span>
-            ))}
+            {selos.map((c) => {
+              const conqLivre = petrif && !empAtivo('conq-' + c.id);
+              return (
+                <span
+                  key={c.id}
+                  className={`circulo-conquista${empCls('conq-' + c.id)}`}
+                  title={c.nome}
+                  onClick={conqLivre ? (e) => { e.stopPropagation(); onConquistas(membro); } : undefined}
+                  style={conqLivre ? { cursor: "pointer" } : undefined}
+                >
+                  <IconeConquista conquista={c} />
+                  {empCamada('conq-' + c.id, 's')}
+                </span>
+              );
+            })}
             {selos.length < CONQUISTAS.length && (
               <span className="circulo-conquista mais" title="Há mais conquistas para desbloquear">
                 <svg
@@ -4513,7 +4546,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
           <button className={`beber${empCls('beber')}`} onClick={() => onBeber(membro.id)}>
             <span className="beber-texto">Bebi 1 garrafa</span>
             <span className="beber-ml">+{fmt(membro.bottleMl)}</span>
-            {empAtivo('beber') && <Emped size="l" onLivre={() => empLivrar('beber')} />}
+            {empCamada('beber', 'l')}
           </button>
           <button
             className={`desfazer${empCls('desfazer')}`}
@@ -4522,7 +4555,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
             title="Desfazer o último registro"
           >
             Desfazer
-            {empAtivo('desfazer') && <Emped size="m" onLivre={() => empLivrar('desfazer')} />}
+            {empCamada('desfazer', 'm')}
           </button>
         </div>
       )}
@@ -4540,7 +4573,7 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
       {dono && (
         <button className={`link-extra${empCls('medida')}`} onClick={() => onExtra(membro)}>
           Adicionar outra medida
-          {empAtivo('medida') && <Emped size="m" onLivre={() => empLivrar('medida')} />}
+          {empCamada('medida', 'm')}
         </button>
       )}
       {tormentado && !flutuante && (
@@ -6283,12 +6316,15 @@ function AguaTracker() {
         motivo: "esse poder foi tomado de você hoje — só volta quando for usado",
       };
     }
-    /* Quem está sob efeito não desfere poder nenhum: primeiro se cura */
+    /* Sob cacto/deserto o usuário ainda precisa se curar antes de atacar.
+       Já tempestade (soterramento) e tormenta NÃO travam o ataque: dá para
+       lançar poderes mesmo soterrado/sob tempestade, e os efeitos do
+       usuário são mantidos. */
     const meuEfeito = (() => {
       for (const m of meusMembros) {
         const efs = efeitosDe(m);
-        const tipo = Object.keys(efs)[0];
-        if (tipo) return tipo;
+        if (efs.cacto) return "cacto";
+        if (efs.deserto) return "deserto";
       }
       return null;
     })();
@@ -6296,7 +6332,6 @@ function AguaTracker() {
       const rotulo = {
         cacto: "cactificado",
         deserto: "desertificado",
-        tempestade: "soterrado",
       }[meuEfeito] || "sob efeito";
       return {
         ok: false,
