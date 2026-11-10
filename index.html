@@ -86,7 +86,29 @@ body { margin: 0; }
   display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
   box-shadow: 0 2px 8px rgba(15, 139, 176, 0.05);
 }
+.stat-bloco {
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+.stat-bloco:hover, .stat-bloco:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(30, 90, 140, 0.18);
+  border-color: #9FC6E4; outline: none;
+}
+.stat-bloco:hover .stat-ico, .stat-bloco:focus-visible .stat-ico { color: #0F8BB0; }
 .stat-bloco.stat-melhor { border-color: #BBD6EC; box-shadow: 0 3px 12px rgba(30, 90, 140, 0.14); }
+/* Modal de ranking do time por estatística */
+.stat-modal { max-width: 440px; }
+.stat-modal-titulo { display: flex; align-items: center; gap: 8px; }
+.stat-modal-ico { color: #0F8BB0; line-height: 0; }
+.stat-rank { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; }
+.stat-rank-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: #F5FAFC; border: 1px solid #E4EFF4; }
+.stat-rank-item.eu { background: #EAF6FA; border-color: #BFE0EF; }
+.stat-rank-item:first-child .stat-rank-pos { color: #C79A2B; }
+.stat-rank-pos { font-weight: 800; color: #5B8299; width: 30px; flex: none; }
+.stat-rank-nome { flex: 1; font-weight: 600; color: #0B3446; }
+.stat-rank-voce { font-weight: 600; color: #0F8BB0; font-size: 12px; }
+.stat-rank-val { font-weight: 800; color: #0F8BB0; }
 /* Selo diagonal "O/A MELHOR" no canto superior direito */
 .stat-ribbon {
   position: absolute; top: 11px; right: -25px; transform: rotate(45deg);
@@ -98,7 +120,7 @@ body { margin: 0; }
 /* desloca o texto um pouco para frente (mesma direção da faixa) para
    centralizá-lo na parte visível do selo no canto */
 .stat-ribbon-txt { display: inline-block; transform: translateX(5px); }
-.stat-ico { color: #AFC4CE; line-height: 0; margin-bottom: 1px; }
+.stat-ico { color: #AFC4CE; line-height: 0; margin-bottom: 1px; transition: color 0.14s ease; }
 .stat-ico svg { display: block; }
 .stat-valor { font-size: 20px; font-weight: 800; color: #0B3446; line-height: 1.1; }
 .stat-rot { display: flex; flex-direction: column; font-size: 10.5px; line-height: 1.2; color: #6A8695; }
@@ -1612,7 +1634,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-10.34-poderes-mesclados";
+const APP_VERSION = "2026-11-10.35-ranking-por-stat";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -5176,6 +5198,7 @@ function AguaTracker() {
   const [extraPara, setExtraPara] = useState(null); // membro em registro de medida avulsa
   const [valorExtra, setValorExtra] = useState("");
   const [conquistasDe, setConquistasDe] = useState(null); // membro cujas conquistas estão abertas
+  const [statRanking, setStatRanking] = useState(null); // {ico, k, rot} do bloco de estatística aberto
   const [historicoDe, setHistoricoDe] = useState(null); // membro cujo histórico está aberto
   const [mesHist, setMesHist] = useState(0); // 0 = mês atual, 1 = mês anterior
   useEffect(() => {
@@ -7992,7 +8015,15 @@ function AguaTracker() {
               { ico: "soterramento", k: "soterramento", valor: minhasEstatisticas.soterramento, rot: ["Soterramentos", "aplicados"] },
               { ico: "tempestade", k: "tempestade", valor: minhasEstatisticas.tempestade, rot: ["Tempestades", "aplicadas"] },
             ].map((s) => (
-              <div className={`stat-bloco ${souMelhorEm[s.k] ? "stat-melhor" : ""}`} key={s.rot.join(" ")} title={s.rot.join(" ")}>
+              <div
+                className={`stat-bloco ${souMelhorEm[s.k] ? "stat-melhor" : ""}`}
+                key={s.rot.join(" ")}
+                title={`Ver ranking — ${s.rot.join(" ")}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setStatRanking(s)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStatRanking(s); } }}
+              >
                 {souMelhorEm[s.k] && (<span className="stat-ribbon"><span className="stat-ribbon-txt">{rotuloMelhor}</span></span>)}
                 <span className="stat-ico"><StatIcone nome={s.ico} /></span>
                 <span className="stat-valor">{s.valor}</span>
@@ -8194,7 +8225,7 @@ function AguaTracker() {
               />
             </label>
             <div className="presets">
-              {[180, 200, 300, 510, 500].map((v) => (
+              {[180, 200, 300, 500, 510].map((v) => (
                 <button
                   key={v}
                   className={`preset ${Number(valorExtra) === v ? "ativo" : ""}`}
@@ -9086,6 +9117,37 @@ function AguaTracker() {
           />
         );
       })()}
+
+      {statRanking && (
+        <div className="modal-fundo" onClick={() => setStatRanking(null)}>
+          <div className="modal-sino stat-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="nome stat-modal-titulo">
+              <span className="stat-modal-ico"><StatIcone nome={statRanking.ico} /></span>
+              {statRanking.rot.join(" ")}
+            </h2>
+            <p className="sub">Ranking do time — do maior para o menor</p>
+            <ol className="stat-rank">
+              {dados.members
+                .map((m) => ({ m, v: estatisticasDe(m)[statRanking.k] || 0 }))
+                .sort((a, b) => b.v - a.v || a.m.name.localeCompare(b.m.name))
+                .map((row, i) => {
+                  const meu = meusMembros.some((x) => x.id === row.m.id);
+                  const ehMl = statRanking.k === "totalMl" || statRanking.k === "mediaDia";
+                  return (
+                    <li key={row.m.id} className={`stat-rank-item ${meu ? "eu" : ""}`}>
+                      <span className="stat-rank-pos">{i + 1}º</span>
+                      <span className="stat-rank-nome">{row.m.name}{meu && <span className="stat-rank-voce"> · você</span>}</span>
+                      <span className="stat-rank-val">{ehMl ? fmt(row.v) : row.v}</span>
+                    </li>
+                  );
+                })}
+            </ol>
+            <button className="desfazer fechar-modal" onClick={() => setStatRanking(null)}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
 
       {conquistasDe && (
         <div className="modal-fundo" onClick={() => setConquistasDe(null)}>
