@@ -575,7 +575,12 @@ body.bastao-voando .bastao-rei { opacity: 0; }
 .regras-poder-linha { margin: 0 0 3px; font-size: 12.5px; line-height: 1.5; color: #4B7A8E; }
 .link-regras { margin: 6px 0 0; display: inline-block; font-size: 12px; }
 .recompensa { font-size: 11px; color: #B8860B; margin-top: 2px; }
-.efeito-badge { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: #7A4B12; }
+.efeito-badge {
+  margin: 6px 0 0; font-size: 12px; font-weight: 600; color: #7A4B12;
+  position: relative; z-index: 7; /* acima do temporal (palco z3) e da areia (z4) */
+  display: inline-block; background: rgba(255, 255, 255, 0.82);
+  padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, 0.06);
+}
 .exclusivas-titulo { margin-top: 14px; }
 .frase-livre { margin-bottom: 6px; }
 .frase-livre-linha { display: flex; gap: 8px; }
@@ -1607,7 +1612,7 @@ const KEY = "agua-tracker-v1";
    publicada e recarrega abas antigas (atualizar a cada deploy é
    opcional: qualquer mudança no arquivo muda o hash do Vercel, mas
    manter a data ajuda a depurar) */
-const APP_VERSION = "2026-11-09.33-massa-validada";
+const APP_VERSION = "2026-11-10.34-poderes-mesclados";
 /* Marcador de reset do sorteio da Carta Anti-Seca: ao publicar com um
    valor novo, o primeiro cliente a carregar limpa a carta presa e refaz
    o sorteio de forma justa (sem repetir quem já estava com ela) */
@@ -4368,7 +4373,7 @@ function FraseMassa({ frase, destinos, aberto, onInfo, onEnviar, exclusiva }) {
   );
 }
 
-function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false }) {
+function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mostrarSino, alertando, avisoVuln = null, efeitos = {}, noivo, selos = [], garrafaId = "padrao", garrafasDono = ["padrao"], onTrocarGarrafa, creditoGarrafa = 0, onEscolherGarrafa, rei = false, conquistaRei = false, podeEditar, mostrarReivindicar, onSino, onExtra, onEditar, onReivindicar, onConquistas, onHistorico, onBeber, onDesfazer, onRemover, flutuante = false, forcarEmped = false }) {
   const [confirmando, setConfirmando] = useState(false);
   const [avisoFechado, setAvisoFechado] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
@@ -4388,7 +4393,10 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
   const soterrado = !!efeitos.tempestade;
   const tormentado = !!efeitos.tormenta;
   // Empedramento: só no card do próprio dono, enquanto a meta não é batida
-  const petrif = desertico && dono && !flutuante && !noivo && !bateu;
+  // empedramento: no card do dono enquanto a meta não é batida; em card
+  // flutuante só quando forçado (ex.: a vítima na cena de tempestade, onde
+  // ela precisa sofrer o deserto mesmo sob tormenta)
+  const petrif = desertico && dono && !noivo && !bateu && (!flutuante || forcarEmped);
   const [empLivres, setEmpLivres] = useState({});
   const [empCooldown, setEmpCooldown] = useState({});
   React.useEffect(() => { if (!petrif) { setEmpLivres({}); setEmpCooldown({}); } }, [petrif]);
@@ -4590,6 +4598,9 @@ function CartaoMembro({ membro, expr, tremorOlhos, count, extraMl = 0, dono, mos
             <p className="efeito-badge">
               ⏳ Soterrado por {efeitos.tempestade.por}
             </p>
+          )}
+          {!noivo && tormentado && efeitos.tormenta && (
+            <p className="efeito-badge">⛈️ Tempestade por {efeitos.tormenta.por}</p>
           )}
           {bateu && <p className="status ok">Meta batida! 🎉</p>}
           <button
@@ -8183,7 +8194,7 @@ function AguaTracker() {
               />
             </label>
             <div className="presets">
-              {[100, 200, 300, 500].map((v) => (
+              {[180, 200, 300, 510, 500].map((v) => (
                 <button
                   key={v}
                   className={`preset ${Number(valorExtra) === v ? "ativo" : ""}`}
@@ -8542,6 +8553,7 @@ function AguaTracker() {
               onBeber={() => beber(minhaTormenta.id)}
               onDesfazer={() => desfazer(minhaTormenta.id)}
               flutuante
+              forcarEmped
             />
           }
         />
